@@ -384,7 +384,7 @@ module type S = sig
 
       val fold : Value.t -> bool Triple.t Fold.t
 
-      val blockchain_length : Value.t -> Length.t
+      val block_height : Value.t -> Length.t
 
       val time_hum : Value.t -> string
 

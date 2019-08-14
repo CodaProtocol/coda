@@ -479,7 +479,7 @@ struct
       let should_select_tip ~existing ~candidate ~logger:_ =
         let length =
           Fn.compose Coda_numbers.Length.to_int
-            Consensus.Data.Consensus_state.blockchain_length
+            Consensus.Data.Consensus_state.block_height
         in
         length candidate - length existing
         > (2 * max_length) + Consensus.Constants.delta

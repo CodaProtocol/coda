@@ -187,9 +187,9 @@ module Types = struct
 
       let num_accounts = int_option_entry "Global number of accounts"
 
-      let blockchain_length = int_option_entry "Block height"
+      let block_height = int_option_entry "Block height"
 
-      let highest_block_length_received = int_entry "Max observed block length"
+      let max_block_height_observed = int_entry "Max observed block height"
 
       let uptime_secs =
         map_entry "Local uptime" ~f:(fun secs ->
@@ -250,8 +250,8 @@ module Types = struct
 
     type t =
       { num_accounts: int option
-      ; blockchain_length: int option
-      ; highest_block_length_received: int
+      ; block_height: int option
+      ; max_block_height_observed: int
       ; uptime_secs: int
       ; ledger_merkle_root: string option
       ; state_hash: string option
@@ -276,8 +276,8 @@ module Types = struct
         let get field = Field.get field s
       end) in
       let open M in
-      Fields.to_list ~sync_status ~num_accounts ~blockchain_length
-        ~highest_block_length_received ~uptime_secs ~ledger_merkle_root
+      Fields.to_list ~sync_status ~num_accounts ~block_height
+        ~max_block_height_observed ~uptime_secs ~ledger_merkle_root
         ~state_hash ~commit_id ~conf_dir ~peers ~user_commands_sent
         ~run_snark_worker ~propose_pubkeys ~histograms ~consensus_time_best_tip
         ~consensus_time_now ~consensus_mechanism ~consensus_configuration

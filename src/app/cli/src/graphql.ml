@@ -217,7 +217,7 @@ module Types = struct
           let open Reflection.Shorthand in
           List.rev
           @@ Daemon_rpcs.Types.Status.Fields.fold ~init:[] ~num_accounts:int
-               ~blockchain_length:int ~uptime_secs:nn_int
+               ~block_height:int ~uptime_secs:nn_int
                ~ledger_merkle_root:string ~state_hash:string
                ~commit_id:nn_string ~conf_dir:nn_string
                ~peers:(id ~typ:Schema.(non_null @@ list (non_null string)))
@@ -231,7 +231,7 @@ module Types = struct
                ~consensus_time_now:nn_string ~consensus_mechanism:nn_string
                ~consensus_configuration:
                  (id ~typ:(non_null consensus_configuration))
-               ~highest_block_length_received:nn_int )
+               ~max_block_height_observed:nn_int )
   end
 
   let user_command : (Coda_lib.t, User_command.t option) typ =

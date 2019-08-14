@@ -319,10 +319,10 @@ let run_test () : unit Deferred.t =
             send_payment_update_balance_sheet keypair.private_key sender_pk
               receiver (f_amount i) acc (Currency.Fee.of_int 0) )
       in
-      let blockchain_length t =
+      let block_height t =
         Coda_lib.best_protocol_state t
         |> Participating_state.active_exn |> Protocol_state.consensus_state
-        |> Consensus.Data.Consensus_state.blockchain_length
+        |> Consensus.Data.Consensus_state.block_height
       in
       let wait_for_proof_or_timeout timeout () =
         let cond t = Option.is_some @@ Coda_lib.staged_ledger_ledger_proof t in
@@ -345,7 +345,7 @@ let run_test () : unit Deferred.t =
         assert (Option.is_some @@ Coda_lib.staged_ledger_ledger_proof coda) ;
         Map.fold updated_balance_sheet ~init:() ~f:(fun ~key ~data () ->
             assert_balance key data ) ;
-        blockchain_length coda
+        block_height coda
       in
       let test_duplicate_payments (sender_keypair : Signature_lib.Keypair.t)
           (receiver_keypair : Signature_lib.Keypair.t) =
@@ -391,20 +391,20 @@ let run_test () : unit Deferred.t =
       let%map () =
         if with_snark then
           let accounts = List.take other_accounts 2 in
-          let%bind blockchain_length' =
+          let%bind block_height' =
             test_multiple_payments accounts ~txn_count:2 120.
           in
           (*wait for a block after the ledger_proof is emitted*)
           let%map () =
             wait_until_cond
-              ~f:(fun t -> blockchain_length t > blockchain_length')
+              ~f:(fun t -> block_height t > block_height')
               ~timeout:
                 ( Consensus.Constants.(
                     (delta + c) * Consensus.Constants.block_window_duration_ms)
                   / 1000 / 60
                 |> Float.of_int )
           in
-          assert (blockchain_length coda > blockchain_length')
+          assert (block_height coda > block_height')
         else if with_check then
           let%map _ =
             test_multiple_payments other_accounts

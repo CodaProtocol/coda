@@ -249,7 +249,7 @@ let start_time = Time_ns.now ()
 
 type active_state_fields =
   { num_accounts: int option
-  ; blockchain_length: int option
+  ; block_height: int option
   ; ledger_merkle_root: string option
   ; state_hash: string option
   ; consensus_time_best_tip: string option }
@@ -312,8 +312,8 @@ let get_status ~flag t =
     | `None ->
         None
   in
-  let highest_block_length_received =
-    Length.to_int @@ Consensus.Data.Consensus_state.blockchain_length
+  let max_block_height_observed =
+    Length.to_int @@ Consensus.Data.Consensus_state.block_height
     @@ Coda_transition.External_transition.consensus_state
     @@ Pipe_lib.Broadcast_pipe.Reader.peek
          (Coda_lib.most_recent_valid_transition t)
@@ -328,9 +328,9 @@ let get_status ~flag t =
     let%bind state = Coda_lib.best_protocol_state t in
     let state_hash = Protocol_state.hash state |> State_hash.to_base58_check in
     let consensus_state = state |> Protocol_state.consensus_state in
-    let blockchain_length =
+    let block_height =
       Length.to_int
-      @@ Consensus.Data.Consensus_state.blockchain_length consensus_state
+      @@ Consensus.Data.Consensus_state.block_height consensus_state
     in
     let%map sync_status =
       Coda_incremental.Status.stabilize () ;
@@ -355,14 +355,14 @@ let get_status ~flag t =
     in
     ( sync_status
     , { num_accounts= Some num_accounts
-      ; blockchain_length= Some blockchain_length
+      ; block_height= Some block_height
       ; ledger_merkle_root= Some ledger_merkle_root
       ; state_hash= Some state_hash
       ; consensus_time_best_tip= Some consensus_time_best_tip } )
   in
   let ( sync_status
       , { num_accounts
-        ; blockchain_length
+        ; block_height
         ; ledger_merkle_root
         ; state_hash
         ; consensus_time_best_tip } ) =
@@ -372,15 +372,15 @@ let get_status ~flag t =
     | `Bootstrapping ->
         ( `Bootstrap
         , { num_accounts= None
-          ; blockchain_length= None
+          ; block_height= None
           ; ledger_merkle_root= None
           ; state_hash= None
           ; consensus_time_best_tip= None } )
   in
   { Daemon_rpcs.Types.Status.num_accounts
   ; sync_status
-  ; blockchain_length
-  ; highest_block_length_received
+  ; block_height
+  ; max_block_height_observed
   ; uptime_secs
   ; ledger_merkle_root
   ; state_hash
