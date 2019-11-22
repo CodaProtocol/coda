@@ -76,10 +76,7 @@ let json =
   `List
     (List.map keypairs ~f:(fun kp ->
          `Assoc
-           [ ( "public_key"
-             , `String
-                 Public_key.(
-                   Compressed.to_base58_check (compress kp.public_key)) )
+           [ ("public_key", `String (Public_key.to_base58_check kp.public_key))
            ; ( "private_key"
              , `String (Private_key.to_base58_check kp.private_key) ) ] ))
 

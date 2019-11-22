@@ -22,9 +22,9 @@ let get_path {path; cache} public_key =
   path ^/ filename
 
 let decode_public_key key file path logger =
-  match Public_key.Compressed.of_base58_check key with
+  match Public_key.of_base58_check key with
   | Ok pk ->
-      Some pk
+      Some (Public_key.compress pk)
   | Error e ->
       Logger.error logger ~module_:__MODULE__ ~location:__LOC__
         "Error decoding public key at $path/$file: $error"

@@ -23,9 +23,7 @@ let write_exn {Keypair.private_key; public_key} ~(privkey_path : string)
   let privkey_bytes =
     Private_key.to_bigstring private_key |> Bigstring.to_bytes
   in
-  let pubkey_string =
-    Public_key.Compressed.to_base58_check (Public_key.compress public_key)
-  in
+  let pubkey_string = Public_key.to_base58_check public_key in
   match%bind
     Secret_file.write ~path:privkey_path ~mkdir:true ~plaintext:privkey_bytes
       ~password

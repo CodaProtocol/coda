@@ -462,9 +462,7 @@ let batch_send_payments =
     | Error _ ->
         let sample_info () : Payment_info.t =
           let keypair = Keypair.create () in
-          { Payment_info.receiver=
-              Public_key.(
-                Compressed.to_base58_check (compress keypair.public_key))
+          { Payment_info.receiver= Public_key.to_base58_check keypair.public_key
           ; amount= Currency.Amount.of_int (Random.int 100)
           ; fee= Currency.Fee.of_int (Random.int 100) }
         in
@@ -885,8 +883,7 @@ let dump_keypair =
           (lazy (Secrets.Password.read "Password for private key file: "))
     in
     printf "Public key: %s\nPrivate key: %s\n"
-      ( kp.public_key |> Public_key.compress
-      |> Public_key.Compressed.to_base58_check )
+      (kp.public_key |> Public_key.to_base58_check)
       (kp.private_key |> Private_key.to_base58_check))
 
 let generate_keypair =
@@ -899,8 +896,7 @@ let generate_keypair =
     let kp = Keypair.create () in
     let%bind () = Secrets.Keypair.Terminal_stdin.write_exn kp ~privkey_path in
     printf "Keypair generated\nPublic key: %s\n"
-      ( kp.public_key |> Public_key.compress
-      |> Public_key.Compressed.to_base58_check ) ;
+      (kp.public_key |> Public_key.to_base58_check) ;
     exit 0)
 
 let dump_ledger =
@@ -1085,8 +1081,7 @@ let set_staking =
          | Ok () ->
              printf
                !"New block proposer public key : %s\n"
-               (Public_key.Compressed.to_base58_check
-                  (Public_key.compress public_key)) ))
+               (Public_key.to_base58_check public_key) ))
 
 let set_staking_graphql =
   let open Command.Param in
@@ -1194,8 +1189,7 @@ let unsafe_import =
       | Some _ ->
           printf
             !"Key already present, no need to import : %s\n"
-            (Public_key.Compressed.to_base58_check
-               (Public_key.compress public_key)) ;
+            (Public_key.to_base58_check public_key) ;
           Deferred.unit
       | None ->
           (* Or we import it *)
@@ -1204,8 +1198,7 @@ let unsafe_import =
           in
           printf
             !"Key imported successfully : %s\n"
-            (Public_key.Compressed.to_base58_check
-               (Public_key.compress public_key)))
+            (Public_key.to_base58_check public_key))
 
 let import_key =
   (* We'll do this entirely without talking to the daemon for now, though in the future this may change *)
@@ -1238,8 +1231,7 @@ let import_key =
          | Some _ ->
              printf
                !"Key already present, no need to import : %s\n"
-               (Public_key.Compressed.to_base58_check
-                  (Public_key.compress public_key)) ;
+               (Public_key.to_base58_check public_key) ;
              Deferred.unit
          | None ->
              (* Or we import it *)
@@ -1253,8 +1245,7 @@ let import_key =
              in
              printf
                !"\n😄 Imported account!\nPublic key: %s\n"
-               (Public_key.Compressed.to_base58_check
-                  (Public_key.compress public_key)) ))
+               (Public_key.to_base58_check public_key) ))
 
 let list_accounts =
   let open Command.Param in

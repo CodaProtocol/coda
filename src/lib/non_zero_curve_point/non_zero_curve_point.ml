@@ -233,6 +233,10 @@ module Stable = struct
     include T
     include Registration.Make_latest_version (T)
 
+    let description = "Non zero curve point"
+
+    let version_byte = Base58_check.Version_bytes.non_zero_curve_point
+
     let gen : t Quickcheck.Generator.t = gen_uncompressed
 
     let of_bigstring bs =
@@ -317,6 +321,7 @@ type t = Stable.Latest.t [@@deriving compare, hash, yojson]
 
 (* so we can make sets of public keys *)
 include Comparable.Make_binable (Stable.Latest)
+include Codable.Make_base58_check (Stable.Latest)
 
 type var = Tick.Field.Var.t * Tick.Field.Var.t
 
