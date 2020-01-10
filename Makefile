@@ -296,7 +296,7 @@ docs/res/%.tex.pdf: docs/res/%.tex
 docs/res/%.tex.png: docs/res/%.tex.pdf
 	convert -density 600x600 $< -quality 90 -resize 1080x1080 $@
 
-doc_diagrams: $(addsuffix .png,$(wildcard docs/res/*.tex) $(wildcard docs/res/*.dot))
+doc_diagrams: $(addsuffix .png,$(wildcard docs/res/*.tex) $(wildcard docs/res/*.dot) $(wildcard rfcs/res/*.dot))
 
 ########################################
 # Generate odoc documentation
