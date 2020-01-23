@@ -70,3 +70,8 @@ Coda does not support smart contracts currently. The development team is looking
 
 No, Coda does not natively implement privacy features at the moment. However, privacy is key consideration for cryptocurrencies, and is also on the development roadmap.
 
+#### Does Coda solve the data availability problem?
+
+The data availability problem, while a concern for other blockchains, does not apply to the Coda network. This is because there is no concept of a "light client" or SPV in Coda. Every node is a full node, and fully verifies the state of the blockchain in a lightweight manner by verifying a zk-SNARK.
+
+In other networks, malicious block producers can send just the block header containing hashes and merkle roots for a new block to light clients. They can then collude to prevent other full nodes from receiving the rest of the block data (hence the name data availability problem). This forces the other block producers to either stall the network, or revert back to a prior block, causing issues for all the light clients that believed the new state. In Coda, because every node can independently verify state, this divide and conquer strategy cannot work.
