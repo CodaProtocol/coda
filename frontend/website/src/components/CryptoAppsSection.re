@@ -29,7 +29,7 @@ module Code = {
           ),
           // the "line"
           before([
-            contentRule(""),
+            contentRule(`none),
             zIndex(-1),
             display(`none),
             media(

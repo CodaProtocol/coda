@@ -150,7 +150,7 @@ module Styles = {
       style([
         height(`rem(45.)),
         after([
-          contentRule(""),
+          contentRule(`none),
           position(`absolute),
           bottom(`px(-1)),
           left(`zero),

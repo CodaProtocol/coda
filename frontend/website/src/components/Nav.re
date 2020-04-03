@@ -61,11 +61,13 @@ module Style = {
           @ [
             border(`px(1), `solid, expandedMenuBorderColor),
             boxShadow(
-              ~x=`zero,
-              ~y=`zero,
-              ~blur=`px(12),
-              ~spread=`zero,
-              `rgba((0, 0, 0, 0.12)),
+              Shadow.box(
+                ~x=px(0),
+                ~y=px(0),
+                ~blur=px(12),
+                ~spread=px(0),
+                rgba(0, 0, 0, 0.12),
+              ),
             ),
             borderRadius(`px(10)),
             marginTop(`zero),
@@ -79,11 +81,13 @@ module Style = {
               triangle(expandedMenuBorderColor, 1)
               @ [
                 boxShadow(
-                  ~x=`zero,
-                  ~y=`zero,
-                  ~blur=`px(12),
-                  ~spread=`zero,
-                  `rgba((0, 0, 0, 0.12)),
+                  Shadow.box(
+                    ~x=px(0),
+                    ~y=px(0),
+                    ~blur=px(12),
+                    ~spread=px(0),
+                    rgba(0, 0, 0, 0.12),
+                  ),
                 ),
                 zIndex(-1),
               ],

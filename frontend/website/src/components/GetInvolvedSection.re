@@ -15,7 +15,7 @@ module KnowledgeBase = {
                    marginLeft(`rem(1.5)),
                    marginRight(`rem(1.)),
                    before([
-                     contentRule({js|*|js}),
+                     contentRule(`text({js|*|js})),
                      color(Theme.Colors.hyperlink),
                      display(`inlineBlock),
                      marginLeft(`rem(-1.)),
@@ -140,7 +140,7 @@ module KnowledgeBase = {
             height(baseOpen ? auto : `rem(15.)),
             overflow(`hidden),
             after([
-              contentRule(""),
+              contentRule(`none),
               position(`absolute),
               bottom(`zero),
               left(`zero),

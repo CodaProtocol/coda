@@ -9,6 +9,7 @@
   "bs-dependencies": [
     "reason-react",
     "bs-css",
+    "bs-css-emotion",
     "bsc-stdlib-polyfill",
     "bs-fetch"
   ],

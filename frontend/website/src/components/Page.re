@@ -118,7 +118,6 @@ module Footer = {
     </footer>;
   };
 };
-
 let siteDescription = "Coda is the first cryptocurrency with a succinct blockchain. Our lightweight blockchain means anyone can use Coda directly from any device, in less data than a few tweets.";
 
 [@react.component]

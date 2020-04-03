@@ -78,20 +78,20 @@ module Colors = {
 module Typeface = {
   open Css;
 
-  let ibmplexserif = fontFamily("IBM Plex Serif, serif");
+  let ibmplexserif = fontFamily(`custom("IBM Plex Serif, serif"));
 
   let ibmplexsans =
-    fontFamily("IBM Plex Sans, Helvetica Neue, Arial, sans-serif");
+    fontFamily(`custom("IBM Plex Sans, Helvetica Neue, Arial, sans-serif"));
 
-  let ibmplexmono = fontFamily("IBM Plex Mono, Menlo, monospace");
+  let ibmplexmono = fontFamily(`custom("IBM Plex Mono, Menlo, monospace"));
 
-  let aktivgrotesk = fontFamily("aktiv-grotesk-extended, sans-serif");
+  let aktivgrotesk = fontFamily(`custom("aktiv-grotesk-extended, sans-serif"));
 
-  let rubik = fontFamily("Rubik, sans-serif");
+  let rubik = fontFamily(`custom("Rubik, sans-serif"));
 
-  let pragmataPro = fontFamily("PragmataPro, monospace");
+  let pragmataPro = fontFamily(`custom("PragmataPro, monospace"));
 
-  let ddinexp = fontFamily("D-Din-Exp,Helvetica Neue, Arial, sans-serif");
+  let ddinexp = fontFamily(`custom("D-Din-Exp,Helvetica Neue, Arial, sans-serif"));
 };
 
 module MediaQuery = {
@@ -221,7 +221,7 @@ module H3 = {
 
   let wings = {
     let wing = [
-      contentRule(""),
+      contentRule(`none),
       fontSize(`px(5)),
       verticalAlign(`top),
       lineHeight(`rem(1.3)),

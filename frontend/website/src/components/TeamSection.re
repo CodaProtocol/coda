@@ -172,7 +172,7 @@ module Section = {
             marginRight(`auto),
             justifyContent(`center),
             after([
-              contentRule(""),
+              contentRule(`none),
               position(`absolute),
               bottom(`px(-1)),
               left(`zero),

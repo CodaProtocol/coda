@@ -35,7 +35,7 @@ module Style = {
         before([
           position(`absolute),
           left(rem(-0.75)),
-          contentRule("\\2022 "),
+          contentRule(`text("\\2022 ")),
         ]),
       ]),
     ]);

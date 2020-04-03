@@ -23,11 +23,13 @@ module Styles = {
         backgroundColor(`hex("FAFCFD")),
         cursor(`pointer),
         boxShadow(
-          ~x=`zero,
-          ~y=`px(4),
-          ~blur=`px(8),
-          ~spread=`zero,
-          `rgba((0, 0, 0, 0.25)),
+          Shadow.box(
+            ~x=px(0),
+            ~y=px(4),
+            ~blur=px(8),
+            ~spread=px(0),
+            rgba(0, 0, 0, 0.25),
+          ),
         ),
         selector("svg", [SVG.fill(Theme.Colors.hyperlink)]),
       ]),
