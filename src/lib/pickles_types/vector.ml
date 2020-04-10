@@ -285,22 +285,23 @@ struct
     Common.raise_variant_wrong_type "vector" !pos_ref
 end
 
-let rec typ : type f var value n.
-       (var, value, f) Snarky.Typ.t
-    -> n nat
+let rec typ' : type f var value n.
+       ((var, value, f) Snarky.Typ.t, n) t
     -> ((var, n) t, (value, n) t, f) Snarky.Typ.t =
   let open Snarky.Typ in
-  fun elt n ->
-    match n with
-    | S n ->
-        let tl = typ elt n in
+  fun elts ->
+    match elts with
+    | elt :: elts ->
+        let tl = typ' elts in
         let there = function x :: xs -> (x, xs) in
         let back (x, xs) = x :: xs in
         transport (elt * tl) ~there ~back |> transport_var ~there ~back
-    | Z ->
+    | [] ->
         let there [] = () in
         let back () = [] in
         transport (unit ()) ~there ~back |> transport_var ~there ~back
+
+let typ elt n = typ' (init n ~f:(fun _ -> elt))
 
 let rec append : type n m n_m a.
     (a, n) t -> (a, m) t -> (n, m, n_m) Nat.Adds.t -> (a, n_m) t =

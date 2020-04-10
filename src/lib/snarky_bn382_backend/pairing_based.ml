@@ -19,10 +19,31 @@ open Core_kernel
 let field_size : Bigint.R.t = Snarky_bn382.Fp.size ()
 
 module Field = Fp
-module Proving_key = Proving_key
-module R1CS_constraint_system =
-  R1cs_constraint_system.Make (Fp) (Snarky_bn382.Fp.Constraint_matrix)
-module Var = Var
+
+module Proving_key = struct
+  open Core
+  open Snarky_bn382
+
+  type t = Fp_index.t
+
+  include Binable.Of_binable
+            (Unit)
+            (struct
+              type t = Fp_index.t
+
+              let to_binable _ = ()
+
+              let of_binable () = failwith "TODO"
+            end)
+
+  let is_initialized _ = `Yes
+
+  let set_constraint_system _ _ = ()
+
+  let to_string _ = failwith "TODO"
+
+  let of_string _ = failwith "TODO"
+end
 
 module Verification_key = struct
   open Snarky_bn382
@@ -34,13 +55,12 @@ module Verification_key = struct
   let of_string _ = failwith "TODO"
 end
 
+module R1CS_constraint_system =
+  R1cs_constraint_system.Make (Fp) (Snarky_bn382.Fp.Constraint_matrix)
+module Var = Var
+
 module Oracles = struct
   open Snarky_bn382
-
-  let create vk input (pi : Proof.t) =
-    let t = Fp_oracles.create vk (Proof.to_backend input pi) in
-    Caml.Gc.finalise Fp_oracles.delete t ;
-    t
 
   let field f t =
     let x = f t in
@@ -83,7 +103,7 @@ module Keypair = struct
   let set_urs_info, load_urs =
     let urs_info = Set_once.create () in
     let urs = ref None in
-    let set_urs_info ?(degree = 2 * 786_433) path =
+    let set_urs_info ?(degree = 3_11) path =
       Set_once.set_exn urs_info Lexing.dummy_pos (degree, path)
     in
     let load () =
@@ -112,7 +132,7 @@ module Keypair = struct
     in
     (set_urs_info, load)
 
-  let () = set_urs_info "/home/izzy/pickles-new/pairing-urs"
+  let () = set_urs_info "/tmp/pairing-urs"
 
   let create
       { R1cs_constraint_system.public_input_size

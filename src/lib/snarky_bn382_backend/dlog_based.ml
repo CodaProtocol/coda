@@ -36,15 +36,14 @@ end
 module Oracles = struct
   open Snarky_bn382
 
-  let create vk prev_challenge input (pi : Proof.t) =
-    let pi = Proof.to_backend prev_challenge input pi in
-    let t = Fq_oracles.create vk pi in
-    Caml.Gc.finalise Fq_oracles.delete t ;
-    t
-
   let field f t =
     let x = f t in
     Caml.Gc.finalise Fq.delete x ;
+    x
+
+  let fieldvec f t =
+    let x = f t in
+    Caml.Gc.finalise Fq.Vector.delete x ;
     x
 
   open Fq_oracles
@@ -75,8 +74,8 @@ module Oracles = struct
 
   let x_hat t =
     let t = x_hat_nocopy t in
-    let fq f = field f t in
-    Snarky_bn382.Fq_triple.(fq f0, fq f1, fq f2)
+    let fqv f = fieldvec f t in
+    Snarky_bn382.Fq_vector_triple.(fqv f0, fqv f1, fqv f2)
 
   let digest_before_evaluations = field digest_before_evaluations
 end
@@ -112,7 +111,7 @@ module Keypair = struct
   let set_urs_info, load_urs =
     let urs_info = Set_once.create () in
     let urs = ref None in
-    let set_urs_info ?(degree = 1 lsl 20) path =
+    let set_urs_info ?(degree = 20000) path =
       Set_once.set_exn urs_info Lexing.dummy_pos (degree, path)
     in
     let load () =
@@ -141,7 +140,7 @@ module Keypair = struct
     in
     (set_urs_info, load)
 
-  let () = set_urs_info "/home/izzy/pickles-new/dlog-urs"
+  let () = set_urs_info "/tmp/dlog-urs"
 
   let create
       { R1cs_constraint_system.public_input_size
@@ -160,7 +159,8 @@ module Keypair = struct
 
   open Pickles_types
 
-  let vk_commitments t : G.Affine.t Abc.t Matrix_evals.t =
+  let vk_commitments t : Snarky_bn382.Fq_poly_comm.t Abc.t Matrix_evals.t =
+    let f t = t in
     { row=
         { Abc.a= Fq_index.a_row_comm t
         ; b= Fq_index.b_row_comm t
@@ -177,5 +177,5 @@ module Keypair = struct
         { a= Fq_index.a_rc_comm t
         ; b= Fq_index.b_rc_comm t
         ; c= Fq_index.c_rc_comm t } }
-    |> Matrix_evals.map ~f:(Abc.map ~f:G.Affine.of_backend)
+    |> Matrix_evals.map ~f:(Abc.map ~f)
 end
