@@ -124,6 +124,10 @@ let tag_string (t : t) =
       "create_account"
   | Mint_tokens _ ->
       "mint_tokens"
+  | Set_token_permissions _ ->
+      "set_token_permissions"
+  | Set_account_permissions _ ->
+      "set_account_permissions"
 
 let next_available_token ({payload; _} : t) tid =
   Payload.next_available_token payload tid
@@ -144,7 +148,9 @@ let check_tokens ({payload= {common= {fee_token; _}; body}; _} : t) =
   | Create_token_account {token_id; account_disabled; _} ->
       Token_id.(equal default) fee_token
       && not (Token_id.(equal default) token_id && account_disabled)
-  | Mint_tokens {token_id; _} ->
+  | Mint_tokens {token_id; _}
+  | Set_token_permissions {token_id; _}
+  | Set_account_permissions {token_id; _} ->
       (not (Token_id.(equal invalid) token_id))
       && not (Token_id.(equal default) token_id)
 

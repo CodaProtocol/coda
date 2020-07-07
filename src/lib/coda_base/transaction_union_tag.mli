@@ -15,6 +15,7 @@ type t =
   | Stake_delegation
   | Create_account
   | Mint_tokens
+  | Set_token_permissions
   | Fee_transfer
   | Coinbase
 [@@deriving enum, eq, sexp]
@@ -57,6 +58,8 @@ module Unpacked : sig
   val is_create_account : var -> Boolean.var
 
   val is_mint_tokens : var -> Boolean.var
+
+  val is_set_token_permissions : var -> Boolean.var
 
   val is_fee_transfer : var -> Boolean.var
 

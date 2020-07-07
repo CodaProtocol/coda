@@ -1382,8 +1382,11 @@ let%test_module _ =
                     (Set_delegate {payload with delegator= sender_pk}) }
           | { common
             ; body=
-                (Create_new_token _ | Create_token_account _ | Mint_tokens _)
-                as body } ->
+                ( Create_new_token _
+                | Create_token_account _
+                | Mint_tokens _
+                | Set_token_permissions _
+                | Set_account_permissions _ ) as body } ->
               {common= {common with fee_payer_pk= sender_pk}; body}
         in
         User_command.forget_check @@ User_command.sign sender_kp payload

@@ -23,6 +23,8 @@ module Body : sig
     | Create_new_token of New_token_payload.t
     | Create_token_account of New_account_payload.t
     | Mint_tokens of Minting_payload.t
+    | Set_token_permissions of Token_permissions_payload.t
+    | Set_account_permissions of Account_permissions_payload.t
   [@@deriving eq, sexp, hash, yojson]
 
   [%%versioned:

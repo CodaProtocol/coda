@@ -120,6 +120,7 @@ module Undo : sig
         | Create_new_token of {created_token: Token_id.t}
         | Create_token_account
         | Mint_tokens
+        | Set_token_permissions of {previous_token_locked: bool}
         | Failed
       [@@deriving sexp]
     end

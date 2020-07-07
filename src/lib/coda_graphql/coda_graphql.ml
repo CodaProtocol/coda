@@ -830,7 +830,9 @@ module Types = struct
                   Ok (amount |> Currency.Amount.to_uint64)
               | Stake_delegation _
               | Create_new_token _
-              | Create_token_account _ ->
+              | Create_token_account _
+              | Set_token_permissions _
+              | Set_account_permissions _ ->
                   (* These commands do not have an amount, so we set it to 0 *)
                   Ok Unsigned.UInt64.zero )
         ; field "fee" ~typ:(non_null uint64)

@@ -70,7 +70,7 @@ let currency_consumed :
         Currency.Amount.of_fee constraint_constants.account_creation_fee
     | Create_token_account _ ->
         Currency.Amount.of_fee constraint_constants.account_creation_fee
-    | Mint_tokens _ ->
+    | Mint_tokens _ | Set_token_permissions _ | Set_account_permissions _ ->
         zero)
 
 let currency_consumed' :

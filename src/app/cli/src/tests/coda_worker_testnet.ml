@@ -684,7 +684,9 @@ end = struct
           | Stake_delegation _
           | Create_new_token _
           | Create_token_account _
-          | Mint_tokens _ ->
+          | Mint_tokens _
+          | Set_token_permissions _
+          | Set_account_permissions _ ->
               failwith "Expected a list of payments" )
       |> List.unzip
     in

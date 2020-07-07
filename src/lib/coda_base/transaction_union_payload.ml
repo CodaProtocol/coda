@@ -75,6 +75,21 @@ module Body = struct
         ; token_id
         ; amount
         ; token_locked= false }
+    | Set_token_permissions {token_id; token_owner_pk; disable_new_accounts} ->
+        { tag= Tag.Set_token_permissions
+        ; source_pk= token_owner_pk
+        ; receiver_pk= token_owner_pk
+        ; token_id
+        ; amount= Currency.Amount.zero
+        ; token_locked= disable_new_accounts }
+    | Set_account_permissions {token_id; token_owner_pk; target_pk; disabled}
+      ->
+        { tag= Tag.Set_token_permissions
+        ; source_pk= token_owner_pk
+        ; receiver_pk= target_pk
+        ; token_id
+        ; amount= Currency.Amount.zero
+        ; token_locked= disabled }
 
   let gen ~fee =
     let open Quickcheck.Generator.Let_syntax in
@@ -101,6 +116,8 @@ module Body = struct
             (Amount.of_fee fee, Amount.max_int)
         | Mint_tokens ->
             (Amount.zero, Amount.max_int)
+        | Set_token_permissions ->
+            (Amount.zero, Amount.zero)
       in
       Amount.gen_incl min max
     and token_locked =
@@ -117,6 +134,8 @@ module Body = struct
           return false
       | Mint_tokens ->
           return false
+      | Set_token_permissions ->
+          Quickcheck.Generator.bool
     and source_pk = Public_key.Compressed.gen
     and receiver_pk = Public_key.Compressed.gen
     and token_id =
@@ -133,6 +152,8 @@ module Body = struct
           return Token_id.default
       | Coinbase ->
           return Token_id.default
+      | Set_token_permissions ->
+          Token_id.gen_non_default
     in
     {tag; source_pk; receiver_pk; token_id; amount; token_locked}
 
@@ -267,7 +288,11 @@ let excess (payload : t) : Amount.Signed.t =
   let fee = payload.common.fee in
   let amount = payload.body.amount in
   match tag with
-  | Payment | Stake_delegation | Create_account | Mint_tokens ->
+  | Payment
+  | Stake_delegation
+  | Create_account
+  | Mint_tokens
+  | Set_token_permissions ->
       (* For all user commands, the fee excess is just the fee. *)
       Amount.Signed.of_unsigned (Amount.of_fee fee)
   | Fee_transfer ->
@@ -278,7 +303,11 @@ let excess (payload : t) : Amount.Signed.t =
 
 let fee_excess ({body= {tag; amount; _}; common= {fee_token; fee; _}} : t) =
   match tag with
-  | Payment | Stake_delegation | Create_account | Mint_tokens ->
+  | Payment
+  | Stake_delegation
+  | Create_account
+  | Mint_tokens
+  | Set_token_permissions ->
       (* For all user commands, the fee excess is just the fee. *)
       Fee_excess.of_single (fee_token, Fee.Signed.of_unsigned fee)
   | Fee_transfer ->
@@ -295,12 +324,22 @@ let supply_increase (payload : payload) =
   match tag with
   | Coinbase ->
       payload.body.amount
-  | Payment | Stake_delegation | Create_account | Mint_tokens | Fee_transfer ->
+  | Payment
+  | Stake_delegation
+  | Create_account
+  | Mint_tokens
+  | Set_token_permissions
+  | Fee_transfer ->
       Amount.zero
 
 let next_available_token (payload : payload) tid =
   match payload.body.tag with
-  | Payment | Stake_delegation | Mint_tokens | Coinbase | Fee_transfer ->
+  | Payment
+  | Stake_delegation
+  | Mint_tokens
+  | Set_token_permissions
+  | Coinbase
+  | Fee_transfer ->
       tid
   | Create_account when Token_id.(equal invalid) payload.body.token_id ->
       (* Creating a new token. *)

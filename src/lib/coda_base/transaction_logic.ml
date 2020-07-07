@@ -69,6 +69,7 @@ module Undo = struct
             | Create_new_token of {created_token: Token_id.Stable.V1.t}
             | Create_token_account
             | Mint_tokens
+            | Set_token_permissions of {previous_token_locked: bool}
             | Failed
           [@@deriving sexp]
 
@@ -82,6 +83,7 @@ module Undo = struct
         | Create_new_token of {created_token: Token_id.t}
         | Create_token_account
         | Mint_tokens
+        | Set_token_permissions of {previous_token_locked: bool}
         | Failed
       [@@deriving sexp]
     end
@@ -197,6 +199,7 @@ module type S = sig
           | Create_new_token of {created_token: Token_id.t}
           | Create_token_account
           | Mint_tokens
+          | Set_token_permissions of {previous_token_locked: bool}
           | Failed
         [@@deriving sexp]
       end
@@ -546,7 +549,11 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
                 false
               in
               return predicate_result
-          | Payment _ | Stake_delegation _ | Mint_tokens _ ->
+          | Payment _
+          | Stake_delegation _
+          | Mint_tokens _
+          | Set_token_permissions _
+          | Set_account_permissions _ ->
               (* TODO(#4554): Hook predicate evaluation in here once implemented. *)
               Or_error.errorf
                 "The fee-payer is not authorised to issue commands for the \
@@ -814,6 +821,77 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
             ; (source_location, source_account) ]
           , `Source_timing source_timing
           , Undo.User_command_undo.Body.Mint_tokens )
+      | Set_token_permissions
+          {token_id= token; disable_new_accounts= token_locked; _}
+      | Set_account_permissions {token_id= token; disabled= token_locked; _} ->
+          (* These commands do exactly the same thing under the hood, so we
+             share the logic for them. We are permissive about using the
+             [Set_account_permissions] command on the token owner account,
+             because the commands alias in the snark and so we can't identify a
+             failure there.
+          *)
+          let%bind () =
+            if Token_id.(equal default) token then
+              Or_error.errorf "Cannot set permissions for the default token"
+            else return ()
+          in
+          let%bind receiver_location, receiver_account =
+            get_with_location ledger receiver
+          in
+          let%bind () =
+            match receiver_location with
+            | `Existing _ ->
+                return ()
+            | `New ->
+                Or_error.errorf "The receiving account does not exist"
+          in
+          let previous_token_locked, receiver_account =
+            let previous_token_locked, token_permissions =
+              match receiver_account.token_permissions with
+              | Token_owned {disable_new_accounts} ->
+                  ( disable_new_accounts
+                  , Token_permissions.Token_owned
+                      {disable_new_accounts= token_locked} )
+              | Not_owned {account_disabled} ->
+                  (account_disabled, Not_owned {account_disabled= token_locked})
+            in
+            (previous_token_locked, {receiver_account with token_permissions})
+          in
+          let%map source_location, source_timing, source_account =
+            let%bind location, account =
+              if Account_id.equal source receiver then
+                return (receiver_location, receiver_account)
+              else get_with_location ledger source
+            in
+            let%bind () =
+              match location with
+              | `Existing _ ->
+                  return ()
+              | `New ->
+                  Or_error.errorf "The token owner account does not exist"
+            in
+            let%bind () =
+              match account.token_permissions with
+              | Token_owned _ ->
+                  return ()
+              | Not_owned _ ->
+                  Or_error.errorf
+                    !"The claimed token owner %{sexp: Account_id.t} does not \
+                      own the token %{sexp: Token_id.t}"
+                    source token
+            in
+            let source_timing = account.timing in
+            let%map timing =
+              validate_timing ~txn_amount:Amount.zero
+                ~txn_global_slot:current_global_slot ~account
+            in
+            (location, source_timing, {account with timing})
+          in
+          ( [ (receiver_location, receiver_account)
+            ; (source_location, source_account) ]
+          , `Source_timing source_timing
+          , Undo.User_command_undo.Body.Set_token_permissions
+              {previous_token_locked} )
     in
     match compute_updates () with
     | Ok (located_accounts, `Source_timing source_timing, undo_body) ->
@@ -1186,6 +1264,47 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
             Option.value_exn (Balance.sub_amount account.balance amount)
           in
           (location, {account with balance})
+        in
+        let%map source_location, source_account =
+          let%map location, account =
+            if Account_id.equal source receiver then
+              return (receiver_location, receiver_account)
+            else
+              let%bind location =
+                location_of_account' ledger "source" source
+              in
+              let%map account = get' ledger "source" location in
+              (location, account)
+          in
+          ( location
+          , { account with
+              timing= Option.value ~default:account.timing source_timing } )
+        in
+        set ledger receiver_location receiver_account ;
+        set ledger source_location source_account
+    | ( (Set_token_permissions _ | Set_account_permissions _)
+      , Set_token_permissions {previous_token_locked} ) ->
+        let receiver =
+          User_command.receiver ~next_available_token user_command
+        in
+        let%bind receiver_location, receiver_account =
+          let%bind location =
+            location_of_account' ledger "receiver" receiver
+          in
+          let%map account = get' ledger "receiver" location in
+          let account =
+            match account.token_permissions with
+            | Token_owned _ ->
+                { account with
+                  token_permissions=
+                    Token_permissions.Token_owned
+                      {disable_new_accounts= previous_token_locked} }
+            | Not_owned _ ->
+                { account with
+                  token_permissions=
+                    Not_owned {account_disabled= previous_token_locked} }
+          in
+          (location, account)
         in
         let%map source_location, source_account =
           let%map location, account =

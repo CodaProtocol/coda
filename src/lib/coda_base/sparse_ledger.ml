@@ -235,7 +235,11 @@ let apply_user_command_exn
               false
             in
             predicate_result
-        | Payment _ | Stake_delegation _ | Mint_tokens _ ->
+        | Payment _
+        | Stake_delegation _
+        | Mint_tokens _
+        | Set_token_permissions _
+        | Set_account_permissions _ ->
             (* TODO(#4554): Hook predicate evaluation in here once implemented. *)
             failwith
               "The fee-payer is not authorised to issue commands for the \
@@ -408,6 +412,52 @@ let apply_user_command_exn
             balance=
               Balance.add_amount receiver_account.balance amount
               |> Option.value_exn ?here:None ?error:None ?message:None }
+        in
+        let source_idx = find_index_exn t source in
+        let source_account =
+          let account =
+            if Account_id.equal source receiver then receiver_account
+            else get_exn t source_idx
+          in
+          (* Check that source account exists. *)
+          assert (not Public_key.Compressed.(equal empty account.public_key)) ;
+          (* Check that source account owns the token. *)
+          let () =
+            match account.token_permissions with
+            | Token_owned _ ->
+                ()
+            | Not_owned _ ->
+                failwithf
+                  !"The claimed token owner %{sexp: Account_id.t} does not \
+                    own the token %{sexp: Token_id.t}"
+                  source token ()
+          in
+          { account with
+            timing=
+              Or_error.ok_exn
+              @@ Transaction_logic.validate_timing ~txn_amount:Amount.zero
+                   ~txn_global_slot:current_global_slot ~account }
+        in
+        [(receiver_idx, receiver_account); (source_idx, source_account)]
+    | Set_token_permissions
+        {token_id= token; disable_new_accounts= token_locked; _}
+    | Set_account_permissions {token_id= token; disabled= token_locked; _} ->
+        assert (not (Token_id.(equal default) token)) ;
+        let receiver_idx = find_index_exn t receiver in
+        let action, receiver_account =
+          get_or_initialize_exn receiver t receiver_idx
+        in
+        assert (action = `Existed) ;
+        let receiver_account =
+          let token_permissions =
+            match receiver_account.token_permissions with
+            | Token_owned _ ->
+                Token_permissions.Token_owned
+                  {disable_new_accounts= token_locked}
+            | Not_owned _ ->
+                Not_owned {account_disabled= token_locked}
+          in
+          {receiver_account with token_permissions}
         in
         let source_idx = find_index_exn t source in
         let source_account =
