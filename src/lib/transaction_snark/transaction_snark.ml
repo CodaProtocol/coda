@@ -663,9 +663,10 @@ module Base = struct
       ; source_bad_timing: 'bool (* Payment only *)
       ; receiver_exists: 'bool (* Create_account only *)
       ; not_token_owner: 'bool (* Create_account, Mint_tokens *)
-      ; token_auth: 'bool (* Create_account *) }
+      ; token_auth: 'bool (* Create_account *)
+      ; account_disabled: 'bool (* All *) }
 
-    let num_fields = 10
+    let num_fields = 11
 
     let to_list
         { predicate_failed
@@ -677,7 +678,8 @@ module Base = struct
         ; source_bad_timing
         ; receiver_exists
         ; not_token_owner
-        ; token_auth } =
+        ; token_auth
+        ; account_disabled } =
       [ predicate_failed
       ; source_not_present
       ; receiver_not_present
@@ -687,7 +689,8 @@ module Base = struct
       ; source_bad_timing
       ; receiver_exists
       ; not_token_owner
-      ; token_auth ]
+      ; token_auth
+      ; account_disabled ]
 
     let of_list = function
       | [ predicate_failed
@@ -699,7 +702,8 @@ module Base = struct
         ; source_bad_timing
         ; receiver_exists
         ; not_token_owner
-        ; token_auth ] ->
+        ; token_auth
+        ; account_disabled ] ->
           { predicate_failed
           ; source_not_present
           ; receiver_not_present
@@ -709,7 +713,8 @@ module Base = struct
           ; source_bad_timing
           ; receiver_exists
           ; not_token_owner
-          ; token_auth }
+          ; token_auth
+          ; account_disabled }
       | _ ->
           failwith
             "Transaction_snark.Base.User_command_failure.to_list: bad length"
@@ -792,6 +797,13 @@ module Base = struct
               | Fee_transfer | Coinbase ->
                   assert false
           in
+          let account_disabled =
+            match source_account.token_permissions with
+            | Token_owned _ ->
+                false
+            | Not_owned {account_disabled} ->
+                account_disabled
+          in
           match payload.body.tag with
           | Fee_transfer | Coinbase ->
               assert false
@@ -825,7 +837,8 @@ module Base = struct
               ; source_bad_timing= false
               ; receiver_exists= false
               ; not_token_owner= false
-              ; token_auth= false }
+              ; token_auth= false
+              ; account_disabled }
           | Payment ->
               let receiver_account =
                 if Account_id.equal receiver fee_payer then fee_payer_account
@@ -894,7 +907,8 @@ module Base = struct
               ; source_bad_timing
               ; receiver_exists= false
               ; not_token_owner= false
-              ; token_auth= false }
+              ; token_auth= false
+              ; account_disabled }
           | Create_account ->
               let receiver_account =
                 if Account_id.equal receiver fee_payer then fee_payer_account
@@ -963,7 +977,8 @@ module Base = struct
               ; source_bad_timing= false
               ; receiver_exists
               ; not_token_owner
-              ; token_auth }
+              ; token_auth
+              ; account_disabled }
           | Mint_tokens | Set_token_permissions ->
               let receiver_account =
                 if Account_id.equal receiver fee_payer then fee_payer_account
@@ -997,7 +1012,8 @@ module Base = struct
               ; source_bad_timing= false
               ; receiver_exists= false
               ; not_token_owner
-              ; token_auth= false } )
+              ; token_auth= false
+              ; account_disabled } )
 
     let%snarkydef compute_as_prover ~constraint_constants ~txn_global_slot
         ~creating_new_token ~next_available_token (txn : Transaction_union.var)
@@ -1737,8 +1753,11 @@ module Base = struct
                Boolean.if_ is_empty_and_writeable ~then_:creating_new_token
                  ~else_:account.token_permissions.token_owner
              and token_locked =
+               let%bind may_set_token_permissions =
+                 Boolean.(is_set_token_permissions && not user_command_fails)
+               in
                let%bind update =
-                 Boolean.(is_empty_and_writeable || is_set_token_permissions)
+                 Boolean.(is_empty_and_writeable || may_set_token_permissions)
                in
                Boolean.if_ update ~then_:payload.body.token_locked
                  ~else_:account.token_permissions.token_locked
@@ -1876,6 +1895,18 @@ module Base = struct
                   in
                   Boolean.Assert.( = ) token_auth_failed
                     user_command_failure.token_auth)
+             in
+             let%bind () =
+               [%with_label "Check account_disabled failure matches predicted"]
+                 (let%bind account_disabled =
+                    Boolean.(
+                      all
+                        [ not account.token_permissions.token_owner
+                        ; account.token_permissions.token_locked
+                        ; is_user_command ])
+                  in
+                  Boolean.Assert.( = ) account_disabled
+                    user_command_failure.account_disabled)
              in
              let%map delegate =
                Public_key.Compressed.Checked.if_ is_stake_delegation
@@ -5343,6 +5374,51 @@ let%test_module "transaction_snark" =
                 Token_permissions.equal
                   (Not_owned {account_disabled= true})
                   target_account.token_permissions ) ) )
+
+    let%test_unit "disabled accounts cannot send transactions" =
+      Test_util.with_randomness 123456789 (fun () ->
+          Ledger.with_ledger ~depth:ledger_depth ~f:(fun ledger ->
+              let wallets = random_wallets ~n:2 () in
+              let signer = wallets.(0).private_key in
+              let fee_payer_pk = wallets.(0).account.public_key in
+              let source_pk = fee_payer_pk in
+              let receiver_pk = wallets.(1).account.public_key in
+              let fee_token = Token_id.default in
+              let token_id =
+                Quickcheck.random_value Token_id.gen_non_default
+              in
+              let accounts =
+                [| create_account fee_payer_pk fee_token 20_000_000_000
+                 ; { (create_account source_pk token_id 20_000_000_000) with
+                     token_permissions= Not_owned {account_disabled= true} }
+                 ; { (create_account receiver_pk token_id 0) with
+                     token_permissions= Not_owned {account_disabled= false} }
+                |]
+              in
+              let fee = Fee.of_int (random_int_incl 2 15 * 1_000_000_000) in
+              let amount =
+                Amount.of_int (random_int_incl 2 15 * 1_000_000_000)
+              in
+              let ( `Fee_payer_account fee_payer_account
+                  , `Source_account source_account
+                  , `Receiver_account receiver_account ) =
+                test_user_command_with_accounts ~constraint_constants ~ledger
+                  ~accounts ~signer ~fee ~fee_payer_pk ~fee_token
+                  (Payment {source_pk; receiver_pk; token_id; amount})
+              in
+              let fee_payer_account = Option.value_exn fee_payer_account in
+              let source_account = Option.value_exn source_account in
+              let receiver_account = Option.value_exn receiver_account in
+              let expected_fee_payer_balance =
+                accounts.(0).balance |> sub_fee fee
+              in
+              assert (
+                Balance.equal fee_payer_account.balance
+                  expected_fee_payer_balance ) ;
+              assert (Balance.equal accounts.(1).balance source_account.balance) ;
+              assert (
+                Balance.equal accounts.(2).balance receiver_account.balance )
+          ) )
   end )
 
 let%test_module "account timing check" =

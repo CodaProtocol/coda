@@ -245,6 +245,13 @@ let apply_user_command_exn
               "The fee-payer is not authorised to issue commands for the \
                source account"
     in
+    let not_disabled (account : Account.t) =
+      match account.token_permissions with
+      | Token_owned _ ->
+          ()
+      | Not_owned {account_disabled} ->
+          if account_disabled then failwith "The source account is disabled"
+    in
     match User_command.Payload.body payload with
     | Stake_delegation _ ->
         let receiver_account = get_exn t @@ find_index_exn t receiver in
@@ -312,6 +319,7 @@ let apply_user_command_exn
             *)
             raise (Reject exn)
         in
+        not_disabled source_account ;
         [(receiver_idx, receiver_account); (source_idx, source_account)]
     | Create_new_token {disable_new_accounts; _} ->
         (* NOTE: source and receiver are definitionally equal here. *)

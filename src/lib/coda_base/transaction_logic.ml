@@ -559,6 +559,15 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
                 "The fee-payer is not authorised to issue commands for the \
                  source account"
       in
+      let not_disabled (account : Account.t) =
+        match account.token_permissions with
+        | Token_owned _ ->
+            return ()
+        | Not_owned {account_disabled} ->
+            if account_disabled then
+              Or_error.errorf "The source account is disabled"
+            else return ()
+      in
       match payload.body with
       | Stake_delegation _ ->
           let%bind receiver_location, _receiver_account =
@@ -619,7 +628,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
             in
             {receiver_account with balance}
           in
-          let%map source_location, source_timing, source_account =
+          let%bind source_location, source_timing, source_account =
             let ret =
               let%bind location, account =
                 if Account_id.equal source receiver then
@@ -652,6 +661,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
               match ret with Ok _ -> ret | Error err -> raise (Reject err)
             else ret
           in
+          let%map () = not_disabled source_account in
           let previous_empty_accounts =
             match receiver_location with
             | `Existing _ ->
