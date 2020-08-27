@@ -197,7 +197,7 @@ let reducer = (prevState, action) => {
 };
 
 [@react.component]
-let make = (~lastManualUpdatedDate) => {
+let make = () => {
   open Leaderboard.Toggle;
   open Leaderboard.Filter;
   let (state, dispatch) = React.useReducer(reducer, initialState);
@@ -215,7 +215,7 @@ let make = (~lastManualUpdatedDate) => {
 
   <Page title="Testnet Leaderboard">
     <Wrapped>
-      <div className=Styles.page> <Summary lastManualUpdatedDate /> </div>
+      <div className=Styles.page> <Summary /> </div>
       <div className=Styles.filters>
         <SearchBar onUsernameEntered username={state.username} />
         <ToggleButtons

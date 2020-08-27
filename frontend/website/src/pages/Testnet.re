@@ -54,7 +54,6 @@ module Styles = {
       flexDirection(`column),
       width(`percent(100.)),
       marginBottom(`rem(1.5)),
-      maxWidth(`rem(58.)),
     ]);
 
   let leaderboardCopy =
@@ -222,11 +221,13 @@ module Styles = {
     merge([header, style([maxWidth(`px(500)), textAlign(`left)])]);
   let disclaimer =
     merge([Theme.Body.small, style([color(Theme.Colors.midnight)])]);
+
+  let leaderboardLink = style([textDecoration(`none)]);
 };
 
 module Section = {
   [@react.component]
-  let make = (~name, ~expanded, ~setExpanded, ~children) => {
+  let make = (~name, ~expanded, ~setExpanded, ~children, ~link=?) => {
     <div className=Css.(style([display(`flex), flexDirection(`column)]))>
       {if (expanded) {
          <div className=Styles.gradientSectionExpanded> children </div>;
@@ -235,11 +236,13 @@ module Section = {
            <div className=Styles.gradientSection> children </div>
            <div
              className=Styles.expandButton
-             onClick={_ => setExpanded(_ => true)}>
-             <div> {React.string("Expand " ++ name)} </div>
-             <div className=Css.(style([marginLeft(`rem(0.5))]))>
-               {React.string({js| ↓|js})}
-             </div>
+             onClick={_ =>
+               switch (link) {
+               | Some(dest) => ReasonReactRouter.push(dest)
+               | None => setExpanded(_ => true)
+               }
+             }>
+             <div> {React.string("View Full " ++ name)} </div>
            </div>
          </>;
        }}
@@ -336,16 +339,13 @@ let make = (~challenges as _, ~testnetName as _) => {
           </div>
         </div>
         <hr />
-        <Section name="Leaderboard" expanded setExpanded>
+        <Section name="Leaderboard" expanded setExpanded link="/leaderboard">
           <div className=Styles.dashboardHeader>
             <h1 className=Theme.H1.hero>
               {React.string("Testnet Leaderboard")}
             </h1>
             // href="https://testnet-points-frontend-dot-o1labs-192920.appspot.com/"
-            <a
-              href="https://bit.ly/TestnetLeaderboard"
-              target="_blank"
-              className=Styles.headerLink>
+            <a href="/leaderboard" className=Styles.headerLink>
               {React.string({j|View Full Leaderboard\u00A0→|j})}
             </a>
           </div>
@@ -366,7 +366,9 @@ let make = (~challenges as _, ~testnetName as _) => {
                  )}
               </p>
             </span>
-            <Leaderboard />
+            <a href="/leaderboard" className=Styles.leaderboardLink>
+              <Leaderboard interactive=false />
+            </a>
           </div>
         </Section>
         <hr />

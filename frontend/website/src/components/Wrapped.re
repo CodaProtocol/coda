@@ -10,7 +10,6 @@ let make = (~overflowHidden=false, ~children) => {
             Theme.MediaQuery.full,
             [
               maxWidth(`rem(89.0)),
-              minHeight(`rem(153.)),
               margin(`auto),
               ...Theme.paddingX(`rem(3.0)),
             ],

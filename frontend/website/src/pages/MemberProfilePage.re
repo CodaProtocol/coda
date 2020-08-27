@@ -115,9 +115,9 @@ let fetchRelease = (username, release) => {
 
 let fetchReleases = name => {
   [|
-    ("Release 3.1", "3.1!B3:Z", 4), /* offset for challenge titles in 3.1 starts on the 4th column */
-    ("Release 3.2a", "3.2a!B3:Z", 2), /* offset for challenge titles in 3.2a starts on the 2nd column */
-    ("Release 3.2b", "3.2b!B3:Z", 2) /* offset for challenge titles in 3.2b starts on the 2nd column */
+    ("Release 3.2b", "3.2b!B4:Z", 2), /* offset for challenge titles in 3.2b starts on the 2nd column */
+    ("Release 3.2a", "3.2a!B4:Z", 2), /* offset for challenge titles in 3.2a starts on the 2nd column */
+    ("Release 3.1", "3.1!B4:Z", 4) /* offset for challenge titles in 3.1 starts on the 4th column */
   |]
   |> Array.map(release => fetchRelease(name, release))
   |> Js.Promise.all
@@ -289,6 +289,7 @@ let make = () => {
               })
            |> React.array}
         </div>
+        {!state.loading ? <Footer /> : React.null}
         {!state.error && state.loading
            ? <div className=Styles.loading>
                {React.string("Loading...")}
@@ -298,7 +299,7 @@ let make = () => {
            ? <div className=Styles.loading>
                {React.string("User Not Available")}
              </div>
-           : <Footer />}
+           : React.null}
       </div>
     </Wrapped>
   </Page>;

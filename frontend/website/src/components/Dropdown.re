@@ -58,7 +58,7 @@ module Styles = {
         borderRadius(`px(4)),
         pointerEvents(`auto),
         opacity(1.),
-        zIndex(1),
+        zIndex(100),
         selector(
           "li",
           [

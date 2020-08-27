@@ -102,8 +102,6 @@ module Styles = {
       style([
         position(`relative),
         marginTop(`rem(2.)),
-        left(`rem(2.0)),
-        width(`rem(18.)),
         media(Theme.MediaQuery.notMobile, [marginTop(`zero)]),
         media(
           Theme.MediaQuery.veryVeryLarge,
@@ -111,6 +109,19 @@ module Styles = {
         ),
       ]),
     ]);
+
+  let nameContainer =
+    style([
+      display(`flex),
+      flexDirection(`column),
+      alignItems(`flexStart),
+      media(
+        Theme.MediaQuery.notMobile,
+        [flexDirection(`row), alignItems(`center)],
+      ),
+    ]);
+
+  let username = merge([header, style([marginRight(`rem(1.5))])]);
 };
 
 module Links = {
@@ -118,13 +129,13 @@ module Links = {
   let make = () => {
     <div className=Styles.buttonAndLinks>
       <Button
-        link=""
+        link="https://forums.codaprotocol.com/t/testnet-beta-release-3-2b-challenges/435"
         label="Current Challenges"
         bgColor=Theme.Colors.clover
         bgColorHover=Theme.Colors.jungle
       />
       <div className=Styles.linksColumn>
-        <Next.Link href="">
+        <Next.Link href="https://bit.ly/leaderboardFAQ">
           <a className=Styles.link>
             <Svg
               link="/static/img/Icon.Link.svg"
@@ -135,7 +146,7 @@ module Links = {
             {React.string("Leaderboard FAQ")}
           </a>
         </Next.Link>
-        <Next.Link href="">
+        <Next.Link href="https://bit.ly/CodaDiscord">
           <a className=Styles.link>
             <Svg
               link="/static/img/Icon.Link.svg"
@@ -143,7 +154,7 @@ module Links = {
               className=Styles.icon
               alt="an arrow pointing to the right with a square around it"
             />
-            {React.string("Discord #Leaderboard Channel")}
+            {React.string("Discord #leaderboard-qa Channel")}
           </a>
         </Next.Link>
       </div>
@@ -300,7 +311,20 @@ let make = (~member: Leaderboard.member) => {
     <span className=Styles.participantDetails>
       {React.string("Participant Details")}
     </span>
-    <p className=Styles.header> {React.string(member.name)} </p>
+    <div className=Styles.nameContainer>
+      <p className=Styles.username> {React.string(member.name)} </p>
+      <span className=Css.(style([display(`flex), paddingTop(`rem(0.5))]))>
+        {Leaderboard.LeaderboardRow.renderBadges(
+           ~marginLeft=0.5,
+           ~marginRight=0.5,
+           ~mobileMarginLeft=0.,
+           ~mobileMarginRight=1.,
+           ~height=2.,
+           ~width=2.,
+           member,
+         )}
+      </span>
+    </div>
     <div className=Styles.middleRow> <Points member /> <Links /> </div>
   </div>;
 };

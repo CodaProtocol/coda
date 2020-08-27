@@ -77,22 +77,11 @@ module Styles = {
       padding2(~v=`zero, ~h=`rem(1.)),
       padding(`px(8)),
       display(`grid),
-      gridTemplateColumns([
-        `percent(6.),
-        `percent(6.),
-        `auto,
-        `percent(15.),
-      ]),
+      gridTemplateColumns([`percent(12.), `auto, `percent(30.)]),
+      gridColumnGap(`rem(1.5)),
       media(
         Theme.MediaQuery.notMobile,
-        [
-          gridTemplateColumns([
-            `percent(12.5),
-            `percent(5.),
-            `auto,
-            `percent(20.),
-          ]),
-        ],
+        [gridTemplateColumns([`percent(10.), `auto, `percent(30.)])],
       ),
     ]);
   };
@@ -110,12 +99,7 @@ module Styles = {
           Theme.MediaQuery.notMobile,
           [
             display(`grid),
-            gridTemplateColumns([
-              `percent(12.5),
-              `percent(5.),
-              `auto,
-              `percent(23.5),
-            ]),
+            gridTemplateColumns([`percent(11.), `auto, `percent(38.)]),
           ],
         ),
       ]),
@@ -129,34 +113,15 @@ module Styles = {
     ]);
   };
 
-  let challengeLabel = {
-    style([gridColumn(3, 4)]);
-  };
-
-  let pointsLabel = {
-    style([gridColumn(4, 5)]);
-  };
-
-  let totalPointsTextLabel = {
-    style([gridColumn(3, 4)]);
-  };
-
-  let totalPointsLabel = {
-    style([gridColumn(4, 5)]);
-  };
-
-  let star = {
-    style([justifySelf(`flexEnd)]);
-  };
-
   let rank = {
-    style([fontWeight(`normal), justifySelf(`center)]);
+    style([fontWeight(`normal), justifySelf(`flexEnd)]);
   };
 
   let points = {
     style([
       textAlign(`right),
-      media(Theme.MediaQuery.notMobile, [paddingRight(`rem(5.))]),
+      paddingRight(`rem(1.5)),
+      media(Theme.MediaQuery.notMobile, [paddingRight(`rem(3.))]),
     ]);
   };
 
@@ -174,14 +139,8 @@ module Styles = {
 
 module Row = {
   [@react.component]
-  let make = (~star, ~rank, ~name, ~points) => {
+  let make = (~rank, ~name, ~points) => {
     <div className=Styles.tableRow>
-      <span className=Styles.star>
-        {switch (star) {
-         | Some(star) => React.string(star)
-         | None => React.null
-         }}
-      </span>
       <span className=Styles.rank>
         {React.string(string_of_int(rank))}
       </span>
@@ -224,13 +183,7 @@ let make = (~releaseTitle, ~challenges) => {
     challenges
     |> Array.mapi((index, challenge) => {
          let {name, points} = challenge;
-         <Row
-           key={string_of_int(index)}
-           star={Some("")} /* TODO: not sure what these are. Follow up with Chris on this. */
-           rank={index + 1}
-           name
-           points
-         />;
+         <Row key={string_of_int(index)} rank={index + 1} name points />;
        })
     |> React.array;
   };
@@ -239,19 +192,28 @@ let make = (~releaseTitle, ~challenges) => {
     <div className=Styles.releaseTitle> {React.string(releaseTitle)} </div>
     <div className=Styles.tableContainer>
       <div className=Styles.topRow>
-        <span className=Styles.challengeLabel>
+        <span className=Css.(style([gridColumn(2, 3)]))>
           {React.string("Challenge Name")}
         </span>
-        <span className=Styles.pointsLabel> {React.string("* Points")} </span>
+        <span
+          className=Css.(
+            style([
+              textAlign(`right),
+              gridColumn(3, 4),
+              paddingRight(`rem(3.5)),
+            ])
+          )>
+          {React.string("Points *")}
+        </span>
       </div>
       <div className=Styles.gridContainer>
         {renderChallengePointsTable()}
       </div>
       <div className=Styles.bottomRow>
-        <span className=Styles.totalPointsTextLabel>
+        <span className=Css.(style([gridColumn(2, 3)]))>
           {React.string("Total Points *")}
         </span>
-        <span className=Styles.totalPointsLabel>
+        <span className=Styles.points>
           {React.string(calculateTotalPoints())}
         </span>
       </div>

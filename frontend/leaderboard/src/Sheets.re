@@ -30,6 +30,43 @@ let updateRange = (client, sheetsUpdate, cb) => {
    with the Google Sheets API.
  */
 module Core = {
+  module Sheets = {
+    type t = {
+      name: string,
+      range: string,
+    };
+
+    type sheets =
+      | Main
+      | AllTimeLeaderboard
+      | CurrentPhaseLeaderboard
+      | CurrentReleaseLeaderboard
+      | MemberProfileData
+      | Users
+      | Data;
+
+    let getSheet = sheet => {
+      switch (sheet) {
+      | Main => {name: "main", range: "main!A5:I"}
+      | AllTimeLeaderboard => {
+          name: "All-Time Leaderboard",
+          range: "All-Time Leaderboard!C4:H",
+        }
+      | CurrentPhaseLeaderboard => {
+          name: "Phase 3 Leaderboard",
+          range: "Phase 3 Leaderboard!B4:E",
+        }
+      | CurrentReleaseLeaderboard => {name: "3.2b", range: "3.2b!A5:C"}
+      | MemberProfileData => {
+          name: "Member_Profile_Data",
+          range: "Member_Profile_Data!A2:Z",
+        }
+      | Users => {name: "Users", range: "Users!A2:B"}
+      | Data => {name: "Data", range: "Data!A1:D"}
+      };
+    };
+  };
+
   let getColumnIndex = (columnToFind, data) => {
     Belt.Array.getIndexBy(data, headerName =>
       switch (headerName) {

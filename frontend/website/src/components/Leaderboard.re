@@ -104,15 +104,18 @@ module Filter = {
 module Styles = {
   open Css;
 
-  let leaderboardContainer =
+  let leaderboardContainer = interactive =>
     style([
+      pointerEvents(interactive ? `auto : `none),
       width(`percent(100.)),
       margin2(~v=`zero, ~h=`auto),
       selector("hr", [margin(`zero)]),
+      minHeight(`rem(153.)),
     ]);
 
   let leaderboard =
     style([
+      position(`relative),
       background(white),
       width(`percent(100.)),
       borderRadius(px(3)),
@@ -133,9 +136,15 @@ module Styles = {
   let desktopLeaderboardRow =
     style([
       cursor(`pointer),
-      padding2(~v=`rem(1.), ~h=`rem(1.)),
-      height(`rem(3.5)),
+      padding4(
+        ~top=`rem(1.),
+        ~right=`rem(9.),
+        ~bottom=`rem(1.),
+        ~left=`rem(1.),
+      ),
+      height(`rem(4.)),
       display(`grid),
+      alignItems(`center),
       gridColumnGap(rem(1.5)),
       gridTemplateColumns([
         rem(1.),
@@ -160,18 +169,48 @@ module Styles = {
       ),
     ]);
 
+  let orangeEvenLeaderboardRow =
+    merge([
+      desktopLeaderboardRow,
+      style([backgroundColor(`rgba((248, 248, 243, 1.)))]),
+    ]);
+
+  let orangeLeaderboardRow =
+    merge([
+      desktopLeaderboardRow,
+      style([backgroundColor(`rgba((241, 239, 235, 1.)))]),
+    ]);
+
+  let mobileLeaderboardRow =
+    style([
+      display(`grid),
+      gridTemplateColumns([`rem(5.), `auto]),
+      gridColumnGap(`rem(1.5)),
+      cursor(`pointer),
+      padding2(~v=`rem(1.), ~h=`rem(1.)),
+      fontWeight(`semiBold),
+      fontSize(`rem(1.)),
+      height(`percent(100.)),
+      width(`percent(100.)),
+      lineHeight(`rem(1.5)),
+    ]);
   let headerRow =
     merge([
       desktopLeaderboardRow,
       style([
+        position(`sticky),
+        backgroundColor(white),
+        top(`zero),
+        zIndex(99),
         display(`none),
         paddingBottom(`rem(0.5)),
         fontSize(`rem(1.)),
         fontWeight(`semiBold),
         textTransform(`uppercase),
         letterSpacing(`rem(0.125)),
+        borderBottom(`px(1), `solid, Theme.Colors.leaderboardMidnight),
         media(Theme.MediaQuery.notMobile, [display(`grid)]),
-        hover([backgroundColor(white)]),
+        hover([backgroundColor(white), cursor(`default)]),
       ]),
     ]);
 
@@ -179,6 +218,7 @@ module Styles = {
     style([
       position(`relative),
       justifySelf(`flexEnd),
+      cursor(`pointer),
       after([
         position(`absolute),
         left(`percent(100.)),
@@ -195,25 +235,57 @@ module Styles = {
     style([
       display(`none),
       justifySelf(`flexEnd),
+      cursor(`pointer),
       media(Theme.MediaQuery.tablet, [display(`inline)]),
     ]);
 
-  let topTen = style([position(`absolute)]);
+  let topTen =
+    merge([
+      Theme.H6.extraSmall,
+      style([
+        display(`flex),
+        alignItems(`center),
+        justifyContent(`center),
+        border(`px(1), `solid, Theme.Colors.leaderboardMidnight),
+        position(`absolute),
+        width(`rem(6.25)),
+        height(`rem(1.5)),
+        marginTop(`px(-2)),
+        important(background(white)),
+        textTransform(`uppercase),
+        right(`zero),
+        selector("p", [paddingLeft(`px(5))]),
+      ]),
+    ]);
 
   let cell =
     style([height(`rem(2.)), whiteSpace(`nowrap), overflowX(`hidden)]);
   let flexEnd = style([justifySelf(`flexEnd)]);
-  let rank = merge([cell, flexEnd]);
+  let flexAlignItems = style([display(`flex), alignItems(`center)]);
+  let rank =
+    merge([cell, flexEnd, flexAlignItems, style([gridColumn(0, 1)])]);
   let username =
-    merge([cell, style([textOverflow(`ellipsis), fontWeight(`semiBold)])]);
-  let pointsCell = merge([cell, style([justifySelf(`flexEnd)])]);
+    merge([
+      cell,
+      flexAlignItems,
+      style([textOverflow(`ellipsis), fontWeight(`semiBold)]),
+    ]);
+  let pointsCell =
+    merge([cell, flexAlignItems, style([justifySelf(`flexEnd)])]);
   let activePointsCell =
-    merge([cell, style([justifySelf(`flexEnd), fontWeight(`semiBold)])]);
+    merge([
+      cell,
+      flexAlignItems,
+      style([justifySelf(`flexEnd), fontWeight(`semiBold)]),
+    ]);
   let inactivePointsCell =
     merge([
       pointsCell,
       style([
-        media(Theme.MediaQuery.tablet, [display(`inline)]),
+        media(
+          Theme.MediaQuery.tablet,
+          [display(`flex), alignItems(`center)],
+        ),
         display(`none),
         opacity(0.5),
       ]),
@@ -225,6 +297,12 @@ module Styles = {
       color(Theme.Colors.leaderboardMidnight),
       textAlign(`center),
     ]);
+
+  let badges =
+    style([display(`flex), justifyContent(`flexEnd), alignItems(`center)]);
+
+  let mobileBadges =
+    merge([flexAlignItems, style([marginLeft(`rem(0.3))])]);
 
   let desktopLayout =
     style([
@@ -238,16 +316,16 @@ module Styles = {
       media(Theme.MediaQuery.notMobile, [display(`none)]),
     ]);
 
-  let mobileLeaderboardRow =
+  let mobileFirstColumn =
+    style([textAlign(`right), color(`hex("757575")), cursor(`default)]);
+
+  let mobileSecondColumn =
     style([
-      display(`grid),
-      gridTemplateColumns([rem(5.), `auto]),
-      gridColumnGap(rem(1.5)),
-      cursor(`pointer),
-      padding2(~v=`rem(1.), ~h=`rem(1.)),
-      fontWeight(`semiBold),
-      fontSize(`px(16)),
-      lineHeight(`px(24)),
+      display(`flex),
+      justifyContent(`flexStart),
+      alignItems(`center),
+      flexDirection(`row),
+      textAlign(`left),
     ]);
 
   let firstColumn = style([textAlign(`right), color(`hex("757575"))]);
@@ -313,32 +391,135 @@ module LeaderboardRow = {
     |> Js.String.replaceByRe([%re "/#/g"], "%23"); /* replace "#" with percent encoding for the URL to properly parse */
   };
 
+  let renderBadges =
+      (
+        ~marginLeft=0.5,
+        ~marginRight=0.5,
+        ~mobileMarginLeft=0.5,
+        ~mobileMarginRight=0.5,
+        ~height,
+        ~width,
+        member,
+      ) => {
+    let icons = [||];
+    if (member.technicalMVP && member.communityMVP) {
+      Js.Array.push(
+        <Badge
+          key={member.name ++ "Technical & Community MVP"}
+          src="/static/img/LeaderboardAwardDoubleMVP.png"
+          title="Technical & Community MVP"
+          alt="Technical & Community MVP"
+          height
+          width
+          marginLeft
+          marginRight
+          mobileMarginLeft
+          mobileMarginRight
+        />,
+        icons,
+      )
+      |> ignore;
+    } else if (member.technicalMVP) {
+      Js.Array.push(
+        <Badge
+          key={member.name ++ "Technical MVP"}
+          src="/static/img/LeaderboardAwardTechnicalMVP.png"
+          title="Technical MVP"
+          alt="Technical MVP"
+          height
+          width
+          marginLeft
+          marginRight
+          mobileMarginLeft
+          mobileMarginRight
+        />,
+        icons,
+      )
+      |> ignore;
+    } else if (member.communityMVP) {
+      Js.Array.push(
+        <Badge
+          key={member.name ++ "Community MVP"}
+          src="/static/img/LeaderboardAwardCommunityMVP.png"
+          title="Community MVP"
+          alt="Community MVP"
+          height
+          width
+          marginLeft
+          marginRight
+          mobileMarginLeft
+          mobileMarginRight
+        />,
+        icons,
+      )
+      |> ignore;
+    };
+
+    /* Genesis badge is added last so it's always the rightmost badge in the leaderboard */
+    if (member.genesisMember) {
+      Js.Array.push(
+        <Badge
+          key={member.name ++ "Genesis Founding Member"}
+          src="/static/img/LeaderboardAwardGenesisMember.png"
+          title="Genesis Program Founding Member"
+          alt="Genesis Program Founding Member"
+          height
+          width
+          marginLeft
+          marginRight
+          mobileMarginLeft
+          mobileMarginRight
+        />,
+        icons,
+      )
+      |> ignore;
+    };
+    icons |> React.array;
+  };
+
   module DesktopLayout = {
     [@react.component]
-    let make = (~sort, ~rank, ~member) => {
-      //<Next.Link href=""_as=userSlug>
-      <div className=Styles.desktopLeaderboardRow>
-
+    let make = (~userSlug, ~sort, ~rank, ~member) => {
+      <Next.Link href=userSlug _as=userSlug>
+        <div
+          className={
+            rank > 10 && rank <= 50
+              ? rank mod 2 == 0
+                  ? Styles.orangeEvenLeaderboardRow
+                  : Styles.orangeLeaderboardRow
+              : Styles.desktopLeaderboardRow
+          }>
           <span className=Styles.rank>
             {React.string(string_of_int(rank))}
+          </span>
+          <span className=Styles.badges>
+            {renderBadges(~height=2., ~width=2., member)}
           </span>
           <span className=Styles.username> {React.string(member.name)} </span>
           {Array.map(column => {renderPoints(sort, column, member)}, filters)
            |> React.array}
-        </div>;
-        // </Next.Link>;
+        </div>
+      </Next.Link>;
     };
   };
 
   module MobileLayout = {
     [@react.component]
-    let make = (~sort, ~rank, ~member) => {
-      //<Next.Link href=""_as=userSlug>
-      <div className=Styles.mobileLeaderboardRow>
-
-          <span className=Styles.firstColumn> {React.string("Rank")} </span>
-          <span> {React.string("#" ++ string_of_int(rank))} </span>
-          <span className=Styles.firstColumn> {React.string("Name")} </span>
+    let make = (~userSlug, ~sort, ~rank, ~member) => {
+      <Next.Link href=userSlug _as=userSlug>
+        <div className=Styles.mobileLeaderboardRow>
+          <span className=Styles.mobileFirstColumn>
+            {React.string("Rank")}
+          </span>
+          <span className=Styles.mobileSecondColumn>
+            {React.string("#" ++ string_of_int(rank))}
+            <span className=Styles.mobileBadges>
+              {renderBadges(~height=1., ~width=1., member)}
+            </span>
+          </span>
+          <span className=Styles.mobileFirstColumn>
+            {React.string("Name")}
+          </span>
           <span> {React.string(member.name)} </span>
           <span className=Styles.mobilePointStar>
             {React.string("Points")}
@@ -346,14 +527,14 @@ module LeaderboardRow = {
           <span>
             {React.string(string_of_int(getPoints(sort, member)))}
           </span>
-        </div>;
-        //</Next.Link>;
+        </div>
+      </Next.Link>;
     };
   };
 
   [@react.component]
   let make = (~sort, ~member) => {
-    let _userSlug = getUserSlug(member);
+    let userSlug = getUserSlug(member);
     let rank = getRank(sort, member);
 
     <div>
@@ -387,6 +568,7 @@ let make =
       ~filter: Filter.t=Release,
       ~toggle: Toggle.t=All,
       ~search: string="",
+      ~interactive: bool=true,
       ~onFilterPress: string => unit=?,
     ) => {
   open Toggle;
@@ -428,6 +610,14 @@ let make =
        )
     |> Js.Array.filter(member => sortRank(member) !== 0);
 
+  let topTen = Js.Array.filter(mem => sortRank(mem) <= 10, filteredMembers);
+  let topFifty =
+    Js.Array.filter(
+      mem => sortRank(mem) > 10 && sortRank(mem) <= 50,
+      filteredMembers,
+    );
+  let theRest = Js.Array.filter(mem => sortRank(mem) > 50, filteredMembers);
+
   let renderRow = member =>
     <LeaderboardRow key={member.name} sort=filter member />;
 
@@ -441,18 +631,42 @@ let make =
       {React.string(string_of_filter(column))}
     </span>;
 
-  <div className=Styles.leaderboardContainer>
+  <div className={Styles.leaderboardContainer(interactive)}>
     <div id="testnet-leaderboard" className=Styles.leaderboard>
       <div className=Styles.headerRow>
         <span className=Styles.flexEnd> {React.string("Rank")} </span>
         <span> {React.string("Name")} </span>
         {Array.map(renderColumnHeader, Filter.filters) |> React.array}
       </div>
-      <hr />
-      <div className=Styles.topTen />
       {state.loading
          ? <div className=Styles.loading> {React.string("Loading...")} </div>
-         : Array.map(renderRow, filteredMembers) |> React.array}
+         : Array.concat([
+             Array.length(topTen) > 0
+               ? [|
+                 <div className=Styles.topTen>
+                   <img src="/static/img/star.svg" alt="Star icon" />
+                   <p> {React.string("Top 10")} </p>
+                 </div>,
+               |]
+               : [||],
+             Array.map(renderRow, topTen),
+             Array.length(topFifty) > 0 && Array.length(topTen) > 0
+               ? [|<hr />|] : [||],
+             Array.length(topFifty) > 0
+               ? [|
+                 <div className=Styles.topTen>
+                   <img src="/static/img/star.svg" alt="Star icon" />
+                   <p> {React.string("Top 50")} </p>
+                 </div>,
+               |]
+               : [||],
+             Array.map(renderRow, topFifty),
+             Array.length(theRest) > 0
+             && max(Array.length(topFifty), Array.length(topTen)) > 0
+               ? [|<hr />|] : [||],
+             Array.map(renderRow, theRest),
+           ])
+           |> React.array}
     </div>
   </div>;
 };

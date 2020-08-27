@@ -207,9 +207,8 @@ let zkSnarksChallenge = metricsMap => {
   |> sumPointsMaps;
 };
 
-let calculatePoints = (challengeName, metricsMap) => {
-  // Regex grabs last string after a "Challenge #"
-  switch (String.lowercase_ascii(challengeName)) {
+let calculatePoints = (challengeID, metricsMap) => {
+  switch (String.lowercase_ascii(challengeID)) {
   | "stake your coda and produce blocks" => Some(blocksChallenge(metricsMap))
   | "create and sell zk-snarks on coda" =>
     Some(zkSnarksChallenge(metricsMap))
