@@ -1,0 +1,23 @@
+(library
+  (inline_tests)
+  (name ocaml_plonk_constraints_app)
+  (public_name ocaml_plonk_constraints_app)
+  (flags -warn-error -27)
+  (preprocess (pps ppx_version ppx_coda ppx_jane ppx_deriving.std ppx_deriving_yojson ))
+  (libraries
+    plonk
+    digestif
+    zexe_backend
+    pickles.composition_types
+    pickles.limb_vector
+    pickles.marlin_checks
+    pickles.one_hot_vector
+    pickles.pseudo
+    snarky_log
+    sponge
+    group_map
+    snarky_group_map
+    snarky_curve
+    snarky
+    key_cache
+    core_kernel ))

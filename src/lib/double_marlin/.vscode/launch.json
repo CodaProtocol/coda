@@ -1,0 +1,17 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug",
+            "type": "gdb",
+            "request": "launch",
+            "target": "/home/pavel/tesla/_build/default/src/lib/double_marlin/.double_marlin.inline-tests/run.exe",
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "disabled",
+            "arguments": "inline-test-runner double_marlin -source-tree-root ../../.. -diff-cmd -"
+        }
+    ]
+}

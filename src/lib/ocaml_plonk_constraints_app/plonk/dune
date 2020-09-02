@@ -1,0 +1,22 @@
+(library
+  (name plonk)
+  (public_name plonk)
+  (flags -warn-error -27)
+  (preprocess (pps ppx_version ppx_coda ppx_jane ppx_deriving.std ppx_deriving_yojson h_list.ppx ))
+  (libraries
+    digestif
+    zexe_backend
+    pickles.composition_types
+    pickles.limb_vector
+    pickles.marlin_checks
+    pickles.one_hot_vector
+    snarky.backendless
+    pickles.pseudo
+    snarky_log
+    sponge
+    group_map
+    snarky_group_map
+    snarky_curve
+    snarky
+    key_cache
+    core_kernel ))
