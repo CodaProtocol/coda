@@ -21,6 +21,9 @@ module Prod : Ledger_proof_intf.S with type t = Transaction_snark.t = struct
 
   type t = Stable.Latest.t [@@deriving compare, sexp, to_yojson]
 
+  let id : t Type_equal.Id.t =
+    Type_equal.Id.create ~name:"ledger-proof-prod" sexp_of_t
+
   let statement (t : t) = Transaction_snark.statement t
 
   let sok_digest = Transaction_snark.sok_digest
@@ -62,6 +65,9 @@ struct
   end]
 
   type t = Stable.Latest.t [@@deriving compare, sexp, yojson]
+
+  let id : t Type_equal.Id.t =
+    Type_equal.Id.create ~name:"ledger-proof-debug" sexp_of_t
 
   let statement ((t, _) : t) : Transaction_snark.Statement.t = t
 

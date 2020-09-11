@@ -47,7 +47,10 @@ module Worker_state = struct
       -> Pending_coinbase_witness.t
       -> Blockchain.t Or_error.t
 
-    val verify : Protocol_state.Value.t -> Proof.t -> bool
+    val verify_blockchain_snark : Protocol_state.Value.t -> Proof.t -> bool
+
+    val verify_transaction_snarks :
+      (Transaction_snark.t * Sok_message.t) list -> bool
   end
 
   (* bin_io required by rpc_parallel *)
@@ -118,7 +121,19 @@ module Worker_state = struct
                        "Prover threw an error while extending block: $error" ) ;
                  res
 
-               let verify state proof = B.Proof.verify [(state, proof)]
+               let verify_blockchain_snark state proof =
+                 B.Proof.verify [(state, proof)]
+
+               let verify_transaction_snarks ts =
+                 match Or_error.try_with (fun () -> T.verify ts) with
+                 | Ok result ->
+                     result
+                 | Error e ->
+                     [%log error]
+                       ~metadata:[("error", `String (Error.to_string_hum e))]
+                       "Verifier threw an exception while verifying \
+                        transaction snark" ;
+                     failwith "Verifier crashed"
              end
              : S )
          | Check ->
@@ -149,7 +164,9 @@ module Worker_state = struct
                        "Prover threw an error while extending block: $error" ) ;
                  res
 
-               let verify _state _proof = true
+               let verify_blockchain_snark _state _proof = true
+
+               let verify_transaction_snarks _ts = true
              end
              : S )
          | None ->
@@ -162,7 +179,9 @@ module Worker_state = struct
                    { Blockchain.proof= Coda_base.Proof.blockchain_dummy
                    ; state= next_state }
 
-               let verify _ _ = true
+               let verify_blockchain_snark _state _proof = true
+
+               let verify_transaction_snarks _ts = true
              end
              : S )
        in
@@ -200,7 +219,15 @@ module Functions = struct
     create Blockchain.Stable.Latest.bin_t bin_bool
       (fun w {Blockchain.state; proof} ->
         let (module W) = Worker_state.get w in
-        W.verify state proof |> Deferred.return )
+        W.verify_blockchain_snark state proof |> Deferred.return )
+
+  let verify_transaction_snarks =
+    create
+      [%bin_type_class:
+        (Transaction_snark.Stable.Latest.t * Sok_message.Stable.Latest.t) list]
+      bin_bool (fun w ts ->
+        let (module W) = Worker_state.get w in
+        W.verify_transaction_snarks ts |> Deferred.return )
 end
 
 module Worker = struct
@@ -211,7 +238,9 @@ module Worker = struct
       { initialized: ('w, unit, [`Initialized]) F.t
       ; extend_blockchain:
           ('w, Extend_blockchain_input.t, Blockchain.t Or_error.t) F.t
-      ; verify_blockchain: ('w, Blockchain.t, bool) F.t }
+      ; verify_blockchain: ('w, Blockchain.t, bool) F.t
+      ; verify_transaction_snarks:
+          ('w, (Transaction_snark.t * Sok_message.t) list, bool) F.t }
 
     module Worker_state = Worker_state
 
@@ -236,7 +265,8 @@ module Worker = struct
         let open Functions in
         { initialized= f initialized
         ; extend_blockchain= f extend_blockchain
-        ; verify_blockchain= f verify_blockchain }
+        ; verify_blockchain= f verify_blockchain
+        ; verify_transaction_snarks= f verify_transaction_snarks }
 
       let init_worker_state
           Worker_state.{conf_dir; logger; proof_level; constraint_constants} =
@@ -313,6 +343,12 @@ let prove_from_input_sexp {connection; logger; _} sexp =
       [%log error] "prover errored :("
         ~metadata:[("error", `String (Error.to_string_hum e))] ;
       false
+
+let verify_blockchain_snark {connection= t; _} chain =
+  Worker.Connection.run t ~f:Worker.functions.verify_blockchain ~arg:chain
+
+let verify_transaction_snarks {connection= t; _} ts =
+  Worker.Connection.run t ~f:Worker.functions.verify_transaction_snarks ~arg:ts
 
 let extend_blockchain {connection; logger; _} chain next_state block
     ledger_proof prover_state pending_coinbase =

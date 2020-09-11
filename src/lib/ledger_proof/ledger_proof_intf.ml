@@ -4,6 +4,8 @@ open Coda_base
 module type S = sig
   type t [@@deriving compare, sexp, to_yojson]
 
+  val id : t Type_equal.Id.t
+
   [%%versioned:
   module Stable : sig
     module V1 : sig

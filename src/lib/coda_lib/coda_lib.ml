@@ -763,20 +763,34 @@ let create (config : Config.t) =
             >>| Result.ok_exn
           in
           let%bind verifier =
-            Monitor.try_with
-              ~rest:
-                (`Call
-                  (fun exn ->
-                    [%log' warn config.logger]
-                      "unhandled exception from daemon-side verifier server: \
-                       $exn"
-                      ~metadata:[("exn", `String (Exn.to_string_mach exn))] ))
-              (fun () ->
-                trace "verifier" (fun () ->
-                    Verifier.create ~logger:config.logger
-                      ~proof_level:config.precomputed_values.proof_level
-                      ~pids:config.pids ~conf_dir:(Some config.conf_dir) ) )
-            >>| Result.ok_exn
+            match
+              Type_equal.Id.same_witness Ledger_proof.id Ledger_proof.Prod.id
+            with
+            | Some T ->
+                Verifier.of_generic
+                  { verify_blockchain_snark=
+                      (fun chain -> Prover.verify_blockchain_snark prover chain)
+                  ; verify_transaction_snarks=
+                      (fun (ts : (Ledger_proof.Prod.t * Sok_message.t) list) ->
+                        Prover.verify_transaction_snarks prover ts ) }
+                |> Deferred.return
+            | None ->
+                Monitor.try_with
+                  ~rest:
+                    (`Call
+                      (fun exn ->
+                        [%log' warn config.logger]
+                          "unhandled exception from daemon-side verifier \
+                           server: $exn"
+                          ~metadata:[("exn", `String (Exn.to_string_mach exn))]
+                        ))
+                  (fun () ->
+                    trace "verifier" (fun () ->
+                        Verifier.create ~logger:config.logger
+                          ~proof_level:config.precomputed_values.proof_level
+                          ~pids:config.pids ~conf_dir:(Some config.conf_dir) )
+                    )
+                >>| Result.ok_exn
           in
           let snark_worker =
             Option.value_map

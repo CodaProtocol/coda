@@ -14,6 +14,8 @@ module Base = struct
          t
       -> (ledger_proof * Coda_base.Sok_message.t) list
       -> bool Or_error.t Deferred.t
+
+    val of_generic : ledger_proof Generic.t -> t
   end
 end
 

@@ -132,10 +132,10 @@ module Worker = struct
   include Rpc_parallel.Make (T)
 end
 
-type t = Worker.Connection.t
+type t = ledger_proof Generic.t
 
 (* TODO: investigate why conf_dir wasn't being used *)
-let create ~logger ~proof_level ~pids ~conf_dir =
+let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
   let on_failure err =
     [%log error] "Verifier process failed with error $err"
       ~metadata:[("err", `String (Error.to_string_hum err))] ;
@@ -168,10 +168,20 @@ let create ~logger ~proof_level ~pids ~conf_dir =
          return
          @@ [%log error] "Verifier stderr: $stderr"
               ~metadata:[("stderr", `String stderr)] ) ;
-  connection
+  let res : t =
+    { verify_blockchain_snark=
+        (fun chain ->
+          Worker.Connection.run connection
+            ~f:Worker.functions.verify_blockchain ~arg:chain )
+    ; verify_transaction_snarks=
+        (fun ts ->
+          Worker.Connection.run connection
+            ~f:Worker.functions.verify_transaction_snarks ~arg:ts ) }
+  in
+  res
 
-let verify_blockchain_snark t chain =
-  Worker.Connection.run t ~f:Worker.functions.verify_blockchain ~arg:chain
+let verify_blockchain_snark (t : t) chain = t.verify_blockchain_snark chain
 
-let verify_transaction_snarks t ts =
-  Worker.Connection.run t ~f:Worker.functions.verify_transaction_snarks ~arg:ts
+let verify_transaction_snarks (t : t) ts = t.verify_transaction_snarks ts
+
+let of_generic t : t = t

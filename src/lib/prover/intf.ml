@@ -43,4 +43,12 @@ module type S = sig
     -> Internal_transition.t
     -> Pending_coinbase_witness.t
     -> Proof.t Deferred.Or_error.t
+
+  val verify_blockchain_snark :
+    t -> Blockchain_snark.Blockchain.t -> bool Deferred.Or_error.t
+
+  val verify_transaction_snarks :
+       t
+    -> (Ledger_proof.Prod.t * Coda_base.Sok_message.t) list
+    -> bool Deferred.Or_error.t
 end

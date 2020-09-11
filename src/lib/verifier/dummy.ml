@@ -26,3 +26,5 @@ let verify_transaction_snarks _ ts =
         let msg_digest = Sok_message.digest message in
         Coda_base.Sok_message.Digest.equal (snd proof) msg_digest )
   |> Deferred.Or_error.return
+
+let of_generic _ : t = ()
