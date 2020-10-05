@@ -19,7 +19,7 @@ Coda is the first cryptocurrency with a lightweight, constant-sized blockchain. 
 - [Become a Node Operator](https://codaprotocol.com/docs/node-operator/)
 
 ### Technical Papers
-- [Coda Whitepaper](https://cdn.codaprotocol.com/v2/static/coda-whitepaper-05-10-2018-0.pdf)
+- [Coda Whitepaper](https://eprint.iacr.org/2020/352.pdf)
 
 ### Blog
 - [Coda Protocol Blog](https://codaprotocol.com/blog.html)
