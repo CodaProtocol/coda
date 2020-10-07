@@ -15,4 +15,4 @@ rm -rf base
 # build print_binable_functors, then run Python script to compare binable functors in a pull request
 source ~/.profile && \
     (dune build --profile=dev src/external/ppx_version/src/print_binable_functors.exe) && \
-    ./scripts/compare_pr_diff_binables.py ${BASE_BRANCH_NAME:-develop}
+    ./scripts/compare_pr_diff_binables.py origin/${BASE_BRANCH_NAME:-develop}

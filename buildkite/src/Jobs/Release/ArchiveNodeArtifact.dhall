@@ -17,6 +17,7 @@ let dependsOn = [ { name = "ArchiveNodeArtifact", key = "archive-artifacts-build
 let spec = DockerArtifact.ReleaseSpec::{
     deps=dependsOn,
     deploy_env_file="ARCHIVE_DOCKER_DEPLOY",
+    service="coda-archive",
     step_key="archive-docker-artifact"
 }
 

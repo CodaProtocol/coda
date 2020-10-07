@@ -2,25 +2,26 @@
 
 open Core_kernel
 
-module Global_slots = struct
+module Global_slots_and_ledger_hashes = struct
   (* find all global slots in blocks, working back from block with given state hash *)
   let query =
-    Caqti_request.collect Caqti_type.string Caqti_type.int64
+    Caqti_request.collect Caqti_type.string
+      Caqti_type.(tup2 int64 string)
       {|
          WITH RECURSIVE chain AS (
 
-           SELECT id,parent_id,global_slot FROM blocks b WHERE b.state_hash = ?
+           SELECT id,parent_id,global_slot,ledger_hash FROM blocks b WHERE b.state_hash = ?
 
            UNION ALL
 
-           SELECT b.id,b.parent_id,b.global_slot FROM blocks b
+           SELECT b.id,b.parent_id,b.global_slot,b.ledger_hash FROM blocks b
 
            INNER JOIN chain
 
            ON b.id = chain.parent_id
         )
 
-        SELECT global_slot FROM chain c
+        SELECT global_slot,ledger_hash FROM chain c
    |}
 
   let run (module Conn : Caqti_async.CONNECTION) state_hash =

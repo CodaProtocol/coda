@@ -44,7 +44,7 @@ let generateStep = \(spec : ReleaseSpec.Type) ->
                 "buildkite-agent artifact download --build \\\$BUILDKITE_BUILD_ID --include-retried-jobs --step _${artifactUploadScope.name}-${artifactUploadScope.key} ${spec.deploy_env_file} .; " ++
             "fi"
         ),
-        Cmd.run "source ${spec.deploy_env_file} && ./scripts/release-docker.sh --service ${spec.service} --version ${spec.version} --commit ${spec.commit} --extra-args \\\"${spec.extra_args}\\\""
+        Cmd.run "source ${spec.deploy_env_file} && bash ./scripts/release-docker.sh --service ${spec.service} --version ${spec.version} --commit ${spec.commit} --extra-args \\\"${spec.extra_args}\\\""
     ]
 
     in

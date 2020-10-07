@@ -5,7 +5,7 @@ ARG coda_deb_version
 ARG deb_repo=stable
 
 ENV DEBIAN_FRONTEND noninteractive
-RUN echo "Building image with version $coda_dev_version"
+RUN echo "Building image with version $coda_deb_version"
 
 # Dependencies
 RUN apt-get -y update && \

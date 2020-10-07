@@ -8,12 +8,10 @@ open Coda_base
 
    target state hash  = protocol state hash in B
    target proof       = blockchain SNARK proof of the protocol state in B
-   target ledger hash = expected Merkle root of the staged ledger in B
 *)
 type input =
   { target_state_hash: State_hash.t
   ; target_proof: Proof.t
-  ; target_ledger_hash: Ledger_hash.t
   ; genesis_ledger: Account.t list }
 [@@deriving yojson]
 
@@ -42,6 +40,11 @@ let json_ledger_hash_of_ledger ledger =
 let create_output target_state_hash target_proof ledger =
   let target_ledger = Ledger.to_list ledger in
   {target_state_hash; target_proof; target_ledger}
+
+(* map from global slots to expected ledger hashes *)
+
+let global_slot_ledger_hash_tbl : (int64, Ledger_hash.t) Hashtbl.t =
+  Int64.Table.create ()
 
 (* cache of account keys *)
 let pk_tbl : (int, Account.key) Hashtbl.t = Int.Table.create ()
@@ -329,10 +332,17 @@ let main ~input_file ~output_file ~archive_uri () =
       let%bind global_slots =
         match%bind
           Caqti_async.Pool.use
-            (fun db -> Sql.Global_slots.run db state_hash)
+            (fun db -> Sql.Global_slots_and_ledger_hashes.run db state_hash)
             pool
         with
-        | Ok slots ->
+        | Ok slots_and_hashes ->
+            let slots =
+              List.map slots_and_hashes ~f:(fun (slot, _hash) -> slot)
+            in
+            (* build mapping from global slots to ledger hashes *)
+            List.iter slots_and_hashes ~f:(fun (slot, hash) ->
+                Hashtbl.add_exn global_slot_ledger_hash_tbl ~key:slot
+                  ~data:(Ledger_hash.of_string hash) ) ;
             return (Int64.Set.of_list slots)
         | Error msg ->
             [%log error] "Error getting global slots"
@@ -439,9 +449,29 @@ let main ~input_file ~output_file ~archive_uri () =
           (user_cmds : Sql.User_command.t list) ~last_global_slot =
         let log_on_slot_change curr_global_slot =
           if Int64.( > ) curr_global_slot last_global_slot then
-            [%log info] "Applied all commands at global slot %Ld, ledger hash"
-              ~metadata:[("ledger_hash", json_ledger_hash_of_ledger ledger)]
-              last_global_slot
+            let expected_ledger_hash =
+              Hashtbl.find_exn global_slot_ledger_hash_tbl last_global_slot
+            in
+            if
+              Ledger_hash.equal
+                (Ledger.merkle_root ledger)
+                expected_ledger_hash
+            then
+              [%log info]
+                "Applied all commands at global slot %Ld, got expected ledger \
+                 hash"
+                ~metadata:[("ledger_hash", json_ledger_hash_of_ledger ledger)]
+                last_global_slot
+            else (
+              [%log error]
+                "Applied all commands at global slot %Ld, ledger hash differs \
+                 from expected ledger hash"
+                ~metadata:
+                  [ ("ledger_hash", json_ledger_hash_of_ledger ledger)
+                  ; ( "expected_ledger_hash"
+                    , Ledger_hash.to_yojson expected_ledger_hash ) ]
+                last_global_slot ;
+              Core_kernel.exit 1 )
         in
         let combine_or_run_internal_cmds (ic : Sql.Internal_command.t)
             (ics : Sql.Internal_command.t list) =
@@ -499,22 +529,6 @@ let main ~input_file ~output_file ~archive_uri () =
         apply_commands sorted_internal_cmds sorted_user_cmds
           ~last_global_slot:0L
       in
-      let target_ledger_json =
-        Ledger_hash.to_yojson input.target_ledger_hash
-      in
-      if Ledger_hash.equal input.target_ledger_hash (Ledger.merkle_root ledger)
-      then
-        [%log info]
-          "After applying all commands, ledger hash equals target ledger hash"
-          ~metadata:[("ledger_hash", target_ledger_json)]
-      else (
-        [%log error]
-          "After applying all commands, ledger hash differs from target \
-           ledger hash"
-          ~metadata:
-            [ ("ledger_hash", json_ledger_hash_of_ledger ledger)
-            ; ("target_ledger_hash", target_ledger_json) ] ;
-        Core_kernel.exit 1 ) ;
       [%log info] "Writing output to $output_file"
         ~metadata:[("output_file", `String output_file)] ;
       let output =
