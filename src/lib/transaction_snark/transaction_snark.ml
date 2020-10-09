@@ -1678,7 +1678,7 @@ module Base = struct
                 s.next_available_token_before ]) ;
         (proof1_must_verify (), proof2_must_verify ())
 
-      let _rule ~constraint_constants : _ Pickles.Inductive_rule.t =
+      let rule ~constraint_constants : _ Pickles.Inductive_rule.t =
         { prevs= [snapp1_tag; snapp2_tag]
         ; main=
             (fun [t1; t2] x ->
@@ -1818,7 +1818,7 @@ module Base = struct
                 s.next_available_token_before ]) ;
         proof1_must_verify ()
 
-      let _rule ~constraint_constants : _ Pickles.Inductive_rule.t =
+      let rule ~constraint_constants : _ Pickles.Inductive_rule.t =
         { prevs= [snapp1_tag]
         ; main=
             (fun [t1] x ->
@@ -1957,7 +1957,7 @@ module Base = struct
         !(Token_id.Checked.Assert.equal s.next_available_token_after
             s.next_available_token_before)
 
-      let _rule ~constraint_constants : _ Pickles.Inductive_rule.t =
+      let rule ~constraint_constants : _ Pickles.Inductive_rule.t =
         { prevs= []
         ; main=
             (fun [] x ->
@@ -2910,7 +2910,7 @@ type tag =
   ( Statement.With_sok.Checked.t
   , Statement.With_sok.t
   , Nat.N2.n
-  , Nat.N2.n )
+  , Nat.N5.n )
   Pickles.Tag.t
 
 let time lab f =
@@ -2926,11 +2926,15 @@ let system ~constraint_constants =
         (module Statement.With_sok.Checked)
         (module Statement.With_sok)
         ~typ:Statement.With_sok.typ
-        ~branches:(module Nat.N2)
+        ~branches:(module Nat.N5)
         ~max_branching:(module Nat.N2)
         ~name:"transaction-snark"
         ~choices:(fun ~self ->
-          [Base.rule ~constraint_constants; Merge.rule self] ) )
+          [ Base.rule ~constraint_constants
+          ; Merge.rule self
+          ; Base.Snapp_command.Zero_proved.rule ~constraint_constants
+          ; Base.Snapp_command.One_proved.rule ~constraint_constants
+          ; Base.Snapp_command.Two_proved.rule ~constraint_constants ] ) )
 
 module Verification = struct
   module type S = sig
@@ -3274,7 +3278,12 @@ let verify (ts : (t * _) list) ~key =
        (List.map ts ~f:(fun ({statement; proof}, _) -> (statement, proof)))
 
 module Make () = struct
-  let tag, cache_handle, p, Pickles.Provers.[base; merge] =
+  let ( tag
+      , cache_handle
+      , p
+      , Pickles.Provers.
+          [base; merge; snapp_zero_proved; snapp_one_proved; snapp_two_proved]
+      ) =
     system
       ~constraint_constants:Genesis_constants.Constraint_constants.compiled
 
@@ -3319,7 +3328,7 @@ module Make () = struct
       ~pending_coinbase_stack_state ~next_available_token_before
       ~next_available_token_after ~snapp_account1 ~snapp_account2 ~state_body t
       handler =
-    let _handler =
+    let handler =
       Base.Snapp_command.handler ~state_body ~snapp_account1 ~snapp_account2 t
         handler
     in
@@ -3335,8 +3344,12 @@ module Make () = struct
     in
     let proof =
       match command_to_proofs t with
-      | [] | [_] | [_; _] ->
-          failwith "unimplemented"
+      | [] ->
+          snapp_zero_proved ~handler [] statement
+      | [proof1] ->
+          snapp_one_proved ~handler [proof1] statement
+      | [proof1; proof2] ->
+          snapp_two_proved ~handler [proof1; proof2] statement
     in
     {statement; proof}
 

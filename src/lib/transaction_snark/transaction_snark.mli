@@ -229,7 +229,7 @@ type tag =
   ( Statement.With_sok.Checked.t
   , Statement.With_sok.t
   , Nat.N2.n
-  , Nat.N2.n )
+  , Nat.N5.n )
   Pickles.Tag.t
 
 val verify : (t * Sok_message.t) list -> key:Pickles.Verification_key.t -> bool
