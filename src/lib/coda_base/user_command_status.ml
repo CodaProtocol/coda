@@ -494,6 +494,8 @@ module Failure = struct
     val incorrect_nonce : t
 
     val get : t -> failure -> Boolean.var
+
+    val check_failure : t -> failure -> Boolean.var -> (unit, _) Checked.t
   end = struct
     module Accumulators = struct
       (* TODO: receiver, source accumulators *)
@@ -615,6 +617,59 @@ module Failure = struct
       Option.map
         ~f:(fun t -> of_record (As_record.var_of_t t))
         (As_record.of_enum i)
+
+    let check_failure t failure (failure_var : Boolean.var) =
+      let predicted_failure = (get t failure :> Field.Var.t) in
+      let actual_failure = (failure_var :> Field.Var.t) in
+      let any_failure = (t.accumulators.user_command_failure :> Field.Var.t) in
+      (* We want the constraint to satisfy the following properties:
+         * if a failure is predicted, it must be actual
+         * if a failure is not predicted but is actual, there must be some
+           other failure indicated by any_failure
+         We can encode this as a truth table. Note that some combinations are
+         impossible because of the construction of our any_failure: we can
+         never have a predicted_failure when we have not also set any_failure.
+
+         Encoding this as a truth table, we get:
+         let P = predicted_failure
+         let A = actual_failure
+         let S = any_failure
+         P | A | S | May build proof
+         --|---|---|----------------
+         0 | 0 | 0 | Yes
+         0 | 0 | 1 | Yes
+         0 | 1 | 0 | No
+         0 | 1 | 1 | Yes
+         1 | 0 | 0 | Impossible
+         1 | 0 | 1 | No
+         1 | 1 | 0 | Impossible
+         1 | 1 | 1 | Yes
+
+         A candidate constraint takes the form
+         (a*P + b*A + c*S) * (d*P + e*A + f*S) = (w*P + x*A + y*S + z)
+         We arbitrarily set a = b = c = d = e = f = 1.
+         Substituting in the valid combinations, we get
+         P = 0, A = 0, S = 0 => 0 * 0 = z             => z = 0
+         P = 0, A = 0, S = 1 => 1 * 1 = y + z         => y = 1 (= 1 - 0)
+         P = 0, A = 1, S = 1 => 2 * 2 = x + y + z     => x = 3 (= 4 - 1)
+         P = 1, A = 1, S = 1 => 3 * 3 = w + x + y + z => w = 5 (= 9 - 4)
+
+         Checking the invalid combinations, we get
+         P = 0, A = 1, S = 0 => 1 * 1 ?= x + z = 3         (1 != 3)
+         P = 1, A = 0, S = 1 => 2 * 2 ?= w + y + z = 6     (4 != 6)
+
+         Thus, the following constraint encodes our requirements:
+         (P + A + S) * (P + A + S) = (5*P + 3*A + 1*S)
+      *)
+      let open Field.Var in
+      let lhs = sum [predicted_failure; actual_failure; any_failure] in
+      let rhs =
+        sum
+          [ scale predicted_failure (Field.of_int 5)
+          ; scale actual_failure (Field.of_int 3)
+          ; any_failure ]
+      in
+      assert_square lhs rhs
   end
 
   let to_record t =
@@ -673,6 +728,71 @@ module Failure = struct
   let var_of_t t = Option.value_exn (Var.of_enum (to_enum t))
 
   let var_of_t_opt t = match t with Some t -> var_of_t t | None -> Var.none
+
+  let%test_module "Var.check_failure tests" =
+    ( module struct
+      let check var failure boolean =
+        Fn.flip run_and_check ()
+        @@ Checked.map ~f:As_prover.return
+        @@ Var.check_failure var failure boolean
+
+      let%test_unit "Var.check_failure rejects failures when it is none" =
+        for i = min to max do
+          let failure = Option.value_exn (of_enum i) in
+          (* Failures are not allowed. *)
+          ( match check Var.none failure Boolean.true_ with
+          | Ok _ ->
+              failwithf !"check_failure none %{sexp: t} true = Ok" failure ()
+          | Error _ ->
+              () ) ;
+          (* Succeeds when no failure. *)
+          match check Var.none failure Boolean.false_ with
+          | Error _ ->
+              failwithf
+                !"check_failure none %{sexp: t} false = Error"
+                failure ()
+          | Ok _ ->
+              ()
+        done
+
+      let%test_unit "Var.check_failure accepts any failure when it describes \
+                     a failure" =
+        for i = min to max do
+          let failure = Option.value_exn (of_enum i) in
+          let var = var_of_t failure in
+          for j = min to max do
+            let failure_to_check = Option.value_exn (of_enum j) in
+            match check var failure_to_check Boolean.true_ with
+            | Error _ ->
+                failwithf
+                  !"check_failure %{sexp: t} %{sexp: t} true = Error"
+                  failure failure_to_check ()
+            | Ok _ ->
+                ()
+          done
+        done
+
+      let%test_unit "Var.check_failure requires only the failure that it \
+                     describes" =
+        for i = min to max do
+          let failure = Option.value_exn (of_enum i) in
+          let var = var_of_t failure in
+          for j = min to max do
+            let failure_to_check = Option.value_exn (of_enum j) in
+            match check var failure_to_check Boolean.false_ with
+            | Ok _ ->
+                if equal failure failure_to_check then
+                  failwithf
+                    !"check_failure %{sexp: t} %{sexp: t} true = Ok"
+                    failure failure_to_check ()
+            | Error _ ->
+                if not (equal failure failure_to_check) then
+                  failwithf
+                    !"check_failure %{sexp: t} %{sexp: t} true = Error"
+                    failure failure_to_check ()
+          done
+        done
+    end )
 
   [%%endif]
 end
