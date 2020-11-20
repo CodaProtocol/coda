@@ -171,6 +171,21 @@ RUN git clone \
 
 WORKDIR $HOME/$MINA_DIR
 
+# Download snark keys explicitly
+RUN mkdir /tmp/s3_cache_dir \
+  && curl -sL https://s3-us-west-2.amazonaws.com/snark-keys.o1test.net/tweedledee_19 \
+  -o /tmp/s3_cache_dir/tweedledee_19 \
+  && curl -sL https://s3-us-west-2.amazonaws.com/snark-keys.o1test.net/tweedledum_19 \
+  -o /tmp/s3_cache_dir/tweedledum_19
+  # && curl -SL "https://s3-us-west-2.amazonaws.com/snark-keys.o1test.net/tweedledee_19_v2 \
+  # -o /tmp/s3_cache_dir/tweedledee_19_v2 \
+  # && curl -SL "https://s3-us-west-2.amazonaws.com/snark-keys.o1test.net/tweedledum_19_v2 \
+  # -o /tmp/s3_cache_dir/tweedledum_19_v2
+
+# Download go modules
+RUN cd src/app/libp2p_helper/src \
+   && /usr/lib/go/bin/go mod download
+
 ENV OPAMYES 1
 # TODO: handle this opam work without cloning the full repository (directly pull src/opam.export)
 # TODO: handle uri's build failure in a more flexible manner
@@ -220,6 +235,9 @@ ARG DUNE_PROFILE=testnet_postake_medium_curves
 # TODO: change this to two distinct variables, one for opam/dependency clone
 #       and a distinct one for the mina codebase in the next stage
 ARG MINA_BRANCH=develop
+
+# Additional build arg, set it to the commit hash to always rebuild the builder from here
+ARG CODA_COMMIT=1
 
 # location of repo used for pins and external package commits
 ARG MINA_DIR=mina
@@ -317,7 +335,8 @@ COPY --from=builder /home/opam/mina/src/app/rosetta/config.json /data/config.jso
 # all s3-cached files will be downloaded as needed at runtime
 
 # Uncomment these to optimize start up time at the expense of image size
-# COPY --from=builder /tmp/s3_cache_dir /tmp/s3_cache_dir
+COPY --from=builder /tmp/s3_cache_dir /tmp/s3_cache_dir
+COPY --from=builder /tmp/coda_cache_dir /tmp/coda_cache_dir
 # COPY --from=builder /tmp/mina_cache_dir /tmp/mina_cache_dir
 
 # Set up mina config dir with demo mode keys and genesis
