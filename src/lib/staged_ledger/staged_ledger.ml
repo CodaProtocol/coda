@@ -1024,14 +1024,12 @@ module T = struct
   module Resources = struct
     module Discarded = struct
       type t =
-        { commands_rev: User_command.Valid.t With_status.t Sequence.t
+        { commands: User_command.Valid.t With_status.t Sequence.t
         ; completed_work: Transaction_snark_work.Checked.t Sequence.t }
       [@@deriving sexp_of]
 
       let add_user_command t uc =
-        { t with
-          commands_rev= Sequence.append t.commands_rev (Sequence.singleton uc)
-        }
+        {t with commands= Sequence.append (Sequence.singleton uc) t.commands}
 
       let add_completed_work t cw =
         { t with
@@ -1220,12 +1218,12 @@ module T = struct
         |> Or_error.join
       in
       let discarded =
-        {Discarded.completed_work= Sequence.empty; commands_rev= Sequence.empty}
+        {Discarded.completed_work= Sequence.empty; commands= Sequence.empty}
       in
       { max_space= slots
       ; max_jobs= job_count
       ; commands_rev=
-          uc_seq
+          seq_rev uc_seq
           (*Completed work in reverse order for faster removal of proofs if budget doesn't suffice*)
       ; completed_work_rev= seq_rev cw_seq
       ; fee_transfers
@@ -1592,12 +1590,28 @@ module T = struct
       Sequence.length res.commands_rev = 0
     in
     let second_pre_diff (res : Resources.t) partition ~add_coinbase work =
-      one_prediff ~constraint_constants work res.discarded.commands_rev
-        ~receiver partition ~add_coinbase logger ~is_coinbase_reciever_new
+      one_prediff ~constraint_constants work res.discarded.commands ~receiver
+        partition ~add_coinbase logger ~is_coinbase_reciever_new
         ~supercharge_coinbase `Second
     in
     let isEmpty (res : Resources.t) =
       has_no_commands res && Resources.coinbase_added res = 0
+    in
+    let cw_seq =
+      let max_works =
+        snd partitions.first
+        + Option.value_map ~f:snd ~default:0 partitions.second
+      in
+      Sequence.take cw_seq max_works
+    in
+    let ts_seq =
+      let max_txns =
+        (* NOTE: -1 because we need space for at least 1 coinbase. *)
+        fst partitions.first
+        + Option.value_map ~f:fst ~default:0 partitions.second
+        - 1
+      in
+      Sequence.take ts_seq max_txns
     in
     (*Partitioning explained in PR #687 *)
     match partitions.second with
@@ -1677,6 +1691,511 @@ module T = struct
           let res = try_with_coinbase () in
           make_diff res None
 
+  module Partial_diff = struct
+    type t =
+      { available_slots: int
+      ; paid_for_available_slots: int
+      ; receiver_fee_transfer: bool
+      ; coinbase_fee_transfer:
+          (Amount.t * (Fee.t * Public_key.Compressed.t) option) option
+      ; commands_rev: User_command.Valid.t With_status.t list
+      ; purchased_work_rev: Transaction_snark_work.Checked.t list
+      ; available_fee_slots: int
+      ; fee_transfers: Fee.t Public_key.Compressed.Map.t
+      ; profit: Amount.Signed.t
+            (* We allow this to become negative, since it may rebound with some
+               subsequent low-fee work and high-fee transactions.
+            *)
+      ; prev_best_diff: t option }
+
+    let empty ~receiver ~max_slots ~max_work () =
+      { available_slots= max_slots
+      ; paid_for_available_slots= max_slots - max_work
+      ; receiver_fee_transfer= false
+      ; coinbase_fee_transfer= None
+      ; commands_rev= []
+      ; purchased_work_rev= []
+      ; available_fee_slots= 0
+      ; fee_transfers=
+          (* We pretend that we've already seen a zero fee payment to the
+             [receiver], since any fee payments to it can be bundled into the
+             coinbase, and so we don't need to pay for slots for them.
+          *)
+          Public_key.Compressed.Map.singleton receiver Fee.zero
+      ; profit= Amount.Signed.zero
+      ; prev_best_diff= None }
+
+    let normalize_fee_slot t =
+      if t.available_fee_slots >= 0 then t
+      else
+        { (* We didn't have enough fee slots available. Use one of our available
+           slots for a new fee transfer, and use one of its available fee
+           slots.
+        *)
+          t
+          with
+          available_slots= t.available_slots - 1
+        ; paid_for_available_slots= t.paid_for_available_slots - 1
+        ; available_fee_slots=
+            (* Every fee transfer transaction has capacity for 2 slots. *)
+            t.available_fee_slots + 2 }
+
+    let claim_fee_slot t =
+      normalize_fee_slot {t with available_fee_slots= t.available_fee_slots - 1}
+
+    (** Check whether we can include a fee transfer in our coinbase. This
+        modifies [available_fee_slots], so callers must call
+        [normalize_fee_slots] once they have made any other relevant changes.
+    *)
+    let update_coinbase_fee_transfer t =
+      let find_new_candidate coinbase_amount =
+        let candidate = ref None in
+        (* NB: We use [exists] for shortcutting only, we don't actually care
+           about the result.
+        *)
+        Map.existsi t.fee_transfers ~f:(fun ~key ~data ->
+            if Amount.compare coinbase_amount (Amount.of_fee data) >= 0 then (
+              (* It fits! *)
+              candidate := Some (data, key) ;
+              true )
+            else false )
+        |> ignore ;
+        !candidate
+      in
+      match t.coinbase_fee_transfer with
+      | None ->
+          (* We don't have a coinbase fee transfer in this diff, nothing to
+             check.
+          *)
+          t
+      | Some (coinbase_amount, Some (_fee, prover)) ->
+          (* We have a coinbase fee transfer registered, check whether it still
+             matches.
+          *)
+          let fee = Map.find_exn t.fee_transfers prover in
+          if Amount.compare coinbase_amount (Amount.of_fee fee) >= 0 then
+            { t with
+              coinbase_fee_transfer= Some (coinbase_amount, Some (fee, prover))
+            }
+          else
+            (* The current fee transfer no longer applies. Find a new one if
+               possible.
+            *)
+            let candidate = find_new_candidate coinbase_amount in
+            { t with
+              coinbase_fee_transfer= Some (coinbase_amount, candidate)
+            ; available_fee_slots=
+                ( if Option.is_some candidate then
+                  (* We've found a different candidate, no need to use an extra
+                     fee slot.
+                  *)
+                  t.available_fee_slots
+                else
+                  (* None of the fee transfers will fit. Decrease the number of
+                     available fee slots.
+                  *)
+                  t.available_fee_slots - 1 ) }
+      | Some (coinbase_amount, None) ->
+          (* We don't have a coinbase fee transfer *yet*, but we could adopt
+             one if it will fit.
+          *)
+          let candidate = find_new_candidate coinbase_amount in
+          { t with
+            coinbase_fee_transfer= Some (coinbase_amount, candidate)
+          ; available_fee_slots=
+              ( if Option.is_some candidate then
+                (* We've found a candidate, we can free up its fee slot. *)
+                t.available_fee_slots + 1
+              else
+                (* None of the fee transfers will fit. *)
+                t.available_fee_slots ) }
+
+    let purchase_slot
+        ~(completed_work_seq : Transaction_snark_work.Checked.t Sequence.t) t =
+      let exception Overflow in
+      try
+        let open Option.Let_syntax in
+        let%bind work, completed_work_seq = Sequence.next completed_work_seq in
+        (* There is more work, purchase it. *)
+        let%map t =
+          let fee_transfers, needs_new =
+            if Fee.(equal zero) work.fee then
+              (* Free work, we never need an extra fee payment. *)
+              (t.fee_transfers, false)
+            else
+              let needs_new = ref false in
+              let fee_transfers =
+                Map.update t.fee_transfers work.prover ~f:(function
+                  | None ->
+                      needs_new := true ;
+                      work.fee
+                  | Some fee -> (
+                      needs_new := false ;
+                      match Fee.( + ) fee work.fee with
+                      | Some fee ->
+                          fee
+                      | None ->
+                          raise Overflow ) )
+              in
+              (fee_transfers, !needs_new)
+          in
+          let%map profit =
+            Amount.Signed.( + ) t.profit
+              Amount.Signed.(negate (of_unsigned (Amount.of_fee work.fee)))
+          in
+          (* Update the [paid_for_available_slots], the purchased work, and the
+             fee info.
+          *)
+          let t =
+            { available_slots= t.available_slots
+            ; paid_for_available_slots= t.paid_for_available_slots + 1
+            ; receiver_fee_transfer= t.receiver_fee_transfer
+            ; coinbase_fee_transfer= t.coinbase_fee_transfer
+            ; commands_rev= t.commands_rev
+            ; purchased_work_rev= work :: t.purchased_work_rev
+            ; available_fee_slots= t.available_fee_slots
+            ; fee_transfers
+            ; profit
+            ; prev_best_diff= t.prev_best_diff }
+          in
+          let t = update_coinbase_fee_transfer t in
+          if needs_new then claim_fee_slot t else normalize_fee_slot t
+        in
+        (t, completed_work_seq)
+      with Overflow ->
+        (* Purchasing this additional work would cause an error. Wow, fees are
+           high!
+           This should never happen, or at least until fees-in-tokens are
+           implemented and enabled for snark work.
+        *)
+        None
+
+    let purchase_slot_if_necessary ~completed_work_seq diff =
+      if diff.paid_for_available_slots > 0 then
+        (* We already have space paid for, don't buy any more yet. *)
+        Some (diff, completed_work_seq)
+      else (
+        (* We've used all of the slots that we've paid for, buy another. *)
+        assert (diff.paid_for_available_slots = 0) ;
+        purchase_slot ~completed_work_seq diff )
+
+    let claim_slot t =
+      { available_slots= t.available_slots - 1
+      ; paid_for_available_slots= t.paid_for_available_slots - 1
+      ; receiver_fee_transfer= false
+      ; coinbase_fee_transfer= t.coinbase_fee_transfer
+      ; commands_rev= t.commands_rev
+      ; purchased_work_rev= t.purchased_work_rev
+      ; available_fee_slots= t.available_fee_slots
+      ; fee_transfers= t.fee_transfers
+      ; profit= t.profit
+      ; prev_best_diff= t.prev_best_diff }
+
+    let claim_slot_for_transaction
+        ~(transactions_seq : User_command.Valid.t With_status.t Sequence.t) t =
+      let open Option.Let_syntax in
+      let%bind transaction, transactions_seq =
+        Sequence.next transactions_seq
+      in
+      let t = claim_slot t in
+      let%map profit =
+        let transaction_fee =
+          (* This [_exn] can only be raised when the user command has not
+               passed [User_command.check]. Transactions here have successfully
+               made it through the pool, and so we can safely assume that they
+               have passed this check.
+            *)
+          User_command.fee_exn (transaction.data :> User_command.t)
+        in
+        Amount.Signed.( + ) t.profit
+          (Amount.Signed.of_unsigned (Amount.of_fee transaction_fee))
+      in
+      ( {t with commands_rev= transaction :: t.commands_rev; profit}
+      , transactions_seq )
+  end
+
+  let coinbase_amount
+      ~(constraint_constants : Genesis_constants.Constraint_constants.t)
+      ~supercharge_coinbase () =
+    if supercharge_coinbase then
+      (* This can only fail if the constraint constants are badly wrong.
+         If they are this bad, we are better off failing hard and finding out
+         about it than silently swallowing it.
+      *)
+      Option.value_exn
+        (Currency.Amount.scale constraint_constants.coinbase_amount
+           constraint_constants.supercharged_coinbase_factor)
+    else constraint_constants.coinbase_amount
+
+  let generate ~constraint_constants ~logger ~completed_work_seq
+      ~transactions_seq ~receiver ~is_coinbase_reciever_new
+      ~supercharge_coinbase ?(minimum_acceptable_profit = Amount.zero)
+      (partitions : Scan_state.Space_partition.t) :
+      Staged_ledger_diff.With_valid_signatures_and_proofs
+      .pre_diff_with_at_most_two_coinbase
+      * Staged_ledger_diff.With_valid_signatures_and_proofs
+        .pre_diff_with_at_most_one_coinbase
+        option =
+    let open Option.Let_syntax in
+    let coinbase_profit =
+      let coinbase_amount =
+        coinbase_amount ~constraint_constants ~supercharge_coinbase ()
+      in
+      if is_coinbase_reciever_new then
+        (* All values involved all constants, so we prefer an exception. *)
+        Option.value_exn
+          Currency.Amount.(
+            sub coinbase_amount
+              (of_fee constraint_constants.account_creation_fee))
+      else coinbase_amount
+    in
+    let diff1 : Partial_diff.t =
+      let max_slots, max_work = partitions.first in
+      Partial_diff.empty ~receiver ~max_slots ~max_work ()
+    in
+    let diff2 : Partial_diff.t option =
+      let%bind max_slots, max_work = partitions.second in
+      let%map () =
+        (* Ignore the second part of the partition if its [max_slots] is 0. *)
+        if max_slots > 0 then Some () else None
+      in
+      Partial_diff.empty ~receiver ~max_slots ~max_work ()
+    in
+    let res =
+      let%bind () =
+        (* If [diff1] has no available slots, we can't generate a meaningful
+           diff.
+        *)
+        if diff1.available_slots > 0 then Some () else None
+      in
+      (* We have space for something! Lets say that will be for our coinbase.
+         There's space for 1 fee payment in our coinbase, so we initialize the
+         [coinbase_fee_transfer] field in the hopes that some proof has a low
+         enough fee to be included in it.
+         We update our profit here too: we know that we can include the
+         coinbase, so we can use the coinbase profit as our starting point.
+      *)
+      let diff1 =
+        { diff1 with
+          profit= Amount.Signed.of_unsigned coinbase_profit
+        ; coinbase_fee_transfer= Some (coinbase_profit, None) }
+      in
+      let%bind diff1, completed_work_seq =
+        (* Purchase a slot for the coinbase if we don't have one paid for. *)
+        Partial_diff.purchase_slot_if_necessary ~completed_work_seq diff1
+      in
+      (* Claim the slot for our coinbase. *)
+      let diff1 = Partial_diff.claim_slot diff1 in
+      (* Main loop.
+         Here, we pull in transactions, buy work, and handle the transition
+         from first partial diff to second partial diff (when applicable).
+         We also track the most profitable diffs from here on.
+      *)
+      let rec go_transactions ~completed_work_seq ~transactions_seq ~diff_id
+          (diff1, diff2) =
+        let is_second =
+          match diff_id with `First -> false | `Second -> true
+        in
+        let update_diffs diff_id new_diff =
+          match diff_id with
+          | `First ->
+              (new_diff, diff2)
+          | `Second ->
+              (diff1, Some new_diff)
+        in
+        let res =
+          let%bind diff =
+            match diff_id with `First -> Some diff1 | `Second -> diff2
+          in
+          let diff =
+            (* Update the [prev_best_diff] if this one is more profitable. *)
+            match diff.Partial_diff.prev_best_diff with
+            | Some {profit; _} ->
+                if Amount.Signed.compare diff.profit profit >= 0 then
+                  { diff with
+                    prev_best_diff= Some {diff with prev_best_diff= None} }
+                else diff
+            | None ->
+                {diff with prev_best_diff= Some diff}
+          in
+          if diff.available_slots > 0 then
+            (* We have available slots, lets attempt to use them. *)
+            if diff.paid_for_available_slots > 0 then
+              if diff.receiver_fee_transfer || is_second then
+                (* We've already paid for some space, try to fill it with a
+                   transaction.
+                *)
+                let%map diff, transactions_seq =
+                  Partial_diff.claim_slot_for_transaction ~transactions_seq
+                    diff
+                in
+                ( completed_work_seq
+                , transactions_seq
+                , diff_id
+                , update_diffs diff_id diff )
+              else
+                (* We want to sell some transaction slots, so we need to
+                   allocate a fee-payment slot to pay the receiver the profits.
+                *)
+                let diff =
+                  Partial_diff.claim_fee_slot
+                    {diff with receiver_fee_transfer= true}
+                in
+                Some
+                  ( completed_work_seq
+                  , transactions_seq
+                  , diff_id
+                  , update_diffs diff_id diff )
+            else (
+              assert (diff.paid_for_available_slots = 0) ;
+              (* Purchase the next slot. *)
+              let%map diff, completed_work_seq =
+                Partial_diff.purchase_slot ~completed_work_seq diff
+              in
+              ( completed_work_seq
+              , transactions_seq
+              , diff_id
+              , update_diffs diff_id diff ) )
+          else (
+            assert (diff.available_slots = 0) ;
+            match diff_id with
+            | `Second ->
+                (* Nothing more to do, move to finalization. *)
+                None
+            | `First ->
+                let%bind () =
+                  if Amount.Signed.(compare zero) diff.profit < 0 then
+                    (* We can't satisfy the fee-excess = 0 condition for this
+                       partial diff. There's no point continuing.
+                    *)
+                    None
+                  else Some ()
+                in
+                let%bind diff2 =
+                  (* If there is no second partial diff, we're done. *)
+                  diff2
+                in
+                (* We can now get ready to transition into the second partial
+                   diff.
+                   Since we only get 1 coinbase per block, but we need a
+                   fee-excess of 0 in both diffs, we will replace what would
+                   have been a coinbase in one diff with a fee-transfer.
+                   This makes no overall difference: it still consumes one slot
+                   and generates 2 available fee slots, 1 of which we will use
+                   to pay the receiver.
+                   To resume for diff 2, we need to set up again, making space
+                   for our coinbase fee transfer.
+                *)
+                let diff2 =
+                  { diff2 with
+                    available_fee_slots= 1
+                  ; profit= Amount.Signed.of_unsigned coinbase_profit }
+                in
+                let%map diff2, completed_work_seq =
+                  Partial_diff.purchase_slot_if_necessary ~completed_work_seq
+                    diff2
+                in
+                let diff2 = Partial_diff.claim_slot diff2 in
+                ( completed_work_seq
+                , transactions_seq
+                , `Second
+                , (diff, Some diff2) ) )
+        in
+        match res with
+        | Some (completed_work_seq, transactions_seq, diff_id, diffs) ->
+            (* We still may be able to do more, lets try. *)
+            go_transactions ~completed_work_seq ~transactions_seq ~diff_id
+              diffs
+        | None ->
+            (* We weren't able to make any more progress. Return the previous
+               diff instead.
+            *)
+            (diff1, diff2, diff_id)
+      in
+      let diff1, diff2, diff_id =
+        go_transactions ~completed_work_seq ~transactions_seq ~diff_id:`First
+          (diff1, diff2)
+      in
+      (* We make a deliberate effort here to treat diffs including more work
+         but with the same profit as better. This ensures that transactions
+         and completed work pass through the system more quickly when it
+         doesn't disadvantage the block producer.
+      *)
+      let choose_best diff =
+        match diff.Partial_diff.prev_best_diff with
+        | Some prev_diff
+          when Amount.Signed.compare prev_diff.profit diff.profit > 0 ->
+            prev_diff
+        | _ ->
+            diff
+      in
+      let diffs, profit =
+        match diff_id with
+        | `First ->
+            let diff1 = choose_best diff1 in
+            ((diff1, None), diff1.profit)
+        | `Second ->
+            (* We evaluated the second diff, check whether it was more
+               profitable than the best first diff.
+            *)
+            let diff1' = choose_best diff1 in
+            let diff2 = Option.value_exn diff2 |> choose_best in
+            if Amount.Signed.compare diff1'.profit diff2.profit > 0 then
+              ((diff1', None), diff1'.profit)
+            else
+              (* Use [diff1] from the main loop, the best first diff may be
+                 shorter and thus not match up with [diff2].
+              *)
+              ((diff1, Some diff2), diff2.profit)
+      in
+      (* Check profitability. The least possible value 0 of
+         [minimum_acceptable_profit] is enforced by the protocol; any value
+         higher than that represents block producer preference.
+      *)
+      let%map () =
+        let minimum_acceptable_profit =
+          Amount.Signed.of_unsigned minimum_acceptable_profit
+        in
+        if Amount.Signed.compare minimum_acceptable_profit profit <= 0 then
+          Some ()
+        else None
+      in
+      diffs
+    in
+    let get_coinbase_fee_transfer diff =
+      if diff.Partial_diff.available_fee_slots = 0 then
+        (* The fee payments don't fit without using the coinbase, include one
+           in it.
+        *)
+        let work = List.hd_exn diff.purchased_work_rev in
+        Some
+          (Coinbase_fee_transfer.create ~receiver_pk:work.prover ~fee:work.fee)
+      else None
+    in
+    match res with
+    | Some (diff1, None) ->
+        ( { commands= List.rev diff1.commands_rev
+          ; completed_works= List.rev diff1.purchased_work_rev
+          ; coinbase= One (get_coinbase_fee_transfer diff1) }
+        , None )
+    | Some (diff1, Some diff2) ->
+        ( { commands= List.rev diff1.commands_rev
+          ; completed_works= List.rev diff1.purchased_work_rev
+          ; coinbase= Zero }
+        , Some
+            { commands= List.rev diff2.commands_rev
+            ; completed_works= List.rev diff2.purchased_work_rev
+            ; coinbase= One (get_coinbase_fee_transfer diff2) } )
+    | None ->
+        [%log warn]
+          "Unable to generate a profitable diff. Emitting a junk diff that \
+           will be rejected when applied" ;
+        (* Submit a diff with no contents, but where we award ourself an
+           additional coinbase, to ensure that the diff is invalid.
+        *)
+        ( {commands= []; completed_works= []; coinbase= Two None}
+        , Some {commands= []; completed_works= []; coinbase= One None} )
+
   let can_apply_supercharged_coinbase_exn ~winner ~epoch_ledger ~global_slot =
     Sparse_ledger.has_locked_tokens_exn ~global_slot
       ~account_id:(Account_id.create winner Token_id.default)
@@ -1710,59 +2229,69 @@ module T = struct
     O1trace.trace_event "done mask" ;
     let partitions = Scan_state.partition_if_overflowing t.scan_state in
     O1trace.trace_event "partitioned" ;
+    (* TODO: Lazily evaluate this as a [Sequence.t]. *)
     let work_to_do = Scan_state.work_statements_for_new_diff t.scan_state in
     O1trace.trace_event "computed_work" ;
-    let completed_works_seq, proof_count =
-      List.fold_until work_to_do ~init:(Sequence.empty, 0)
-        ~f:(fun (seq, count) w ->
-          match get_completed_work w with
-          | Some cw_checked ->
-              (*If new provers can't pay the account-creation-fee then discard
-              their work unless their fee is zero in which case their account
-              won't be created. This is to encourage using an existing accounts
-              for snarking.
-              This also imposes new snarkers to have a min fee until one of
-              their snarks are purchased and their accounts get created*)
-              if
-                Currency.Fee.(cw_checked.fee = zero)
-                || Currency.Fee.(
-                     cw_checked.fee
-                     >= constraint_constants.account_creation_fee)
-                || not (is_new_account cw_checked.prover)
-              then
-                Continue
-                  ( Sequence.append seq (Sequence.singleton cw_checked)
-                  , One_or_two.length cw_checked.proofs + count )
-              else (
+    let completed_works_seq =
+      Sequence.unfold ~init:work_to_do ~f:(fun work_to_do ->
+          match work_to_do with
+          | [] ->
+              None
+          | work :: work_to_do -> (
+            match get_completed_work work with
+            | Some cw_checked ->
+                (* If new provers can't pay the account-creation-fee then
+                   discard their work unless their fee is zero in which case
+                   their account won't be created. This is to encourage using
+                   an existing accounts for snarking.
+                   This also imposes new snarkers to have a min fee until one
+                   of their snarks are purchased and their accounts get
+                   created
+                *)
+                (* TODO(#7034): This should be checked in the pool.
+                   Running the check here allows block production to be blocked
+                   by low-fee snark work for a pk that isn't in the ledger.
+                *)
+                if
+                  Currency.Fee.(cw_checked.fee = zero)
+                  || Currency.Fee.(
+                       cw_checked.fee
+                       >= constraint_constants.account_creation_fee)
+                  || not (is_new_account cw_checked.prover)
+                then Some (cw_checked, work_to_do)
+                else (
+                  [%log debug]
+                    ~metadata:
+                      [ ( "work"
+                        , Transaction_snark_work.Checked.to_yojson cw_checked
+                        )
+                      ; ( "work_ids"
+                        , Transaction_snark_work.Statement.compact_json work )
+                      ; ("snark_fee", Currency.Fee.to_yojson cw_checked.fee)
+                      ; ( "account_creation_fee"
+                        , Currency.Fee.to_yojson
+                            constraint_constants.account_creation_fee ) ]
+                    !"Staged_ledger_diff creation: Snark fee $snark_fee \
+                      insufficient to create the snark worker account" ;
+                  None )
+            | None ->
                 [%log debug]
                   ~metadata:
-                    [ ( "work"
-                      , Transaction_snark_work.Checked.to_yojson cw_checked )
+                    [ ( "statement"
+                      , Transaction_snark_work.Statement.to_yojson work )
                     ; ( "work_ids"
-                      , Transaction_snark_work.Statement.compact_json w )
-                    ; ("snark_fee", Currency.Fee.to_yojson cw_checked.fee)
-                    ; ( "account_creation_fee"
-                      , Currency.Fee.to_yojson
-                          constraint_constants.account_creation_fee ) ]
-                  !"Staged_ledger_diff creation: Snark fee $snark_fee \
-                    insufficient to create the snark worker account" ;
-                Stop (seq, count) )
-          | None ->
-              [%log debug]
-                ~metadata:
-                  [ ("statement", Transaction_snark_work.Statement.to_yojson w)
-                  ; ( "work_ids"
-                    , Transaction_snark_work.Statement.compact_json w ) ]
-                !"Staged_ledger_diff creation: No snark work found for \
-                  $statement" ;
-              Stop (seq, count) )
-        ~finish:Fn.id
+                      , Transaction_snark_work.Statement.compact_json work ) ]
+                  !"Staged_ledger_diff creation: No snark work found for \
+                    $statement" ;
+                None ) )
     in
     O1trace.trace_event "found completed work" ;
     (*Transactions in reverse order for faster removal if there is no space when creating the diff*)
     let valid_on_this_ledger =
-      Sequence.fold_until transactions_by_fee ~init:(Sequence.empty, 0)
-        ~f:(fun (seq, count) txn ->
+      Sequence.unfold ~init:transactions_by_fee ~f:(fun transactions_by_fee ->
+          let%bind.Option.Let_syntax txn, transactions_by_fee =
+            Sequence.next transactions_by_fee
+          in
           match
             O1trace.measure "validate txn" (fun () ->
                 Transaction_validator.apply_transaction ~constraint_constants
@@ -1776,16 +2305,12 @@ module T = struct
                   ; ("error", Error_json.error_to_yojson e) ]
                 "Staged_ledger_diff creation: Skipping user command: \
                  $user_command due to error: $error" ;
-              Continue (seq, count)
+              None
           | Ok status ->
-              let txn_with_status = {With_status.data= txn; status} in
-              let seq' =
-                Sequence.append (Sequence.singleton txn_with_status) seq
-              in
-              let count' = count + 1 in
-              if count' >= Scan_state.free_space t.scan_state then Stop seq'
-              else Continue (seq', count') )
-        ~finish:fst
+              (* TODO: This status doesn't necessarily represent the applied
+                 state, if the accounts involved have also received fees.
+              *)
+              Some ({With_status.data= txn; status}, transactions_by_fee) )
     in
     let diff, log =
       O1trace.measure "generate diff" (fun () ->
@@ -1794,13 +2319,9 @@ module T = struct
             ~is_coinbase_reciever_new ~supercharge_coinbase partitions )
     in
     let summaries, detailed = List.unzip log in
-    [%log debug]
-      "Number of proofs ready for purchase: $proof_count Number of user \
-       commands ready to be included: $txn_count Diff creation log: $diff_log"
+    [%log debug] "Diff creation log: $diff_log"
       ~metadata:
-        [ ("proof_count", `Int proof_count)
-        ; ("txn_count", `Int (Sequence.length valid_on_this_ledger))
-        ; ("diff_log", Diff_creation_log.summary_list_to_yojson summaries) ] ;
+        [("diff_log", Diff_creation_log.summary_list_to_yojson summaries)] ;
     if log_block_creation then
       [%log debug] "Detailed diff creation log: $diff_log"
         ~metadata:
