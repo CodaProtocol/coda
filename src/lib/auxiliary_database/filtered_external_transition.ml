@@ -117,7 +117,9 @@ let of_transition external_transition tracked_participants
           ; coinbase_receiver= None }
         , next_available_token )
       ~f:(fun (acc_transactions, next_available_token) -> function
-        | {data= Command (Snapp_command _); _} -> failwith "Not implemented"
+        | {data= Command (Snapp_command _); _} ->
+            (* TODO: Add the command to the auxiliary database. *)
+            (acc_transactions, next_available_token)
         | {data= Command command; _} -> (
             let command = (command :> User_command.t) in
             let should_include_transaction command participants =
