@@ -769,7 +769,7 @@ module Types = struct
                  ~doc:
                    "The list of accounts which are delegating to you in the \
                     last epoch (note that the info is recorded in the one \
-                    before last epoch epoch so it might not be up to date \
+                    before last epoch so it might not be up to date \
                     with the current account status)"
                  ~args:Arg.[]
                  ~resolve:(fun {ctx= coda; _} {account; _} ->
