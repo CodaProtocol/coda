@@ -5,6 +5,12 @@ open Snark_params
 (** For debugging. Logs to stderr the inputs to the top hash. *)
 val with_top_hash_logging : (unit -> 'a) -> 'a
 
+val supply_increase' :
+     constraint_constants:Genesis_constants.Constraint_constants.t
+  -> effects:Transaction_side_effects.t
+  -> Currency.Amount.t
+  -> Currency.Amount.Signed.t option
+
 module Pending_coinbase_stack_state : sig
   module Init_stack : sig
     [%%versioned:
@@ -135,7 +141,9 @@ module Statement : sig
     module V1 : sig
       type t =
         ( Frozen_ledger_hash.Stable.V1.t
-        , Currency.Amount.Stable.V1.t
+        , ( Currency.Amount.Stable.V1.t
+          , Sgn.Stable.V1.t )
+          Currency.Signed_poly.Stable.V1.t
         , Pending_coinbase_stack_state.Stable.V1.t
         , Fee_excess.Stable.V1.t
         , Token_id.Stable.V1.t
@@ -151,7 +159,9 @@ module Statement : sig
       module V1 : sig
         type t =
           ( Frozen_ledger_hash.Stable.V1.t
-          , Currency.Amount.Stable.V1.t
+          , ( Currency.Amount.Stable.V1.t
+            , Sgn.Stable.V1.t )
+            Currency.Signed_poly.Stable.V1.t
           , Pending_coinbase_stack_state.Stable.V1.t
           , Fee_excess.Stable.V1.t
           , Token_id.Stable.V1.t
@@ -163,7 +173,7 @@ module Statement : sig
 
     type var =
       ( Frozen_ledger_hash.var
-      , Currency.Amount.var
+      , Currency.Amount.Signed.var
       , Pending_coinbase_stack_state.var
       , Fee_excess.var
       , Token_id.var
@@ -208,7 +218,7 @@ end]
 val create :
      source:Frozen_ledger_hash.t
   -> target:Frozen_ledger_hash.t
-  -> supply_increase:Currency.Amount.t
+  -> supply_increase:Currency.Amount.Signed.t
   -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
   -> fee_excess:Fee_excess.t
   -> next_available_token_before:Token_id.t
@@ -257,9 +267,9 @@ val check_transaction :
   -> init_stack:Pending_coinbase.Stack.t
   -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
   -> next_available_token_before:Token_id.t
-  -> next_available_token_after:Token_id.t
   -> snapp_account1:Snapp_account.t option
   -> snapp_account2:Snapp_account.t option
+  -> effects:Transaction_side_effects.t
   -> Transaction.Valid.t Transaction_protocol_state.t
   -> Tick.Handler.t
   -> unit
@@ -272,7 +282,7 @@ val check_user_command :
   -> init_stack:Pending_coinbase.Stack.t
   -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
   -> next_available_token_before:Token_id.t
-  -> next_available_token_after:Token_id.t
+  -> effects:Transaction_side_effects.t
   -> Signed_command.With_valid_signature.t Transaction_protocol_state.t
   -> Tick.Handler.t
   -> unit
@@ -286,9 +296,9 @@ val generate_transaction_witness :
   -> init_stack:Pending_coinbase.Stack.t
   -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
   -> next_available_token_before:Token_id.t
-  -> next_available_token_after:Token_id.t
   -> snapp_account1:Snapp_account.t option
   -> snapp_account2:Snapp_account.t option
+  -> effects:Transaction_side_effects.t
   -> Transaction.Valid.t Transaction_protocol_state.t
   -> Tick.Handler.t
   -> unit
@@ -299,39 +309,24 @@ module type S = sig
   val cache_handle : Pickles.Cache_handle.t
 
   val of_transaction :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
-    -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
+       init_stack:Pending_coinbase.Stack.t
     -> snapp_account1:Snapp_account.t option
     -> snapp_account2:Snapp_account.t option
+    -> statement:Statement.With_sok.t
     -> Transaction.Valid.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t
 
   val of_user_command :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
-    -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
+       init_stack:Pending_coinbase.Stack.t
+    -> statement:Statement.With_sok.t
     -> Signed_command.With_valid_signature.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t
 
   val of_fee_transfer :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
-    -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
+       init_stack:Pending_coinbase.Stack.t
+    -> statement:Statement.With_sok.t
     -> Fee_transfer.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t

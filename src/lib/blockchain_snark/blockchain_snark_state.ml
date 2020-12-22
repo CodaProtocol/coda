@@ -142,7 +142,8 @@ let%snarkydef step ~(logger : Logger.t)
         |> Blockchain_state.snarked_ledger_hash )
         txn_snark.target
     and supply_increase_is_zero =
-      Currency.Amount.(equal_var txn_snark.supply_increase (var_of_t zero))
+      Currency.Amount.Signed.(
+        Checked.(equal txn_snark.supply_increase (constant zero)))
     in
     let%bind new_pending_coinbase_hash, deleted_stack, no_coinbases_popped =
       let coinbase_receiver =
@@ -311,7 +312,7 @@ let rule ~proof_level ~constraint_constants transaction_snark self :
                (Protocol_state.consensus_state curr))
         ; List.for_all ~f:Fn.id
             [ Frozen_ledger_hash.equal (lh prev) (lh curr)
-            ; Currency.Amount.(equal zero)
+            ; Currency.Amount.Signed.(equal zero)
                 txn.Transaction_snark.Statement.supply_increase
             ; Pending_coinbase.Stack.equal
                 txn.pending_coinbase_stack_state.source

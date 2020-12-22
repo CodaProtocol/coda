@@ -458,10 +458,6 @@ module T = struct
       (pending_coinbase_stack_state : Stack_state_with_init_stack.t) s
       txn_state_view =
     let open Result.Let_syntax in
-    let%bind fee_excess = Transaction.fee_excess s |> to_staged_ledger_or_error
-    and supply_increase =
-      Transaction.supply_increase s |> to_staged_ledger_or_error
-    in
     let source =
       Ledger.merkle_root ledger |> Frozen_ledger_hash.of_ledger_hash
     in
@@ -472,17 +468,27 @@ module T = struct
     let new_init_stack =
       push_coinbase pending_coinbase_stack_state.init_stack s
     in
-    let%map undo =
+    let%bind undo =
       Ledger.apply_transaction ~constraint_constants ~txn_state_view ledger s
       |> to_staged_ledger_or_error
     in
-    let next_available_token_after = Ledger.next_available_token ledger in
+    let effects : Transaction_side_effects.t =
+      { accounts_created= Transaction_logic.Undo.accounts_created undo
+      ; next_available_token= Ledger.next_available_token ledger }
+    in
+    let%map fee_excess = Transaction.fee_excess s |> to_staged_ledger_or_error
+    and supply_increase =
+      (let%bind a = Transaction.supply_increase s in
+       Transaction_snark.supply_increase' ~constraint_constants ~effects a
+       |> option "supply_increase")
+      |> to_staged_ledger_or_error
+    in
     ( undo
     , { Transaction_snark.Statement.source
       ; target= Ledger.merkle_root ledger |> Frozen_ledger_hash.of_ledger_hash
       ; fee_excess
       ; next_available_token_before
-      ; next_available_token_after
+      ; next_available_token_after= effects.next_available_token
       ; supply_increase
       ; pending_coinbase_stack_state=
           {pending_coinbase_stack_state.pc with target= pending_coinbase_target}
@@ -511,13 +517,12 @@ module T = struct
       measure "sparse ledger" (fun () ->
           Sparse_ledger.of_ledger_subset_exn ledger (account_ids s) )
     in
-    let r =
+    let open Result.Let_syntax in
+    let%map undo, statement, updated_pending_coinbase_stack_state =
       measure "apply+stmt" (fun () ->
           apply_transaction_and_get_statement ~constraint_constants ledger
             pending_coinbase_stack_state s txn_state_view )
     in
-    let open Result.Let_syntax in
-    let%map undo, statement, updated_pending_coinbase_stack_state = r in
     ( { Scan_state.Transaction_with_witness.transaction_with_info= undo
       ; state_hash= state_and_body_hash
       ; state_view= txn_state_view

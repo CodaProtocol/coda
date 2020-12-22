@@ -35,14 +35,14 @@ val apply_user_command_exn :
   -> txn_global_slot:Coda_numbers.Global_slot.t
   -> t
   -> Signed_command.t
-  -> t
+  -> t * Transaction_side_effects.t
 
 val apply_transaction_exn :
      constraint_constants:Genesis_constants.Constraint_constants.t
   -> txn_state_view:Snapp_predicate.Protocol_state.View.t
   -> t
   -> Transaction.t
-  -> t
+  -> t * Transaction_side_effects.t
 
 val of_any_ledger : Ledger.Any_ledger.M.t -> t
 

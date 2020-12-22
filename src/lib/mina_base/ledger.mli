@@ -222,14 +222,14 @@ val merkle_root_after_snapp_command_exn :
   -> txn_state_view:Snapp_predicate.Protocol_state.View.t
   -> t
   -> Snapp_command.Valid.t
-  -> Ledger_hash.t * [`Next_available_token of Token_id.t]
+  -> Ledger_hash.t * Transaction_side_effects.t
 
 val merkle_root_after_user_command_exn :
      constraint_constants:Genesis_constants.Constraint_constants.t
   -> txn_global_slot:Coda_numbers.Global_slot.t
   -> t
   -> Signed_command.With_valid_signature.t
-  -> Ledger_hash.t * [`Next_available_token of Token_id.t]
+  -> Ledger_hash.t * Transaction_side_effects.t
 
 val create_empty : t -> Account_id.t -> Path.t * Account.t
 

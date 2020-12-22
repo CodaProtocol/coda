@@ -316,15 +316,24 @@ module Types = struct
       ~values:
         [enum_value "PLUS" ~value:Sgn.Pos; enum_value "MINUS" ~value:Sgn.Neg]
 
-  let signed_fee =
-    obj "SignedFee" ~doc:"Signed fee" ~fields:(fun _ ->
+  let signed name to_uint64 =
+    let name_cap = String.capitalize name in
+    let name_lower = String.lowercase name in
+    obj (sprintf "Signed%s" name_cap) ~doc:(sprintf "Signed %s" name_lower)
+      ~fields:(fun _ ->
         [ field "sign" ~typ:(non_null sign) ~doc:"+/-"
             ~args:Arg.[]
-            ~resolve:(fun _ fee -> Currency.Amount.Signed.sgn fee)
-        ; field "feeMagnitude" ~typ:(non_null uint64) ~doc:"Fee"
+            ~resolve:(fun _ x -> x.Currency.Signed_poly.sgn)
+        ; field
+            (sprintf "%sMagnitude" name_lower)
+            ~typ:(non_null uint64) ~doc:name_cap
             ~args:Arg.[]
-            ~resolve:(fun _ fee ->
-              Currency.Amount.(to_uint64 (Signed.magnitude fee)) ) ] )
+            ~resolve:(fun _ x -> to_uint64 x.Currency.Signed_poly.magnitude) ]
+    )
+
+  let signed_fee = signed "fee" Currency.Amount.to_uint64
+
+  let signed_amount = signed "amount" Currency.Amount.to_uint64
 
   let work_statement =
     obj "WorkDescription"
@@ -353,12 +362,12 @@ module Types = struct
               (* TODO: Expose full fee excess data. *)
               { fee_excess_l with
                 magnitude= Currency.Amount.of_fee fee_excess_l.magnitude } )
-        ; field "supplyIncrease" ~typ:(non_null uint64)
+        ; field "supplyIncrease" ~typ:(non_null signed_amount)
             ~doc:"Increase in total coinbase reward "
             ~args:Arg.[]
             ~resolve:
               (fun _ ({supply_increase; _} : Transaction_snark.Statement.t) ->
-              Currency.Amount.to_uint64 supply_increase )
+              supply_increase )
         ; field "workId" ~doc:"Unique identifier for a snark work"
             ~typ:(non_null int)
             ~args:Arg.[]

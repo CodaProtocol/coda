@@ -105,7 +105,7 @@ let base_proof (module B : Blockchain_snark.Blockchain_snark_state.S)
     ; target=
         Blockchain_state.snarked_ledger_hash
           (Protocol_state.blockchain_state curr)
-    ; supply_increase= Currency.Amount.zero
+    ; supply_increase= Currency.Amount.Signed.zero
     ; fee_excess= Fee_excess.zero
     ; next_available_token_before= Token_id.(next default)
     ; next_available_token_after= Token_id.(next default)

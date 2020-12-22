@@ -216,7 +216,7 @@ let generate_next_state ~constraint_constants ~previous_protocol_state
               Option.value_map ledger_proof_opt
                 ~f:(fun (proof, _) ->
                   (Ledger_proof.statement proof).supply_increase )
-                ~default:Currency.Amount.zero
+                ~default:Currency.Amount.Signed.zero
             in
             let blockchain_state =
               (* We use the time of the beginning of the slot because if things

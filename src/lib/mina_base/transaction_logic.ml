@@ -153,6 +153,27 @@ module Undo = struct
         let to_latest = Fn.id
       end
     end]
+
+    let accounts_created = function
+      | Coinbase {previous_empty_accounts; _}
+      | Fee_transfer {previous_empty_accounts; _} ->
+          List.length previous_empty_accounts
+      | Command (Snapp_command {accounts; _}) ->
+          List.count accounts ~f:(fun (_, a) -> Option.is_none a)
+      | Command (Signed_command {body; _}) -> (
+        match body with
+        | Payment {previous_empty_accounts} ->
+            List.length previous_empty_accounts
+        | Create_token_account ->
+            1
+        | Mint_tokens ->
+            0
+        | Stake_delegation _ ->
+            0
+        | Create_new_token _ ->
+            1
+        | Failed ->
+            0 )
   end
 
   [%%versioned
@@ -165,6 +186,8 @@ module Undo = struct
       let to_latest = Fn.id
     end
   end]
+
+  let accounts_created t = Varying.accounts_created t.varying
 end
 
 module type S = sig
@@ -276,14 +299,14 @@ module type S = sig
     -> txn_state_view:Snapp_predicate.Protocol_state.View.t
     -> ledger
     -> Snapp_command.Valid.t
-    -> Ledger_hash.t * [`Next_available_token of Token_id.t]
+    -> Ledger_hash.t * Transaction_side_effects.t
 
   val merkle_root_after_user_command_exn :
        constraint_constants:Genesis_constants.Constraint_constants.t
     -> txn_global_slot:Global_slot.t
     -> ledger
     -> Signed_command.With_valid_signature.t
-    -> Ledger_hash.t * [`Next_available_token of Token_id.t]
+    -> Ledger_hash.t * Transaction_side_effects.t
 
   val undo :
        constraint_constants:Genesis_constants.Constraint_constants.t
@@ -1936,10 +1959,13 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
         (apply_snapp_command_unchecked ~constraint_constants
            ~state_view:txn_state_view ledger payment)
     in
+    let accounts_created =
+      Undo.Varying.accounts_created (Command (Snapp_command undo))
+    in
     let root = merkle_root ledger in
     let next_available_token = next_available_token ledger in
     Or_error.ok_exn (undo_snapp_command ~constraint_constants ledger undo) ;
-    (root, `Next_available_token next_available_token)
+    (root, {Transaction_side_effects.next_available_token; accounts_created})
 
   let merkle_root_after_user_command_exn ~constraint_constants ~txn_global_slot
       ledger payment =
@@ -1948,10 +1974,13 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
         (apply_user_command ~constraint_constants ~txn_global_slot ledger
            payment)
     in
+    let accounts_created =
+      Undo.Varying.accounts_created (Command (Signed_command undo))
+    in
     let root = merkle_root ledger in
     let next_available_token = next_available_token ledger in
     Or_error.ok_exn (undo_user_command ~constraint_constants ledger undo) ;
-    (root, `Next_available_token next_available_token)
+    (root, {Transaction_side_effects.next_available_token; accounts_created})
 
   module For_tests = struct
     let validate_timing_with_min_balance = validate_timing_with_min_balance

@@ -179,9 +179,30 @@ end = struct
     if z < x then None else Some z
 
   let scale u64 i =
-    let i = Unsigned.of_int i in
-    let max_val = Unsigned.(div max_int i) in
-    if max_val >= u64 then Some (Unsigned.mul u64 i) else None
+    if Int.equal i 0 || equal u64 zero then Some Unsigned.zero
+    else if Int.is_negative i then None
+    else
+      let i = Unsigned.of_int i in
+      let max_val = Unsigned.(div max_int i) in
+      if max_val >= u64 then Some (Unsigned.mul u64 i) else None
+
+  let%test_unit "scale" =
+    Quickcheck.(test (Generator.tuple2 gen Int.quickcheck_generator))
+      ~f:(fun (x, i) ->
+        let r =
+          let max_int = Bignum_bigint.of_string (to_string max_int) in
+          let x = Bignum_bigint.of_string (to_string x) in
+          let i = Bignum_bigint.of_int i in
+          let r = Bignum_bigint.(x * i) in
+          if Bignum_bigint.(r <= max_int && r >= zero) then
+            Some (of_string (Bignum_bigint.to_string r))
+          else None
+        in
+        let r_actual = scale x i in
+        if not ([%eq: t option] r_actual r) then
+          failwithf
+            !"scale %{sexp:t} %d\n%{sexp: t option} vs %{sexp: t option}"
+            x i r_actual r () )
 
   let ( + ) = add
 

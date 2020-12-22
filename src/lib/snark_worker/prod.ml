@@ -114,22 +114,13 @@ module Inputs = struct
                       Sparse_ledger.snapp_accounts w.ledger
                         (Transaction.forget t)
                     in
+                    let statement = {input with sok_digest} in
                     Deferred.Or_error.try_with (fun () ->
-                        M.of_transaction ~sok_digest ~snapp_account1
+                        M.of_transaction ~statement ~snapp_account1
                           ~snapp_account2
-                          ~source:input.Transaction_snark.Statement.source
-                          ~target:input.target
                           { Transaction_protocol_state.Poly.transaction= t
                           ; block_data= w.protocol_state_body }
                           ~init_stack:w.init_stack
-                          ~next_available_token_before:
-                            input.next_available_token_before
-                          ~next_available_token_after:
-                            input.next_available_token_after
-                          ~pending_coinbase_stack_state:
-                            input
-                              .Transaction_snark.Statement
-                               .pending_coinbase_stack_state
                           (unstage (Mina_base.Sparse_ledger.handler w.ledger))
                     ) )
             | Merge (_, proof1, proof2) ->

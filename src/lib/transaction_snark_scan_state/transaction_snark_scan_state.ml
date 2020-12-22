@@ -96,7 +96,8 @@ module Job_view = struct
                   [ ("token", Token_id.to_yojson s.fee_excess.fee_token_r)
                   ; ("amount", Fee.Signed.to_yojson s.fee_excess.fee_excess_r)
                   ] ] )
-        ; ("Supply Increase", Currency.Amount.to_yojson s.supply_increase)
+        ; ( "Supply Increase"
+          , Currency.Amount.Signed.to_yojson s.supply_increase )
         ; ( "Pending coinbase stack"
           , Transaction_snark.Pending_coinbase_stack_state.to_yojson
               s.pending_coinbase_stack_state ) ]
@@ -173,7 +174,7 @@ let create_expected_statement ~constraint_constants
     ; state_view
     ; ledger_witness
     ; init_stack
-    ; statement } =
+    ; statement } : Transaction_snark.Statement.t Or_error.t =
   let open Or_error.Let_syntax in
   let source =
     Frozen_ledger_hash.of_ledger_hash
@@ -185,7 +186,7 @@ let create_expected_statement ~constraint_constants
   let {With_status.data= transaction; status= _} =
     Ledger.Undo.transaction transaction_with_info
   in
-  let%bind after =
+  let%bind after, effects =
     Or_error.try_with (fun () ->
         Sparse_ledger.apply_transaction_exn ~constraint_constants
           ~txn_state_view:state_view ledger_witness transaction )
@@ -193,7 +194,6 @@ let create_expected_statement ~constraint_constants
   let target =
     Frozen_ledger_hash.of_ledger_hash @@ Sparse_ledger.merkle_root after
   in
-  let next_available_token_after = Sparse_ledger.next_available_token after in
   let%bind pending_coinbase_before =
     match init_stack with
     | Base source ->
@@ -215,12 +215,16 @@ let create_expected_statement ~constraint_constants
         pending_coinbase_with_state
   in
   let%bind fee_excess = Transaction.fee_excess transaction in
-  let%map supply_increase = Transaction.supply_increase transaction in
+  let%map supply_increase =
+    let%bind x = Transaction.supply_increase transaction in
+    Transaction_snark.supply_increase' x ~constraint_constants ~effects
+    |> option "supply_increase overflow"
+  in
   { Transaction_snark.Statement.source
   ; target
   ; fee_excess
   ; next_available_token_before
-  ; next_available_token_after
+  ; next_available_token_after= effects.next_available_token
   ; supply_increase
   ; pending_coinbase_stack_state=
       { statement.pending_coinbase_stack_state with
@@ -240,7 +244,7 @@ let completed_work_to_scanable_work (job : job) (fee, current_proof, prover) :
       let open Or_error.Let_syntax in
       let%map fee_excess = Fee_excess.combine s.fee_excess s'.fee_excess
       and supply_increase =
-        Amount.add s.supply_increase s'.supply_increase
+        Amount.Signed.add s.supply_increase s'.supply_increase
         |> option "Error adding supply_increases"
       and _valid_pending_coinbase_stack =
         if
@@ -558,7 +562,7 @@ let statement_of_job : job -> Transaction_snark.Statement.t option = function
         | Error _ ->
             None
       and supply_increase =
-        Currency.Amount.add stmt1.supply_increase stmt2.supply_increase
+        Currency.Amount.Signed.add stmt1.supply_increase stmt2.supply_increase
       and () =
         Option.some_if
           (Token_id.equal stmt1.next_available_token_after
