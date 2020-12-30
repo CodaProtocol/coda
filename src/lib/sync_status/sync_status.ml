@@ -21,6 +21,8 @@ let to_string = function
       "Synced"
   | `Catchup ->
       "Catchup"
+  | `Waiting_for_genesis ->
+      "Waiting for genesis"
 
 let of_string string =
   match String.lowercase string with
@@ -36,6 +38,8 @@ let of_string string =
       Ok `Synced
   | "catchup" ->
       Ok `Catchup
+  | "waiting for genesis" ->
+      Ok `Waiting_for_genesis
   | status ->
       Error (Error.createf !"%s is not a valid status" status)
 
@@ -46,7 +50,13 @@ module T = struct
   module Stable = struct
     module V1 = struct
       type t =
-        [`Connecting | `Listening | `Offline | `Bootstrap | `Synced | `Catchup]
+        [ `Connecting
+        | `Listening
+        | `Offline
+        | `Bootstrap
+        | `Synced
+        | `Catchup
+        | `Waiting_for_genesis ]
       [@@deriving sexp, hash, compare, equal, enumerate]
 
       let to_latest = Fn.id
@@ -69,7 +79,12 @@ include Hashable.Make (T)
 
 let%test "of_string (to_string x) == x" =
   List.for_all
-    [`Offline; `Bootstrap; `Synced; `Connecting; `Listening; `Catchup]
-    ~f:(fun sync_status ->
+    [ `Offline
+    ; `Bootstrap
+    ; `Synced
+    ; `Connecting
+    ; `Listening
+    ; `Catchup
+    ; `Waiting_for_genesis ] ~f:(fun sync_status ->
       equal sync_status (of_string (to_string sync_status) |> Or_error.ok_exn)
   )

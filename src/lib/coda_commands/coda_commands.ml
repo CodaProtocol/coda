@@ -280,6 +280,8 @@ let get_status ~flag t =
       with
       | `Bootstrap ->
           `Bootstrapping
+      | `Waiting_for_genesis ->
+          `Waiting_for_genesis
       | `Connecting ->
           `Active `Connecting
       | `Listening ->
@@ -314,17 +316,21 @@ let get_status ~flag t =
         ; state_hash
         ; consensus_time_best_tip
         ; global_slot_since_genesis_best_tip } ) =
+    let empty =
+      { num_accounts= None
+      ; blockchain_length= None
+      ; ledger_merkle_root= None
+      ; state_hash= None
+      ; consensus_time_best_tip= None
+      ; global_slot_since_genesis_best_tip= None }
+    in
     match active_status () with
     | `Active result ->
         result
     | `Bootstrapping ->
-        ( `Bootstrap
-        , { num_accounts= None
-          ; blockchain_length= None
-          ; ledger_merkle_root= None
-          ; state_hash= None
-          ; consensus_time_best_tip= None
-          ; global_slot_since_genesis_best_tip= None } )
+        (`Bootstrap, empty)
+    | `Waiting_for_genesis ->
+        (`Waiting_for_genesis, empty)
   in
   let next_block_production =
     let open Block_time in

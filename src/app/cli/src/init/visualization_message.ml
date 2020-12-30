@@ -9,3 +9,9 @@ let bootstrap visualization_type =
   sprintf
     !"Could not visualize %s since daemon is currently bootstrapping"
     visualization_type
+
+let waiting visualization_type =
+  sprintf
+    !"Could not visualize %s since daemon is currently waiting for genesis or \
+      fork time"
+    visualization_type

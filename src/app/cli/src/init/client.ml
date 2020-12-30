@@ -1801,7 +1801,9 @@ module Visualization = struct
         | `Active () ->
             Visualization_message.success name filename
         | `Bootstrapping ->
-            Visualization_message.bootstrap name )
+            Visualization_message.bootstrap name
+        | `Waiting_for_genesis ->
+            Visualization_message.waiting name )
   end
 
   module Registered_masks = struct

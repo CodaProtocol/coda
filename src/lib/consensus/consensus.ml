@@ -1,6 +1,7 @@
 [%%import
 "/src/config.mlh"]
 
+module Global_slot = Global_slot
 module Intf = Intf
 
 [%%if

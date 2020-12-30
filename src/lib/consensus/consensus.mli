@@ -1,5 +1,7 @@
 [%%import "../../config.mlh"]
 
+module Global_slot = Global_slot
+
 module Intf : module type of Intf
 
 [%%if consensus_mechanism = "proof_of_stake"]

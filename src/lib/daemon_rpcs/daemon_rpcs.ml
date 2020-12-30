@@ -229,7 +229,7 @@ module Visualization = struct
   module Frontier = struct
     type query = string [@@deriving bin_io_unversioned]
 
-    type response = [`Active of unit | `Bootstrapping]
+    type response = [`Active of unit | `Bootstrapping | `Waiting_for_genesis]
     [@@deriving bin_io_unversioned]
 
     let rpc : (query, response) Rpc.Rpc.t =
