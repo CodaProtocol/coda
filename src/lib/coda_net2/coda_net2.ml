@@ -566,7 +566,8 @@ module Helper = struct
         ~metadata:
           [ ( "line"
             , `String (String.slice rpc 0 (Int.min (String.length rpc) 2048))
-            ) ] ;
+            )
+          ; ("size_in_bytes", `Int (String.length rpc)) ] ;
       Writer.write_line (Child_processes.stdin t.subprocess) rpc ;
       let%map res_json = Ivar.read res in
       Or_error.bind res_json
