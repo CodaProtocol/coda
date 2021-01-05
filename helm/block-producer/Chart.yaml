@@ -2,7 +2,7 @@ apiVersion: v2
 name: block-producer
 description: A Helm chart for Mina Protocol's block producing network nodes
 type: application
-version: 0.4.3
+version: 0.5.0
 appVersion: 1.16.0
 dependencies:
   - name: common-utilities
