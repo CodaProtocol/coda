@@ -24,9 +24,9 @@ RUN apt-get -y update \
     tzdata
 
 # mina keypair package
-RUN echo "deb [trusted=yes] http://packages.o1test.net unstable main" > /etc/apt/sources.list.d/o1.list \
+RUN echo "deb [trusted=yes] http://packages.o1test.net release main" > /etc/apt/sources.list.d/o1.list \
    && apt-get update \
-   && apt-get install -y "mina-generate-keypair=0.0.16-beta7-20bce37"
+   && apt-get install -y "mina-generate-keypair=0.2.6-5c08d6d"
 
 WORKDIR /
 

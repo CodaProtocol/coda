@@ -214,7 +214,7 @@ func (gs *CodaGatingState) InterceptPeerDial(p peer.ID) (allow bool) {
 // resolved the peer's addrs, and prior to dialling each.
 func (gs *CodaGatingState) InterceptAddrDial(id peer.ID, addr ma.Multiaddr) (allow bool) {
 	_, exists := os.LookupEnv("CONNECT_PRIVATE_IPS")
-
+	
 	// if we want to allow connecting to private IPs, and this addr is a private IP, allow
 	if exists && gs.AddrFilters.AddrBlocked(addr) {
 		return true
@@ -346,6 +346,11 @@ func MakeHelper(ctx context.Context, listenOn []ma.Multiaddr, externalAddr ma.Mu
 				as = append(as, externalAddr)
 			}
 
+			_, exists := os.LookupEnv("CONNECT_PRIVATE_IPS")
+			if exists {
+				return as
+			}
+      
 			fs := ma.NewFilters()
 			for _, addr := range privateIPs {
 				fs.AddFilter(parseCIDR(addr), ma.ActionDeny)

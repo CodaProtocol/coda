@@ -5,6 +5,7 @@ BASE=${BUILDKITE_PULL_REQUEST_BASE_BRANCH:-develop}
 TAG=$(git tag --points-at HEAD)
 
 [[ -n $TAG ]] && git ls-files && exit
+[[ "$BUILDKITE_BRANCH" == "compatible" ]] && git ls-files && exit
 
 # Finds the commit hash of HEAD of $BASE branch
 BASECOMMIT=$(git log origin/$BASE -1 --pretty=format:%H)
