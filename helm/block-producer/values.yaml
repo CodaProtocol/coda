@@ -75,3 +75,16 @@ healthcheck:
 
 nodeSelector:
   preemptible: true
+
+watchman:
+  enable: true
+  image: gcr.io/coda-network-services:0.3.2
+  command: [
+    "watchman",
+    "-- trigger \"$WATCHMAN_MOUNT_PATH\"",
+    "upload-core-dumps",
+    "-- TESTNET=$(cat /etc/resolv.conf | grep search | cut -d' ' -f2 | cut -d '.' -f1)",
+    "gsutil -m rsync $WATCHMAN_MOUNT_PATH \"gs://mina-crash-dumps/$TESTNET/$(hostname -f)/\""
+  ]
+  volumeName: core-dump-dir
+  volumeMountPath: /core-dumps

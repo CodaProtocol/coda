@@ -6,5 +6,15 @@ healthcheck:
   failureThreshold: 60
   periodSeconds: 5
   initialDelaySeconds: 30
+
 nodeSelector:
   preemptible: false
+
+watchman:
+  enable: false
+  # image: icalialabs/watchman:latest
+  # volumeName: watchman-dir
+  # volumeMountPath: /tmp
+  # command: ls
+  # envVars:
+  #   GCS_UPLOAD_URL: gs://mina-crash-dumps

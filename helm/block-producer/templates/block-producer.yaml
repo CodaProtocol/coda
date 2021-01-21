@@ -229,6 +229,7 @@ spec:
           containerPort: {{ $.Values.coda.ports.p2p }}
           hostPort: {{ $.Values.coda.ports.external }}
 {{- include "healthcheck.daemon.allChecks" $.Values | indent 8 }}
+{{- include "sideCar.watchman.lifeCycleHook.coreDump" $.Values | indent 8 }}
         imagePullPolicy: Always
         volumeMounts:
         - name: wallet-keys
@@ -243,6 +244,8 @@ spec:
         - name: daemon-config
           mountPath: "/config/"
         {{- end }}
+{{- include "sideCar.watchman.volumeMount" $.Values | indent 8 }}
+{{- include "sideCar.watchman.containerSpec" $.Values | indent 6 }}
 {{- include "nodeSelector.preemptible" $.Values | indent 6 }}
       volumes:
       - name: private-keys
@@ -292,6 +295,7 @@ spec:
           - key: keyfile
             path: keyfile.json
       {{- end }}
+{{- include "sideCar.watchman.volume" $.Values | indent 6 }}
 ---
 apiVersion: v1
 kind: Service
