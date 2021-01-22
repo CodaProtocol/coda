@@ -7,6 +7,8 @@ module Base = struct
 
     type ledger_proof
 
+    val wait_for_proving : unit Ivar.t -> unit
+
     val verify_commands :
          t
       -> Mina_base.User_command.Verifiable.t list

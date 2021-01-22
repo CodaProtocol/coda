@@ -13,6 +13,8 @@ let create ~logger:_ ~proof_level ~pids:_ ~conf_dir:_ =
   | Check | None ->
       Deferred.return ()
 
+let wait_for_proving _ = ()
+
 let verify_blockchain_snarks _ _ = Deferred.Or_error.return true
 
 let verify_commands _ (cs : User_command.Verifiable.t list) :

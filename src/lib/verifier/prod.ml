@@ -313,11 +313,26 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
   on_worker worker ;
   {worker= worker_ref; logger}
 
+let waiting_for_proving : unit Ivar.t option ref = ref None
+
+let wait_for_proving (proving_finished : unit Ivar.t) =
+  Deferred.upon (Ivar.read proving_finished) (fun () ->
+      waiting_for_proving := None ) ;
+  waiting_for_proving := Some proving_finished
+
 let with_retry ~logger f =
   let pause = Time.Span.of_sec 5. in
   let rec go attempts_remaining =
     [%log trace] "Verifier trying with $attempts_remaining"
       ~metadata:[("attempts_remaining", `Int attempts_remaining)] ;
+    let f =
+      match !waiting_for_proving with
+      | Some proving_finished ->
+          (* Wait for proving to finish before dispatching verificaions. *)
+          fun () -> Deferred.bind ~f (Ivar.read proving_finished)
+      | None ->
+          f
+    in
     match%bind f () with
     | Ok x ->
         return (Ok x)
