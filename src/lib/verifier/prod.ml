@@ -273,10 +273,25 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
   let%map worker = create_worker () in
   let worker_ref = ref (Deferred.return worker) in
   let rec on_worker {connection= _; process} =
-    let restart_after = Time.Span.(of_min (15. |> plus_or_minus ~delta:2.5)) in
+    let time_to_restart =
+      match
+        let open Option.Let_syntax in
+        let%bind restart_minutes =
+          Unix.getenv "MINA_VERIFIER_RESTART_AFTER_MINS"
+        in
+        Option.try_with (fun () -> Float.of_string restart_minutes)
+      with
+      | Some restart_minutes ->
+          let one_sixth = restart_minutes /. 6. in
+          after
+            Time.Span.(
+              of_min (restart_minutes |> plus_or_minus ~delta:one_sixth))
+      | None ->
+          Deferred.never ()
+    in
     let finished =
       Deferred.any
-        [ (after restart_after >>| fun () -> `Time_to_restart)
+        [ (time_to_restart >>| fun () -> `Time_to_restart)
         ; (Process.wait process >>| fun _ -> `Unexpected_termination) ]
     in
     upon finished (fun e ->
