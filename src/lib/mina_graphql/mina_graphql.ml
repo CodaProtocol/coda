@@ -2421,13 +2421,11 @@ module Types = struct
                     Snapp_command_input.Authorization.Proved
                       (snapp_predicate, control)
                 | None ->
-                    let signature =
-                      (* TODO: Bubble this error up to the command and handle
-                         it there, rather than silencing it.
-                      *)
-                      Option.value ~default:Signature.dummy signature
-                    in
-                    Snapp_command_input.Authorization.Signed signature
+                    Snapp_command_input.Authorization.Signed
+                      (Option.value_map
+                         ~default:Snapp_command_input.Sign_choice.Other
+                         ~f:(fun s -> Signature s)
+                         signature)
               in
               let delta =
                 let magnitude =
@@ -2458,7 +2456,9 @@ module Types = struct
         let secondParty =
           obj "secondParty"
             ~doc:"The secondary account involved in a snapp transaction"
-            ~coerce:(fun pk update delta proof signature snapp_predicate ->
+            ~coerce:
+              (fun pk update delta proof signature generate_signature
+                   snapp_predicate ->
               match pk with
               | None ->
                   Snapp_command_input.Second_party.Not_given
@@ -2481,10 +2481,14 @@ module Types = struct
                         Some
                           (Snapp_command_input.Authorization.Proved
                              (snapp_predicate, control))
-                    | None ->
-                        Option.map signature ~f:(fun signature ->
-                            Snapp_command_input.Authorization.Signed signature
-                        )
+                    | None -> (
+                      match (signature, generate_signature) with
+                      | Some signature, _ ->
+                          Some (Signed (Signature signature))
+                      | None, Some true ->
+                          Some (Signed Other)
+                      | None, (None | Some false) ->
+                          None )
                   in
                   let delta =
                     let magnitude =
@@ -2511,6 +2515,11 @@ module Types = struct
               ; arg "signature"
                   ~doc:"A signature to authorize the account update"
                   ~typ:signature_arg
+              ; arg "generateSignature"
+                  ~doc:
+                    "Whether to generate a signature in the daemon (default \
+                     false)"
+                  ~typ:bool
               ; arg "predicate"
                   ~doc:"The predicate that applies to the account update"
                   ~typ:snappPredicate ]
@@ -2523,23 +2532,27 @@ module Types = struct
                     ; token_id= Token_id.default
                     ; nonce
                     ; fee= Fee.of_uint64 fee }
-                ; signature=
-                    (* TODO: Propagate this error, handle it at the command
-                       level.
-                    *)
-                    signature |> Option.bind ~f:Result.ok
-                    |> Option.value ~default:Signature.dummy }
-                : Other_fee_payer.t ) )
+                ; sign_choice=
+                    ( match signature with
+                    | None ->
+                        Other
+                    | Some (Ok signature) ->
+                        Signature signature
+                    | Some (Error _) ->
+                        (* TODO: Propagate this error, handle it at the command
+                           level.
+                        *)
+                        Other ) }
+                : Snapp_command_input.Other_fee_payer.t ) )
             ~fields:
               [ arg "publicKey"
                   ~doc:"Public key of the account to pay fees from"
                   ~typ:(non_null public_key_arg)
               ; (* TODO: Make this nullable *)
                 arg "nonce" ~doc:"The nonce of the fee payer's account"
-                  ~typ:(non_null uint32_arg)
+                  ~typ:uint32_arg
               ; arg "fee" ~doc:"The fee to pay" ~typ:(non_null uint64_arg)
-              ; (* TODO: Make this optional, like with user commands. *)
-                arg "signature" ~doc:"The signature to authorize the payment"
+              ; arg "signature" ~doc:"The signature to authorize the payment"
                   ~typ:signature_arg ]
       end
 

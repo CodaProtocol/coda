@@ -140,6 +140,13 @@ let sign ~hd_index ~public_key ~user_command_payload :
              ledger, please first create an account by 'coda account \
              create-hd' command"
 
+let sign_snapp ~hd_index:(_ : Unsigned.UInt32.t) ~public_key:(_ : Public_key.t)
+    ~snapp_payload_digest:(_ : Tick.Field.t) :
+    (Signature.t, string) Deferred.Result.t =
+  Deferred.Result.fail
+    "The hardware wallet script currently does not support signing snapp \
+     commands"
+
 let write_exn ~hd_index ~index_path : unit Deferred.t =
   let%bind index_file = Writer.open_file index_path in
   Writer.write_line index_file (Mina_numbers.Hd_index.to_string hd_index) ;
