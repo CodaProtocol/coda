@@ -5,7 +5,7 @@
  (inline_tests)
  (libraries core mina_intf mina_version pipe_lib user_command_input logger async async_extra
             filtered_external_transition unix_timestamp debug_assert o1trace consensus
-            incremental secrets work_selector
+            incremental secrets work_selector snapp_command_input
             mina_networking block_producer genesis_constants sync_handler transition_router node_addrs_and_ports
             otp_lib protocol_version snark_worker participating_state transaction_inclusion_status
             sync_status daemon_rpcs archive_lib exit_handlers)

@@ -72,7 +72,7 @@ module Other_fee_payer = struct
             , Currency.Fee.Stable.V1.t )
             Other_fee_payer.Payload.Poly.Stable.V1.t
         ; sign_choice: Sign_choice.Stable.V1.t }
-      [@@deriving sexp]
+      [@@deriving sexp, to_yojson]
 
       let to_latest = Fn.id
     end
@@ -87,11 +87,14 @@ module Stable = struct
       ; fee_payment: Other_fee_payer.Stable.V1.t option
       ; one: Party.Stable.V1.t
       ; two: Second_party.Stable.V1.t }
-    [@@deriving sexp]
+    [@@deriving sexp, to_yojson]
 
     let to_latest = Fn.id
   end
 end]
+
+[%%define_locally
+Stable.Latest.(to_yojson)]
 
 let sign ~find_identity ~signer ~(snapp_command : Snapp_command.t) = function
   | Sign_choice.Signature signature ->
@@ -120,15 +123,23 @@ let inferred_nonce ~get_current_nonce ~(account_id : Account_id.t) ~nonce_map =
       let updated_map = update_map ~data:next_nonce in
       Ok (next_nonce, updated_map)
   | None ->
-      let%map txn_pool_or_account_nonce = get_current_nonce account_id in
+      (* TODO: Allow user provided nonce and use min nonce *)
+      let%map `Min _min_nonce, txn_pool_or_account_nonce =
+        get_current_nonce account_id
+      in
       let updated_map = update_map ~data:txn_pool_or_account_nonce in
       (txn_pool_or_account_nonce, updated_map)
 
 (* TODO: [nonce_map] may need to be updated regardless of whether we actually
    use it or not. *)
 let to_snapp_command ?(nonce_map = Account_id.Map.empty) ~get_current_nonce
-    ~find_identity ({token_id; fee_payment; one; two} : t) :
+    ~find_identity ({token_id; fee_payment; one; two} as snapp_input : t) :
     (Snapp_command.t * Account_nonce.t Account_id.Map.t, _) Deferred.Result.t =
+  Deferred.Result.map_error ~f:(fun str ->
+      Error.createf "Error creating snapp command: %s Error: %s"
+        (Yojson.Safe.to_string (to_yojson snapp_input))
+        str )
+  @@
   let open Deferred.Result.Let_syntax in
   let empty body : Snapp_command.Party.Authorized.Empty.t =
     {data= {body; predicate= ()}; authorization= ()}
@@ -244,3 +255,21 @@ let to_snapp_command ?(nonce_map = Account_id.Map.empty) ~get_current_nonce
           let%map fee_payment, nonce_map = fee_payment ~sign ~nonce_map () in
           ( Snapp_command.Signed_signed {token_id; fee_payment; one; two}
           , nonce_map ) )
+
+let to_snapp_commands ?(nonce_map = Account_id.Map.empty) ~get_current_nonce
+    ~find_identity uc_inputs : Snapp_command.t list Deferred.Or_error.t =
+  (* When batching multiple user commands, keep track of the nonces and send
+      all the user commands if they are valid or none if there is an error in
+      one of them.
+  *)
+  let open Deferred.Or_error.Let_syntax in
+  let%map snapp_commands, _ =
+    Deferred.Or_error.List.fold ~init:([], nonce_map) uc_inputs
+      ~f:(fun (valid_snapp_commands, nonce_map) uc_input ->
+        let%map res, updated_nonce_map =
+          to_snapp_command ~nonce_map ~get_current_nonce ~find_identity
+            uc_input
+        in
+        (res :: valid_snapp_commands, updated_nonce_map) )
+  in
+  List.rev snapp_commands

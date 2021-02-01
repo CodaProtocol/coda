@@ -3042,6 +3042,24 @@ module Mutations = struct
               ~fee ~fee_token ~fee_payer_pk:token_owner ~valid_until ~body
               ~signature )
 
+  let send_snapp_command =
+    io_field "sendSnappCommand" ~doc:"Send a snapp command"
+      ~typ:(non_null bool) (* TODO: Non-bool *)
+      ~args:Arg.[arg "input" ~typ:(non_null Types.Input.SendSnappCommand.typ)]
+      ~resolve:(fun {ctx= coda; _} () snapp_command_input ->
+        match
+          Mina_commands.setup_and_submit_snapp_command coda snapp_command_input
+        with
+        | `Active f -> (
+            match%map f with
+            | Ok _snapp_command ->
+                Ok true
+            | Error e ->
+                Error ("Couldn't send snapp command: " ^ Error.to_string_hum e)
+            )
+        | `Bootstrapping ->
+            return (Error "Daemon is bootstrapping") )
+
   let export_logs =
     io_field "exportLogs" ~doc:"Export daemon logs to tar archive"
       ~args:Arg.[arg "basename" ~typ:string]
@@ -3233,6 +3251,7 @@ module Mutations = struct
     ; create_token
     ; create_token_account
     ; mint_tokens
+    ; send_snapp_command
     ; export_logs
     ; set_staking
     ; set_snark_worker
