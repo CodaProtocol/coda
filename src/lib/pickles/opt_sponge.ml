@@ -39,23 +39,22 @@ struct
   let initial_state = Array.init m ~f:(fun _ -> Field.zero)
 
   let of_sponge {Sponge.state; params; sponge_state} =
-    let sponge_state =
-      match sponge_state with
-      | Squeezed n ->
-          Squeezed n
-      | Absorbed n ->
-          let next_index =
-            match n with
-            | 0 ->
-                Boolean.false_
-            | 1 ->
-                Boolean.true_
-            | _ ->
-                assert false
-          in
-          Absorbing {next_index; xs= []}
-    in
-    {sponge_state; state= Array.copy state; params}
+    match sponge_state with
+    | Squeezed n ->
+        {sponge_state= Squeezed n; state= Array.copy state; params}
+    | Absorbed n ->
+        let next_index, state =
+          match n with
+          | 0 ->
+              (Boolean.false_, Array.copy state)
+          | 1 ->
+              (Boolean.true_, Array.copy state)
+          | 2 ->
+              (Boolean.false_, P.block_cipher params (Array.copy state))
+          | _ ->
+              assert false
+        in
+        {sponge_state= Absorbing {next_index; xs= []}; state; params}
 
   let create ?(init = initial_state) params =
     { params

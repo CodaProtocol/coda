@@ -1,0 +1,5 @@
+(library
+ (name snapp_runner_functor)
+ (public_name snapp_runner.functor)
+ (libraries async core pickles base64)
+ (preprocess (pps ppx_deriving_yojson ppx_sexp_conv ppx_let)))
