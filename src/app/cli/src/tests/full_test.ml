@@ -198,7 +198,6 @@ let run_test () : unit Deferred.t =
                        (Public_key.compress largest_account_keypair.public_key)
                  ; shutdown_on_disconnect= true
                  ; num_threads= None }
-             ~snark_pool_disk_location:(temp_conf_dir ^/ "snark_pool")
              ~wallets_disk_location:(temp_conf_dir ^/ "wallets")
              ~persistent_root_location:(temp_conf_dir ^/ "root")
              ~persistent_frontier_location:(temp_conf_dir ^/ "frontier")

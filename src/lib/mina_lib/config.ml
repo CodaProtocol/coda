@@ -33,7 +33,6 @@ type t =
   ; initial_protocol_version: Protocol_version.t
         (* Option.t instead of option, so that the derived `make' requires an argument *)
   ; proposed_protocol_version_opt: Protocol_version.t Option.t
-  ; snark_pool_disk_location: string
   ; wallets_disk_location: string
   ; persistent_root_location: string
   ; persistent_frontier_location: string

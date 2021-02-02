@@ -464,7 +464,6 @@ module T = struct
                      { initial_snark_worker_key= snark_worker_key
                      ; shutdown_on_disconnect= true
                      ; num_threads= None }
-                 ~snark_pool_disk_location:(conf_dir ^/ "snark_pool")
                  ~persistent_root_location:(conf_dir ^/ "root")
                  ~persistent_frontier_location:(conf_dir ^/ "frontier")
                  ~epoch_ledger_location

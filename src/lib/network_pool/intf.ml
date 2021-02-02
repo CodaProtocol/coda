@@ -302,6 +302,7 @@ module type Transaction_resource_pool_intf = sig
   val make_config :
        trust_system:Trust_system.t
     -> pool_max_size:int
+    -> disk_location:string
     -> verifier:Verifier.t
     -> Config.t
 

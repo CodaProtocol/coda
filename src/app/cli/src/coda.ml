@@ -1013,7 +1013,6 @@ Pass one of -peer, -peer-list-file, -seed.|} ;
                ; shutdown_on_disconnect= true
                ; num_threads= snark_worker_parallelism_flag }
              ~snark_coordinator_key:run_snark_coordinator_flag
-             ~snark_pool_disk_location:(conf_dir ^/ "snark_pool")
              ~wallets_disk_location:(conf_dir ^/ "wallets")
              ~persistent_root_location:(conf_dir ^/ "root")
              ~persistent_frontier_location:(conf_dir ^/ "frontier")

@@ -667,7 +667,7 @@ let%test_module "random set test" =
 
     let config verifier =
       Mock_snark_pool.Resource_pool.make_config ~verifier ~trust_system
-        ~disk_location:"/tmp/snark-pool"
+        ~disk_location:"/tmp/snark_pool"
 
     let gen ?length () =
       let open Quickcheck.Generator.Let_syntax in

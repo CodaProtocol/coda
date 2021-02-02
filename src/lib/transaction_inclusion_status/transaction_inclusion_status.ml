@@ -116,7 +116,7 @@ let%test_module "transaction_status" =
             ~conf_dir:None
         in
         Transaction_pool.Resource_pool.make_config ~trust_system ~pool_max_size
-          ~verifier
+          ~verifier ~disk_location:"/tmp/transaction_pool"
       in
       let transaction_pool =
         Transaction_pool.create ~config

@@ -1255,6 +1255,7 @@ let create ?wallets (config : Config.t) =
               ~trust_system:config.trust_system
               ~pool_max_size:
                 config.precomputed_values.genesis_constants.txpool_max_size
+              ~disk_location:Core.(config.conf_dir ^/ "transaction_pool")
           in
           let transaction_pool =
             Network_pool.Transaction_pool.create ~config:txn_pool_config
@@ -1465,7 +1466,7 @@ let create ?wallets (config : Config.t) =
           let snark_pool_config =
             Network_pool.Snark_pool.Resource_pool.make_config ~verifier
               ~trust_system:config.trust_system
-              ~disk_location:config.snark_pool_disk_location
+              ~disk_location:Core.(config.conf_dir ^/ "snark_pool")
           in
           let%bind snark_pool =
             Network_pool.Snark_pool.load ~config:snark_pool_config
