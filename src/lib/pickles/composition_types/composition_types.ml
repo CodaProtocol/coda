@@ -49,6 +49,62 @@ let index_to_field_elements (k : 'a Plonk_verification_key_evals.t) ~g =
     ~f:g
   |> Array.concat
 
+let index_5_wires_to_field_elements
+    (k : 'a Plonk_5_wires_verification_key_evals.t) ~g =
+  let [ g1
+      ; g2
+      ; g3
+      ; g4
+      ; g5
+      ; g6
+      ; g7
+      ; g8
+      ; g9
+      ; g10
+      ; g11
+      ; g12
+      ; g13
+      ; g14
+      ; g15
+      ; g16
+      ; g17
+      ; g18
+      ; g19
+      ; g20
+      ; g21
+      ; g22
+      ; g23
+      ; g24 ] =
+    Plonk_5_wires_verification_key_evals.to_hlist k
+  in
+  List.map
+    [ g1
+    ; g2
+    ; g3
+    ; g4
+    ; g5
+    ; g6
+    ; g7
+    ; g8
+    ; g9
+    ; g10
+    ; g11
+    ; g12
+    ; g13
+    ; g14
+    ; g15
+    ; g16
+    ; g17
+    ; g18
+    ; g19
+    ; g20
+    ; g21
+    ; g22
+    ; g23
+    ; g24 ]
+    ~f:g
+  |> Array.concat
+
 module Dlog_based = struct
   module Proof_state = struct
     module Deferred_values = struct

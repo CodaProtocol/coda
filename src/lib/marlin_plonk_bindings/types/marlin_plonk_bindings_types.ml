@@ -138,6 +138,10 @@ module Plonk_5_wires_gate = struct
       | Pack
   end
 
+  module Col = struct
+    type t = L | R | O | Q | P
+  end
+
   module Wire = struct
     type t = {row: int; col: int}
   end

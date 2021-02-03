@@ -70,5 +70,9 @@ module Tweedle_fq_proof = Marlin_plonk_bindings_tweedle_fq_proof
 (* Oracles *)
 module Pasta_fp_oracles = Marlin_plonk_bindings_pasta_fp_oracles
 module Pasta_fq_oracles = Marlin_plonk_bindings_pasta_fq_oracles
+module Pasta_5_wires_fp_oracles =
+  Marlin_plonk_bindings_pasta_5_wires_fp_oracles
+module Pasta_5_wires_fq_oracles =
+  Marlin_plonk_bindings_pasta_5_wires_fq_oracles
 module Tweedle_fp_oracles = Marlin_plonk_bindings_tweedle_fp_oracles
 module Tweedle_fq_oracles = Marlin_plonk_bindings_tweedle_fq_oracles

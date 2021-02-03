@@ -164,6 +164,63 @@ let wrap_index_to_input (type gs f) (g : gs -> f array) =
       ~f:(Fn.compose field_elements g)
     |> List.reduce_exn ~f:append
 
+let wrap_5_wires_index_to_input (type gs f) (g : gs -> f array) =
+  let open Random_oracle_input in
+  fun t ->
+    let [ g1
+        ; g2
+        ; g3
+        ; g4
+        ; g5
+        ; g6
+        ; g7
+        ; g8
+        ; g9
+        ; g10
+        ; g11
+        ; g12
+        ; g13
+        ; g14
+        ; g15
+        ; g16
+        ; g17
+        ; g18
+        ; g19
+        ; g20
+        ; g21
+        ; g22
+        ; g23
+        ; g24 ] =
+      Plonk_5_wires_verification_key_evals.to_hlist t
+    in
+    List.map
+      [ g1
+      ; g2
+      ; g3
+      ; g4
+      ; g5
+      ; g6
+      ; g7
+      ; g8
+      ; g9
+      ; g10
+      ; g11
+      ; g12
+      ; g13
+      ; g14
+      ; g15
+      ; g16
+      ; g17
+      ; g18
+      ; g19
+      ; g20
+      ; g21
+      ; g22
+      ; g23
+      ; g24 ]
+      ~f:(Fn.compose field_elements g)
+    |> List.reduce_exn ~f:append
+
 let to_input : _ Poly.t -> _ =
   let open Random_oracle_input in
   let map_reduce t ~f = Array.map t ~f |> Array.reduce_exn ~f:append in

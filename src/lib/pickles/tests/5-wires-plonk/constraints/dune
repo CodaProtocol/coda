@@ -1,0 +1,15 @@
+(library
+ (name test_5_wires_plonk_constraints)
+ (libraries
+  digestif
+  zexe_backend
+  snarky_log
+  sponge
+  group_map
+  snarky_group_map
+  snarky_curve
+  snarky.backendless
+  key_cache
+  core_kernel)
+ (inline_tests)
+ (preprocess (pps ppx_version ppx_coda ppx_jane ppx_deriving.std ppx_deriving_yojson)))
