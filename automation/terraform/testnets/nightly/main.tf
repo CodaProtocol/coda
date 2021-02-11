@@ -1,5 +1,5 @@
 terraform {
-  required_version = "~> 0.13.0"
+  required_version = "~> 0.12.0"
   backend "s3" {
     key     = "terraform-nightly.tfstate"
     encrypt = true
@@ -109,6 +109,7 @@ module "ci_testnet" {
         class                  = "whale"
         id                     = i + 1
         private_key_secret     = "online-whale-account-${i + 1}-key"
+        libp2p_secret          = "online-whale-libp2p-${i + 1}-key"
         enable_gossip_flooding = false
         run_with_user_agent    = false
         run_with_bots          = false
@@ -122,6 +123,7 @@ module "ci_testnet" {
         class                  = "fish"
         id                     = i + 1
         private_key_secret     = "online-fish-account-${i + 1}-key"
+        libp2p_secret          = "online-fish-libp2p-${i + 1}-key"
         enable_gossip_flooding = false
         run_with_user_agent    = false
         run_with_bots          = false
