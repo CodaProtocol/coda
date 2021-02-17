@@ -6,6 +6,6 @@
    async node_addrs_and_ports network_peer core cohttp graphql-async graphql-cohttp
    ; libs
    ppx_deriving_yojson.runtime filtered_external_transition
-   mina_base mina_state mina_transition mina_commands user_command_input mina_lib)
+   mina_base mina_state mina_transition mina_commands user_command_input snapp_command_input mina_lib)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_coda ppx_version ppx_jane ppx_deriving_yojson)))

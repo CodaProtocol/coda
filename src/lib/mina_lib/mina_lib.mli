@@ -91,6 +91,13 @@ val add_transactions :
      * Network_pool.Transaction_pool.Resource_pool.Diff.Rejected.t )
      Deferred.Or_error.t
 
+val add_snapp_transactions :
+     t
+  -> Snapp_command_input.t list
+  -> ( Network_pool.Transaction_pool.Resource_pool.Diff.t
+     * Network_pool.Transaction_pool.Resource_pool.Diff.Rejected.t )
+     Deferred.Or_error.t
+
 val get_inferred_nonce_from_transaction_pool_and_ledger :
   t -> Account_id.t -> Account.Nonce.t option Participating_state.t
 
