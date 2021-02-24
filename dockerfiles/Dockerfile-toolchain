@@ -14,6 +14,9 @@ ARG EXTERNAL_PKG_DIR=$CODA_DIR/src/external
 ARG OPAMKEEPBUILDDIR=false
 ARG OPAMREUSEBUILDDIR=false
 
+# Rust Version passed into rustup-init, can also be "stable", "nightly" or similar
+ARG RUST_VERSION=1.45.2
+
 # OS package dependencies
 RUN sudo apt-get update && sudo apt-get install --yes \
     cmake \
@@ -67,16 +70,23 @@ RUN curl -sL https://releases.hashicorp.com/terraform/0.12.29/terraform_0.12.29_
     sudo mv terraform /usr/bin && \
     sudo ln -s /usr/bin/terraform /usr/local/bin/terraform
 
+# Rust pin
+RUN curl --proto '=https' --tlsv1.2 -sSf -o /tmp/rustup-init \
+  https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init \
+  && chmod +x /tmp/rustup-init \
+  && /tmp/rustup-init -y --default-toolchain "${RUST_VERSION}" --profile minimal \
+  && rm /tmp/rustup-init
+# For more about rustup-init see: https://github.com/rust-lang/rustup/blob/master/README.md
+# As opposed to introducing another shell script here (that mostly just determines the platform)
+# we just download the binary for the only platform we care about in this docker environment
+RUN export PATH="$PATH:$HOME/.cargo/bin"
+RUN echo 'export PATH="$PATH:$HOME/.cargo/bin"' >> /home/opam/.bashrc
+
 # Helm tools
 RUN curl https://baltocdn.com/helm/signing.asc | sudo apt-key add - && \
     echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list && \
     sudo apt-get update -y && sudo apt-get install helm -y
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rust_install.sh
-RUN chmod +x /tmp/rust_install.sh
-RUN /tmp/rust_install.sh -y
-RUN export PATH="$PATH:$HOME/.cargo/bin"
-RUN echo 'export PATH="$PATH:$HOME/.cargo/bin"' >> /home/opam/.bashrc
 
 # Get yarn + nodejs
 RUN curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
