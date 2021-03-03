@@ -11,6 +11,10 @@ open Import
 open Types
 open Common
 
+module Mk_double (M : T0) = struct
+  type t = M.t Double.t
+end
+
 let b_poly = Tock.Field.(Dlog_main.b_poly ~add ~mul ~one)
 
 let step_one : type var value max max_num_parents m.
@@ -296,6 +300,10 @@ module Proof_system = struct
   end
 end
 
+module Evals_vector = struct
+  type ('a, 'n) t = (('a * Backend.Tock.Field.t) Double.t, 'n) Vector.t
+end
+
 module Make
     (A : T0) (A_value : sig
         type t
@@ -312,64 +320,60 @@ struct
 
   (* The prover corresponding to the given inductive rule. *)
   let f
-      (type prev_max_num_parentss self_num_rules prev_vars prev_values
-      prev_num_parentss prev_num_ruless prevs_lengths prevs_length
-      per_proof_witness per_proof_witness_constant unfinalized
-      unfinalized_constant proof_with_data evals) ?handler
+      (type prev_max_num_parentss max_num_parentss self_num_rules prev_varss
+      prev_valuess prev_num_parentsss prev_num_rulesss prevs_lengths
+      prevs_length per_proof_witnesses per_proof_witness_constants unfinalizeds
+      unfinalized_constants proof_with_datas evalss) ?handler
       (T branch_data :
         ( A.t
         , A_value.t
         , Max_num_parents.n
         , self_num_rules
-        , prev_vars * unit
-        , prev_values * unit
-        , prev_num_parentss * unit
-        , prev_num_ruless * unit
-        , ( per_proof_witness * unit
-          , per_proof_witness_constant * unit
-          , unfinalized * unit
-          , unfinalized_constant * unit
-          , proof_with_data * unit
-          , evals * unit )
+        , prev_varss
+        , prev_valuess
+        , prev_num_parentsss
+        , prev_num_rulesss
+        , ( per_proof_witnesses
+          , per_proof_witness_constants
+          , unfinalizeds
+          , unfinalized_constants
+          , proof_with_datas
+          , evalss )
           H6.T(Step_main.PS).t )
         Step_branch_data.t) (next_state : A_value.t)
-      ~proof_systems:([(module PS_)] :
-                       ( per_proof_witness * unit
-                       , per_proof_witness_constant * unit
-                       , unfinalized * unit
-                       , unfinalized_constant * unit
-                       , proof_with_data * unit
-                       , evals * unit )
-                       H6.T(Step_main.PS).t)
-      ~maxes:(module Maxes : Pickles_types.Hlist.Maxes.S
-        with type length = Max_num_parents.n
-         and type ns = prev_max_num_parentss)
-      ~(prevs_lengths : (prev_vars * unit, prevs_lengths) H2.T(Length).t)
+      ~(proof_systems :
+         ( per_proof_witnesses
+         , per_proof_witness_constants
+         , unfinalizeds
+         , unfinalized_constants
+         , proof_with_datas
+         , evalss )
+         H6.T(Step_main.PS).t)
+      ~(maxes : (max_num_parentss, prev_max_num_parentss) H2.T(Maxes.Intf).t)
+      ~(maxes_sum : (max_num_parentss, Max_num_parents.n) Nat.Sum.t)
+      ~(prevs_lengths : (prev_varss, prevs_lengths) H2.T(Length).t)
       ~(prevs_length : (prevs_lengths, prevs_length) Nat.Sum.t) ~self
       ~step_domains ~self_dlog_plonk_index pk self_dlog_vk
       (prev_with_proofs :
-        ( prev_values
-        , prev_num_parentss
-        , prev_num_ruless
-        , proof_with_data )
-        H3_1.T(P3).t) :
+        ( prev_valuess
+        , prev_num_parentsss
+        , prev_num_rulesss
+        , proof_with_datas )
+        H4.T(H3_1.T(P3)).t) :
       ( A_value.t
-      , (_, Max_num_parents.n) Vector.t
+      , (_, max_num_parentss) H2.T(Vector).t
       , (_, prevs_length) Vector.t
       , (_, prevs_length) Vector.t
       , _
-      , (_, Max_num_parents.n) Vector.t )
+      , (_, max_num_parentss) H2.T(Evals_vector).t )
       P.Base.Pairing_based.t
       Async.Deferred.t =
     let _, prev_vars_lengths, prev_vars_length = branch_data.num_parents in
-    let lte = branch_data.lte in
-    let T = Lengths.contr prev_vars_lengths prevs_lengths in
-    let [_] = prev_vars_lengths in
-    let [add_vars_length] = prev_vars_length in
-    let [_] = prevs_lengths in
-    let [add_length] = prevs_length in
-    let T = Nat.Adds.add_zr_refl add_length in
-    let T = Nat.Adds.add_zr_refl add_vars_length in
+    let ltes = branch_data.ltes in
+    let sum = branch_data.sum in
+    (* The shape of maxes must be the one expected by this step branch. *)
+    let T, T = Nat.Sum.eq_exn maxes_sum sum in
+    let T, T = Nat.Sum.eq_exn prev_vars_length prevs_length in
     let (module Req) = branch_data.requests in
     let prev_values_length =
       let rec f : type a b c d e.
@@ -386,94 +390,223 @@ struct
       in
       f branch_data.rule.prevs prev_vars_lengths
     in
-    let [inners_must_verify] =
+    let inners_must_verifys =
       let prevs =
-        let module M =
-          H3_1.Map1_to_H1 (P3) (Id)
-            (struct
-              type t = proof_with_data
-            end)
-            (struct
-              let f = PS_.Step.proof_with_data_app_state
-            end)
+        let rec f
+            : type prev_valuess prev_num_parentsss prev_num_rulesss per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_datas evalss.
+               ( prev_valuess
+               , prev_num_parentsss
+               , prev_num_rulesss
+               , proof_with_datas )
+               H4.T(H3_1.T(P3)).t
+            -> ( per_proof_witnesses
+               , per_proof_witness_constants
+               , unfinalizeds
+               , unfinalized_constants
+               , proof_with_datas
+               , evalss )
+               H6.T(Step_main.PS).t
+            -> prev_valuess H1.T(H1.T(Id)).t =
+         fun proofss proof_systems ->
+          match (proofss, proof_systems) with
+          | [], [] ->
+              []
+          | [] :: proofss, _ :: proof_systems ->
+              [] :: f proofss proof_systems
+          | (proof :: proofs) :: proofss, ((module PS_) :: _ as proof_systems)
+            ->
+              let app_state = PS_.Step.proof_with_data_app_state proof in
+              let (app_states :: app_statess) =
+                f (proofs :: proofss) proof_systems
+              in
+              (app_state :: app_states) :: app_statess
         in
-        M.f prev_with_proofs
+        f prev_with_proofs proof_systems
       in
-      branch_data.rule.main_value [prevs] next_state
+      branch_data.rule.main_value prevs next_state
     in
-    let [prevs] = branch_data.rule.prevs in
-    let [prev_vars_lengths] = prev_vars_lengths in
-    let [prev_values_length] = prev_values_length in
     let sgs, unfinalized_proofs, me_onlys, x_hats, witnesses =
-      let rec go : type vars values ns ms maxes k.
-             (values, ns, ms, proof_with_data) H3_1.T(P3).t
-          -> maxes H1.T(Nat).t
-          -> (vars, values, ns, ms) H4.T(Tag).t
-          -> vars H1.T(E01(Bool)).t
-          -> (vars, k) Length.t
-          -> (Tock.Curve.Affine.t, k) Vector.t
-             * (unfinalized_constant, k) Vector.t
-             * (Digest.Constant.t, k) Vector.t
-             * (Tock.Field.t Double.t, k) Vector.t
-             * (values, ns, ms, per_proof_witness_constant) H3_1.T(P3).t =
-       fun ps maxes ts must_verifys l ->
-        match (ps, maxes, ts, must_verifys, l) with
-        | [], _, [], [], Z ->
+      let rec go
+          : type vars values ns ms maxes prev_maxes k ks per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_datas evalss.
+             ( per_proof_witnesses
+             , per_proof_witness_constants
+             , unfinalizeds
+             , unfinalized_constants
+             , proof_with_datas
+             , evalss )
+             H6.T(Step_main.PS).t
+          -> (values, ns, ms, proof_with_datas) H4.T(H3_1.T(P3)).t
+          -> (maxes, prev_maxes) H2.T(Maxes.Intf).t
+          -> (vars, values, ns, ms) H4.T(H4.T(Tag)).t
+          -> vars H1.T(H1.T(E01(Bool))).t
+          -> (vars, ks) H2.T(Length).t
+          -> (ks, k) Nat.Sum.t
+          -> k Vector.Carrying(Tock.Curve.Affine).t
+             * (unfinalized_constants, ks) H2.T(Vector).t
+             * ks H1.T(Vector.Carrying(Impls.Step.Digest.Constant)).t
+             * ks H1.T(Vector.Carrying(Mk_double(Tock.Field))).t
+             * (values, ns, ms, per_proof_witness_constants) H4.T(H3_1.T(P3)).t
+          =
+       fun proof_systems pss maxess tss must_verifyss ls sum ->
+        match (proof_systems, pss, maxess, tss, must_verifyss, ls, sum) with
+        | [], [], _, [], [], [], [] ->
             ([], [], [], [], [])
-        | p :: ps, max :: maxes, t :: ts, must_verify :: must_verifys, S l ->
-            let dlog_vk, dlog_index =
-              if Type_equal.Id.same self.Tag.id t.id then
-                (self_dlog_vk, self_dlog_plonk_index)
-              else
-                let d = Types_map.lookup_basic t in
-                (d.wrap_vk, d.wrap_key)
+        | ( _ :: proof_systems
+          , [] :: pss
+          , _ :: maxess
+          , [] :: tss
+          , [] :: must_verifyss
+          , Z :: ls
+          , Z :: sum ) ->
+            let sgss, uss, me_onlyss, xss, wss =
+              go proof_systems pss maxess tss must_verifyss ls sum
             in
-            let `Sg sg, u, `Me_only me_only, `X_hat x, w =
-              PS_.Step.step_one max dlog_vk dlog_index p t ~must_verify
-            and sgs, us, me_onlys, xs, ws = go ps maxes ts must_verifys l in
-            (sg :: sgs, u :: us, me_only :: me_onlys, x :: xs, w :: ws)
-        | _ :: _, [], _, _, _ ->
+            (sgss, [] :: uss, [] :: me_onlyss, [] :: xss, [] :: wss)
+        | ( ((module PS_) :: _ as proof_systems)
+          , (p :: ps) :: pss
+          , (module Maxes) :: maxess
+          , (t :: ts) :: tss
+          , (must_verify :: must_verifys) :: must_verifyss
+          , S l :: ls
+          , S add :: sum ) -> (
+          match (Maxes.maxes, Maxes.length) with
+          | max :: _, S _ ->
+              let dlog_vk, dlog_index =
+                if Type_equal.Id.same self.Tag.id t.id then
+                  (self_dlog_vk, self_dlog_plonk_index)
+                else
+                  let d = Types_map.lookup_basic t in
+                  (d.wrap_vk, d.wrap_key)
+              in
+              let `Sg sg, u, `Me_only me_only, `X_hat x, w =
+                PS_.Step.step_one max dlog_vk dlog_index p t ~must_verify
+              in
+              let sgss, us :: uss, me_onlys :: me_onlyss, xs :: xss, ws :: wss
+                  =
+                go proof_systems (ps :: pss)
+                  (Hlist.Maxes.Intf.pred (module Maxes) :: maxess)
+                  (ts :: tss)
+                  (must_verifys :: must_verifyss)
+                  (l :: ls) (add :: sum)
+              in
+              ( sg :: sgss
+              , (u :: us) :: uss
+              , (me_only :: me_onlys) :: me_onlyss
+              , (x :: xs) :: xss
+              , (w :: ws) :: wss )
+          | [], Z ->
+              assert false )
+        | _ :: _, _, [], _, _, _, _ ->
             assert false
       in
-      go prev_with_proofs Maxes.maxes prevs inners_must_verify
-        prev_vars_lengths
+      go proof_systems prev_with_proofs maxes branch_data.rule.prevs
+        inners_must_verifys prev_vars_lengths prev_vars_length
     in
     let next_statement : _ Types.Pairing_based.Statement.t =
       let unfinalized_proofs_extended =
-        Vector.extend unfinalized_proofs lte Max_num_parents.n
-          PS_.Step.dummy_unfinalized
+        let rec f
+            : type vars values ns ms maxes prev_maxes k per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_datas evalss max_num_parentss max_num_parents ks.
+               ( per_proof_witnesses
+               , per_proof_witness_constants
+               , unfinalizeds
+               , unfinalized_constants
+               , proof_with_datas
+               , evalss )
+               H6.T(Step_main.PS).t
+            -> (max_num_parentss, max_num_parents) Nat.Sum.t
+            -> (unfinalized_constants, ks) H2.T(Vector).t
+            -> (ks, max_num_parentss) H2.T(Nat.Lte).t
+            -> (unfinalized_constants, max_num_parentss) H2.T(Vector).t =
+         fun proof_systems max_num_parentss unfinalized_proofss ltes ->
+          match
+            (proof_systems, max_num_parentss, unfinalized_proofss, ltes)
+          with
+          | [], [], [], [] ->
+              []
+          | ( (module PS_) :: proof_systems
+            , max_num_parents :: max_num_parentss
+            , unfinalized_proofs :: unfinalized_proofss
+            , lte :: ltes ) ->
+              let unfinalized_proofs_extended =
+                Vector.extend unfinalized_proofs lte
+                  (Nat.Adds.to_nat max_num_parents)
+                  PS_.Step.dummy_unfinalized
+              in
+              let unfinalized_proofs_extendeds =
+                f proof_systems max_num_parentss unfinalized_proofss ltes
+              in
+              unfinalized_proofs_extended :: unfinalized_proofs_extendeds
+          | _ :: _, [], _, _ ->
+              .
+          | [], _ :: _, _, _ ->
+              .
+        in
+        f proof_systems maxes_sum unfinalized_proofs ltes
       in
       let pass_through =
-        let module M =
-          H3_1.Map2_to_H1 (P3) (P.Base.Me_only.Dlog_based)
-            (struct
-              type t = proof_with_data
-            end)
-            (struct
-              let f = PS_.Step.proof_with_data_pass_throughs
-            end)
+        let rec f
+            : type per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_datas evalss values ns ms ks k.
+               ( per_proof_witnesses
+               , per_proof_witness_constants
+               , unfinalizeds
+               , unfinalized_constants
+               , proof_with_datas
+               , evalss )
+               H6.T(Step_main.PS).t
+            -> (values, ns, ms, proof_with_datas) H4.T(H3_1.T(P3)).t
+            -> ns H1.T(H1.T(P.Base.Me_only.Dlog_based)).t =
+         fun proof_systems proofss ->
+          match (proof_systems, proofss) with
+          | [], [] ->
+              []
+          | _ :: proof_systems, [] :: proofss ->
+              [] :: f proof_systems proofss
+          | ((module PS_) :: _ as proof_systems), (proof :: proofs) :: proofss
+            ->
+              let pass_through =
+                PS_.Step.proof_with_data_pass_throughs proof
+              in
+              let (pass_throughs :: pass_throughss) =
+                f proof_systems (proofs :: proofss)
+              in
+              (pass_through :: pass_throughs) :: pass_throughss
         in
-        M.f prev_with_proofs
+        f proof_systems prev_with_proofs
       in
       let old_bulletproof_challenges =
-        let rec f : type a b c n.
-               (a, b, c, proof_with_data) H3_1.T(P3).t
-            -> (a, n) Length.t
+        let rec f
+            : type per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_datas evalss values ns ms ks k.
+               ( per_proof_witnesses
+               , per_proof_witness_constants
+               , unfinalizeds
+               , unfinalized_constants
+               , proof_with_datas
+               , evalss )
+               H6.T(Step_main.PS).t
+            -> (values, ns, ms, proof_with_datas) H4.T(H3_1.T(P3)).t
+            -> (values, ks) H2.T(Length).t
+            -> (ks, k) Nat.Sum.t
             -> ( Challenge.Constant.t Scalar_challenge.t Bulletproof_challenge.t
                  Step_bp_vec.t
-               , n )
+               , k )
                Vector.t =
-         fun proofs len ->
-          match (proofs, len) with
-          | [], Z ->
+         fun proof_systems proofss ls sum ->
+          match (proof_systems, proofss, ls, sum) with
+          | [], [], [], [] ->
               []
-          | proof :: proofs, S len ->
+          | _ :: proof_systems, [] :: proofss, Z :: ls, Z :: sum ->
+              f proof_systems proofss ls sum
+          | ( ((module PS_) :: _ as proof_systems)
+            , (proof :: proofs) :: proofss
+            , S len :: ls
+            , S add :: sum ) ->
               let bulletproof_challenges =
                 PS_.Step.proof_with_data_bulletproof_challenges proof
               in
-              bulletproof_challenges :: f proofs len
+              bulletproof_challenges
+              :: f proof_systems (proofs :: proofss) (len :: ls) (add :: sum)
         in
-        f prev_with_proofs prev_values_length
+        f proof_systems prev_with_proofs prev_values_length prev_vars_length
       in
       let me_only : _ Reduced_me_only.Pairing_based.t =
         (* Have the sg be available in the opening proof and verify it. *)
@@ -491,7 +624,7 @@ struct
       let k x = respond (Provide x) in
       match request with
       | Req.Proof_with_datas ->
-          k [witnesses]
+          k witnesses
       | Req.Wrap_index ->
           k self_dlog_plonk_index
       | Req.App_state ->
@@ -505,30 +638,31 @@ struct
     in
     let%map.Async (next_proof : Tick.Proof.t) =
       let (T (input, conv)) =
-        Impls.Step.input_of_hlist ~num_parentss:[Max_num_parents.n]
-          ~per_proof_specs:[PS_.Step.per_proof_spec ~wrap_rounds:Tock.Rounds.n]
+        Step_branch_data.input_of_hlist ~max_num_parentss:maxes_sum
+          ~proof_systems
       in
-      let rec pad : type n k maxes pvals lws lhs.
-             (Digest.Constant.t, k) Vector.t
-          -> maxes H1.T(Nat).t
-          -> (maxes, n) Hlist.Length.t
-          -> (Digest.Constant.t, n) Vector.t =
-       fun xs maxes l ->
-        match (xs, maxes, l) with
-        | [], [], Z ->
+      let dummy_hash =
+        lazy
+          (let t : _ Types.Dlog_based.Proof_state.Me_only.t =
+             { sg= Lazy.force Dummy.Ipa.Step.sg
+             ; old_bulletproof_challenges=
+                 Vector.init Max_num_parents.n ~f:(fun _ ->
+                     Dummy.Ipa.Wrap.challenges_computed ) }
+           in
+           Common.hash_dlog_me_only Max_num_parents.n t)
+      in
+      let rec pad : type ns ks total.
+             ks H1.T(Vector.Carrying(Impls.Step.Digest.Constant)).t
+          -> (ks, ns) H2.T(Nat.Lte).t
+          -> (ns, total) Nat.Sum.t
+          -> ns H1.T(Vector.Carrying(Impls.Step.Digest.Constant)).t =
+       fun xss ltes sum ->
+        match (xss, ltes, sum) with
+        | [], [], [] ->
             []
-        | x :: xs, [], Z ->
-            assert false
-        | x :: xs, _ :: ms, S n ->
-            x :: pad xs ms n
-        | [], m :: ms, S n ->
-            let t : _ Types.Dlog_based.Proof_state.Me_only.t =
-              { sg= Lazy.force Dummy.Ipa.Step.sg
-              ; old_bulletproof_challenges=
-                  Vector.init Max_num_parents.n ~f:(fun _ ->
-                      Dummy.Ipa.Wrap.challenges_computed ) }
-            in
-            Common.hash_dlog_me_only Max_num_parents.n t :: pad [] ms n
+        | xs :: xss, lte :: ltes, add :: sum ->
+            Vector.extend_add xs lte add (Lazy.force dummy_hash)
+            :: pad xss ltes sum
       in
       let {Domains.h; x} =
         List.nth_exn
@@ -536,23 +670,34 @@ struct
           (Index.to_int branch_data.index)
       in
       let to_fold_in =
-        let rec f : type a b c n.
-               (a, b, c, proof_with_data) H3_1.T(P3).t
-            -> (a, n) Length.t
-            -> (Tick.Curve.Affine.t, n) Vector.t =
-         fun proofs len ->
-          match (proofs, len) with
-          | [], Z ->
+        let rec f
+            : type per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_datas evalss values ns ms ks k.
+               ( per_proof_witnesses
+               , per_proof_witness_constants
+               , unfinalizeds
+               , unfinalized_constants
+               , proof_with_datas
+               , evalss )
+               H6.T(Step_main.PS).t
+            -> (values, ns, ms, proof_with_datas) H4.T(H3_1.T(P3)).t
+            -> (values, ks) H2.T(Length).t
+            -> (ks, k) Nat.Sum.t
+            -> (Tick.Curve.Affine.t, k) Vector.t =
+         fun proof_systems proofss ls sum ->
+          match (proof_systems, proofss, ls, sum) with
+          | [], [], [], [] ->
               []
-          | proof :: proofs, S len ->
+          | _ :: proof_systems, [] :: proofss, Z :: ls, Z :: sum ->
+              f proof_systems proofss ls sum
+          | ( ((module PS_) :: _ as proof_systems)
+            , (proof :: proofs) :: proofss
+            , S len :: ls
+            , S add :: sum ) ->
               let sg = PS_.Step.proof_with_data_sg proof in
-              sg :: f proofs len
+              sg :: f proof_systems (proofs :: proofss) (len :: ls) (add :: sum)
         in
-        f prev_with_proofs prev_values_length
+        f proof_systems prev_with_proofs prev_values_length prev_vars_length
       in
-      let [_] = branch_data.ltes in
-      let [add_max_num_parents] = branch_data.sum in
-      let T = Nat.Adds.add_zr_refl add_max_num_parents in
       ksprintf Common.time "step-prover %d (%d, %d)"
         (Index.to_int branch_data.index) (Domain.size h) (Domain.size x)
         (fun () ->
@@ -580,36 +725,81 @@ struct
             ()
             { proof_state=
                 { unfinalized_proofs=
-                    [next_statement.proof_state.unfinalized_proofs]
+                    next_statement.proof_state.unfinalized_proofs
                 ; me_only=
                     Common.hash_pairing_me_only
                       ~app_state:A_value.to_field_elements
                       next_me_only_prepared }
             ; pass_through=
                 (* TODO: Use the same pad_pass_through function as in wrap *)
-                [pad me_onlys Maxes.maxes Maxes.length] } )
+                pad me_onlys ltes maxes_sum } )
     in
     let prev_evals =
-      let rec f : type a b c n.
-             (a, b, c, proof_with_data) H3_1.T(P3).t
-          -> (a, n) Length.t
-          -> (evals Double.t, n) Vector.t =
-       fun proofs len ->
-        match (proofs, len) with
-        | [], Z ->
+      let rec f
+          : type per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_datas evalss values ns ms ks k max_num_parentss max_num_parents.
+             ( per_proof_witnesses
+             , per_proof_witness_constants
+             , unfinalizeds
+             , unfinalized_constants
+             , proof_with_datas
+             , evalss )
+             H6.T(Step_main.PS).t
+          -> (values, ns, ms, proof_with_datas) H4.T(H3_1.T(P3)).t
+          -> ks H1.T(Vector.Carrying(Mk_double(Tock.Field))).t
+          -> (values, ks) H2.T(Length).t
+          -> (ks, max_num_parentss) H2.T(Nat.Lte).t
+          -> (max_num_parentss, max_num_parents) Nat.Sum.t
+          -> (evalss, max_num_parentss) H2.T(Evals_vector).t =
+       fun proof_systems proofss x_hatss ls ltes sum ->
+        match (proof_systems, proofss, x_hatss, ls, ltes, sum) with
+        | [], [], [], [], [], [] ->
             []
-        | proof :: proofs, S len ->
-            let evals = PS_.Step.proof_with_data_evals proof in
-            evals :: f proofs len
+        | ( _ :: proof_systems
+          , [] :: proofss
+          , [] :: x_hatss
+          , Z :: ls
+          , Z :: ltes
+          , Z :: sum ) ->
+            [] :: f proof_systems proofss x_hatss ls ltes sum
+        | ( ((module PS_) :: _ as proof_systems)
+          , ([] :: _ as proofss)
+          , ([] :: _ as x_hatss)
+          , (Z :: _ as ls)
+          , Z :: ltes
+          , S add :: sum ) ->
+            let (evals :: evalss) =
+              f proof_systems proofss x_hatss ls (Z :: ltes) (add :: sum)
+            in
+            (PS_.Step.dummy_evals :: evals) :: evalss
+        | ( ((module PS_) :: _ as proof_systems)
+          , (proof :: proofs) :: proofss
+          , (x_hat :: x_hats) :: x_hatss
+          , S len :: ls
+          , S lte :: ltes
+          , S add :: sum ) ->
+            let eval =
+              double_zip (PS_.Step.proof_with_data_evals proof) x_hat
+            in
+            let (evals :: evalss) =
+              f proof_systems (proofs :: proofss) (x_hats :: x_hatss)
+                (len :: ls) (lte :: ltes) (add :: sum)
+            in
+            (eval :: evals) :: evalss
+        | _ :: _, (_ :: _) :: _, [] :: _, _ :: _, _, _ ->
+            .
+        | _ :: _, [] :: _, (_ :: _) :: _, _ :: _, _, _ ->
+            .
+        | _ :: _, (_ :: _) :: _, [], _, _, _ ->
+            .
+        | _ :: _, [] :: _, [], _, _, _ ->
+            .
+        | [], [], _ :: _, _, _, _ ->
+            .
       in
-      f prev_with_proofs prev_values_length
+      f proof_systems prev_with_proofs x_hats prev_values_length ltes maxes_sum
     in
     { P.Base.Pairing_based.proof= next_proof
     ; statement= next_statement
     ; index= branch_data.index
-    ; prev_evals=
-        Vector.extend
-          (Vector.map2 prev_evals x_hats ~f:(fun es x_hat ->
-               double_zip es x_hat ))
-          lte Max_num_parents.n PS_.Step.dummy_evals }
+    ; prev_evals }
 end

@@ -423,6 +423,17 @@ let rec extend : type a n m.
   | x :: xs, S p, S m ->
       x :: extend xs p m default
 
+let rec extend_add : type a n m k l.
+    (a, n) t -> (n, m) Nat.Lte.t -> (m, k, l) Nat.Adds.t -> a -> (a, m) t =
+ fun v p m default ->
+  match (v, p, m) with
+  | _, Z, Z ->
+      []
+  | _, Z, S m ->
+      default :: extend_add [] Z m default
+  | x :: xs, S p, S m ->
+      x :: extend_add xs p m default
+
 module With_version (N : Nat.Intf) = struct
   module type S = sig
     [%%versioned:

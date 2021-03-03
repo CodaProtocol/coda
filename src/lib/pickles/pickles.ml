@@ -799,16 +799,27 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
             f prevs
           in
           let%bind.Async proof =
-            step handler ~maxes:(module Maxes) prevs next_state
+            step handler
+              ~maxes:[(module Maxes)]
+              ~maxes_sum:[Nat.Adds.add_zr (Length.to_nat Maxes.length)]
+              [prevs] next_state
           in
           let proof =
+            let [pass_throughs] = proof.statement.pass_through in
             { proof with
               statement=
-                { proof.statement with
-                  pass_through=
-                    pad_pass_throughs
-                      (module Maxes)
-                      proof.statement.pass_through } }
+                { proof_state=
+                    { proof.statement.proof_state with
+                      unfinalized_proofs=
+                        (let [proofs] =
+                           proof.statement.proof_state.unfinalized_proofs
+                         in
+                         proofs) }
+                ; pass_through= pad_pass_throughs (module Maxes) pass_throughs
+                }
+            ; prev_evals=
+                (let [prev_evals] = proof.prev_evals in
+                 prev_evals) }
           in
           let%map.Async proof =
             Wrap.wrap ~max_num_parents:Max_num_parents.n full_signature.maxes

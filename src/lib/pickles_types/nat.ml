@@ -64,6 +64,36 @@ module Adds = struct
     | S n ->
         let pi = to_nat n in
         S pi
+
+  let rec eq_exn : type n1 n2 a1 a2 total.
+         (n1, a1, total) t
+      -> (n2, a2, total) t
+      -> (n1, n2) Core_kernel.Type_equal.t * (a1, a2) Core_kernel.Type_equal.t
+      =
+   fun x y ->
+    match (x, y) with
+    | Z, Z ->
+        (T, T)
+    | S x, S y ->
+        let T, T = eq_exn x y in
+        (T, T)
+    | _ ->
+        failwith "Adds.eq_exn"
+
+  let rec eq_inner_exn : type n1 n2 a total1 total2.
+         (n1, a, total1) t
+      -> (n2, a, total2) t
+      -> (n1, n2) Core_kernel.Type_equal.t
+         * (total1, total2) Core_kernel.Type_equal.t =
+   fun x y ->
+    match (x, y) with
+    | Z, Z ->
+        (T, T)
+    | S x, S y ->
+        let T, T = eq_inner_exn x y in
+        (T, T)
+    | _ ->
+        failwith "Adds.eq_inner_exn"
 end
 
 module Lte = struct
@@ -163,6 +193,22 @@ module Sum = struct
     | ( :: ) :
         ('term, 'prev_total, 'total) Adds.t * ('terms, 'prev_total) t
         -> ('term * 'terms, 'total) t
+
+  let rec eq_exn : type ns1 ns2 total1 total2.
+         (ns1, total1) t
+      -> (ns2, total2) t
+      -> (ns1, ns2) Core_kernel.Type_equal.t
+         * (total1, total2) Core_kernel.Type_equal.t =
+   fun xs ys ->
+    match (xs, ys) with
+    | [], [] ->
+        (T, T)
+    | x :: xs, y :: ys ->
+        let T, T = eq_exn xs ys in
+        let T, T = Adds.eq_inner_exn x y in
+        (T, T)
+    | _ ->
+        failwith "Sum.eq_exn"
 end
 
 module N1 = S (N0)

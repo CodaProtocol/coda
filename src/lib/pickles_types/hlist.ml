@@ -776,6 +776,20 @@ module H4 = struct
     type ('a, 'b, 'c, 'd) t =
       ('a * unit, 'b * unit, 'c * unit, 'd * unit) T(F).t
   end
+
+  module Map2_to_H1
+      (F : T4)
+      (G : T1) (C : sig
+          val f : ('a, 'b, 'c, 'd) F.t -> 'b G.t
+      end) =
+  struct
+    let rec f : type a b c d. (a, b, c, d) T(F).t -> b H1.T(G).t = function
+      | [] ->
+          []
+      | x :: xs ->
+          let y = C.f x in
+          y :: f xs
+  end
 end
 
 module H5 = struct
@@ -1236,6 +1250,27 @@ module Maxes = struct
     val length : (ns, length) Length.t
 
     val maxes : ns H1.T(Nat).t
+  end
+
+  module Intf = struct
+    type ('length, 'ns) t =
+      (module S with type length = 'length and type ns = 'ns)
+
+    let pred (type length ns n) ((module N) : (length s, n * ns) t) :
+        (length, ns) t =
+      ( module struct
+        type nonrec ns = ns
+
+        type nonrec length = length
+
+        let length =
+          let (S length) = N.length in
+          length
+
+        let maxes =
+          let (_ :: maxes) = N.maxes in
+          maxes
+      end )
   end
 
   type 'length t = T : 'ns H1.T(Nat).t * ('ns, 'length) Length.t -> 'length t
