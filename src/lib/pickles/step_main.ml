@@ -1,5 +1,6 @@
 module S = Sponge
 open Core
+module P = Proof
 open Pickles_types
 open Common
 open Poly_types
@@ -15,8 +16,13 @@ module Proof_system = struct
     module Types = struct
       module Per_proof_witness_constant = P3.T (Per_proof_witness.Constant)
       module Per_proof_witness = P3.T (Per_proof_witness)
+      module Proof_with_data = P3.T (P.With_data)
       module Unfinalized = Unfinalized
       module Unfinalized_constant = Unfinalized.Constant
+
+      module Evals = struct
+        type t = Backend.Tock.Field.t array Dlog_plonk_types.Evals.t
+      end
     end
 
     let per_proof_witness_typ
@@ -271,6 +277,45 @@ module Proof_system = struct
      fun witness ->
       let x, _, _, _, _, _ = Types.Per_proof_witness.of_poly witness in
       x
+
+    let proof_with_data_app_state : type a.
+        (a, _, _, Types.Proof_with_data.witness) P3.t -> a =
+     fun t ->
+      let (T t) = Types.Proof_with_data.of_poly t in
+      t.statement.pass_through.app_state
+
+    let proof_with_data_pass_throughs : type a b c.
+           (a, b, c, Types.Proof_with_data.witness) P3.t
+        -> b P.Base.Me_only.Dlog_based.t =
+     fun t ->
+      let (T t) = Types.Proof_with_data.of_poly t in
+      t.statement.proof_state.me_only
+
+    let proof_with_data_bulletproof_challenges : type a b c.
+           (a, b, c, Types.Proof_with_data.witness) P3.t
+        -> Challenge.Constant.t Scalar_challenge.t Bulletproof_challenge.t
+           Composition_types.Step_bp_vec.t =
+     fun t ->
+      let (T t) = Types.Proof_with_data.of_poly t in
+      t.statement.proof_state.deferred_values.bulletproof_challenges
+
+    let proof_with_data_sg : type a b c.
+           (a, b, c, Types.Proof_with_data.witness) P3.t
+        -> Backend.Tick.Curve.Affine.t =
+     fun t ->
+      let (T t) = Types.Proof_with_data.of_poly t in
+      t.statement.proof_state.me_only.sg
+
+    let proof_with_data_evals : type a b c.
+           (a, b, c, Types.Proof_with_data.witness) P3.t
+        -> Types.Evals.t Tuple_lib.Double.t =
+     fun t ->
+      let (T t) = Types.Proof_with_data.of_poly t in
+      t.proof.openings.evals
+
+    let dummy_unfinalized = Unfinalized.Constant.dummy
+
+    let dummy_evals = Dummy.evals
   end
 end
 
@@ -281,9 +326,13 @@ module type Proof_system = sig
 
       module Per_proof_witness_constant : P3.S
 
+      module Proof_with_data : P3.S
+
       module Unfinalized : T0
 
       module Unfinalized_constant : T0
+
+      module Evals : T0
     end
 
     val per_proof_witness_typ :
@@ -361,60 +410,77 @@ module type Proof_system = sig
 
     val per_proof_witness_statement :
       ('a, _, _, Types.Per_proof_witness.witness) P3.t -> 'a
+
+    val step_one :
+         'max Nat.t
+      -> Impls.Wrap.Verification_key.t
+      -> Backend.Tock.Curve.Affine.t
+         Pickles_types.Dlog_plonk_types.Poly_comm.Without_degree_bound.t
+         Pickles_types.Plonk_verification_key_evals.t
+      -> ( 'value
+         , 'max_num_input_proofs
+         , 'num_rules
+         , Types.Proof_with_data.witness )
+         P3.t
+      -> ('var, 'value, 'max_num_input_proofs, 'num_rules) Tag.t
+      -> must_verify:bool
+      -> [`Sg of Backend.Tock.Curve.Affine.t]
+         * Types.Unfinalized_constant.t
+         * [`Me_only of Digest.Constant.t]
+         * [`X_hat of Backend.Tock.Field.t Tuple_lib.Double.t]
+         * ( 'value
+           , 'max_num_input_proofs
+           , 'num_rules
+           , Types.Per_proof_witness_constant.witness )
+           P3.t
+
+    val proof_with_data_app_state :
+      ('a, _, _, Types.Proof_with_data.witness) P3.t -> 'a
+
+    val proof_with_data_pass_throughs :
+         (_, 'b, _, Types.Proof_with_data.witness) P3.t
+      -> 'b P.Base.Me_only.Dlog_based.t
+
+    val proof_with_data_bulletproof_challenges :
+         (_, _, _, Types.Proof_with_data.witness) P3.t
+      -> Challenge.Constant.t Scalar_challenge.t Bulletproof_challenge.t
+         Composition_types.Step_bp_vec.t
+
+    val proof_with_data_sg :
+         (_, _, _, Types.Proof_with_data.witness) P3.t
+      -> Backend.Tick.Curve.Affine.t
+
+    val proof_with_data_evals :
+         (_, _, _, Types.Proof_with_data.witness) P3.t
+      -> Types.Evals.t Tuple_lib.Double.t
+
+    val dummy_unfinalized : Types.Unfinalized_constant.t
+
+    val dummy_evals : (Types.Evals.t * Backend.Tock.Field.t) Tuple_lib.Double.t
   end
 end
 
 type ( 'per_proof_witness
      , 'per_proof_witness_constant
      , 'unfinalized
-     , 'unfinalized_constant )
+     , 'unfinalized_constant
+     , 'proof_with_data
+     , 'evals )
      proof_system =
   (module Proof_system
      with type Step.Types.Per_proof_witness.witness = 'per_proof_witness
       and type Step.Types.Per_proof_witness_constant.witness = 'per_proof_witness_constant
       and type Step.Types.Unfinalized.t = 'unfinalized
-      and type Step.Types.Unfinalized_constant.t = 'unfinalized_constant)
+      and type Step.Types.Unfinalized_constant.t = 'unfinalized_constant
+      and type Step.Types.Proof_with_data.witness = 'proof_with_data
+      and type Step.Types.Evals.t = 'evals)
 
 module PS = struct
-  type ('a, 'b, 'c, 'd) t = ('a, 'b, 'c, 'd) proof_system
+  type ('a, 'b, 'c, 'd, 'e, 'f) t = ('a, 'b, 'c, 'd, 'e, 'f) proof_system
 end
 
 module Bulletproof_challenges = struct
   type t = (Field.t, Backend.Tick.Rounds.n) Vector.t
-end
-
-module Proof_system_ : Proof_system = Proof_system
-
-module Typ_function = struct
-  type ( 'vars
-       , 'values
-       , 'local_max_num_input_proofss
-       , 'local_num_ruless
-       , 'br
-       , 'poly_vars
-       , 'poly_values )
-       t =
-       ( 'vars
-       , 'values
-       , 'local_max_num_input_proofss
-       , 'local_num_ruless )
-       H4.T(Tag).t
-    -> 'local_max_num_input_proofss H1.T(Nat).t
-    -> 'local_num_ruless H1.T(Nat).t
-    -> ('vars, 'br) Length.t
-    -> ('local_max_num_input_proofss, 'br) Length.t
-    -> ('local_num_ruless, 'br) Length.t
-    -> ( ( 'vars
-         , 'local_max_num_input_proofss
-         , 'local_num_ruless
-         , 'poly_vars )
-         H3_1.T(P3).t
-       , ( 'values
-         , 'local_max_num_input_proofss
-         , 'local_num_ruless
-         , 'poly_values )
-         H3_1.T(P3).t )
-       Typ.t
 end
 
 let build_combined_typ basic self_id proof_systems tagss ns1 ns2 ld ln1 ln2 =
@@ -439,12 +505,14 @@ let build_combined_typ basic self_id proof_systems tagss ns1 ns2 ld ln1 ln2 =
       Typ.t
   end in
   let rec join
-      : type e pvars pvals ns1 ns2 per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants br.
+      : type e pvars pvals ns1 ns2 per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_data evals br.
          ( per_proof_witnesses
          , per_proof_witness_constants
          , unfinalizeds
-         , unfinalized_constants )
-         H4.T(PS).t
+         , unfinalized_constants
+         , proof_with_data
+         , evals )
+         H6.T(PS).t
       -> (pvars, pvals, ns1, ns2) H4.T(H4.T(Tag)).t
       -> ns1 H1.T(H1.T(Nat)).t
       -> ns2 H1.T(H1.T(Nat)).t
@@ -509,7 +577,7 @@ let rec h2_vec_to_h2_h1_1 : type length params actual_length carrying.
 
 (* The SNARK function corresponding to the input inductive rule. *)
 let step_main
-    : type num_input_proofs total_num_input_proofs num_rules prev_vars prev_values a_var a_value max_num_input_proofs max_total_num_input_proofs prev_num_ruless prev_num_input_proofss per_proof_witness per_proof_witness_constant unfinalized unfinalized_constant.
+    : type num_input_proofs total_num_input_proofs num_rules prev_vars prev_values a_var a_value max_num_input_proofs max_total_num_input_proofs prev_num_ruless prev_num_input_proofss per_proof_witness per_proof_witness_constant unfinalized unfinalized_constant proof_with_data evals.
        (module Requests.Step.S
           with type prev_num_input_proofss = prev_num_input_proofss
            and type prev_num_ruless = prev_num_ruless
@@ -535,8 +603,10 @@ let step_main
     -> proof_systems:( per_proof_witness
                      , per_proof_witness_constant
                      , unfinalized
-                     , unfinalized_constant )
-                     H4.T(PS).t
+                     , unfinalized_constant
+                     , proof_with_data
+                     , evals )
+                     H6.T(PS).t
     -> basic:( a_var
              , a_value
              , max_total_num_input_proofs
@@ -595,7 +665,7 @@ let step_main
         in
         let prev_statements =
           let rec f
-              : type prev_varss prev_num_input_proofss prev_num_ruless per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants.
+              : type prev_varss prev_num_input_proofss prev_num_ruless per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_data evals.
                  ( prev_varss
                  , prev_num_input_proofss
                  , prev_num_ruless
@@ -604,8 +674,10 @@ let step_main
               -> ( per_proof_witnesses
                  , per_proof_witness_constants
                  , unfinalizeds
-                 , unfinalized_constants )
-                 H4.T(PS).t
+                 , unfinalized_constants
+                 , proof_with_data
+                 , evals )
+                 H6.T(PS).t
               -> prev_varss H1.T(H1.T(Id)).t =
            fun proofss proof_systems ->
             match (proofss, proof_systems) with
@@ -682,7 +754,7 @@ let step_main
         in
         let sgs =
           let rec f
-              : type prev_varss prev_num_input_proofss prev_num_ruless num_input_proofss total_num_input_proofs per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants.
+              : type prev_varss prev_num_input_proofss prev_num_ruless num_input_proofss total_num_input_proofs per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants proof_with_data evals.
                  ( prev_varss
                  , prev_num_input_proofss
                  , prev_num_ruless
@@ -693,8 +765,10 @@ let step_main
               -> ( per_proof_witnesses
                  , per_proof_witness_constants
                  , unfinalizeds
-                 , unfinalized_constants )
-                 H4.T(PS).t
+                 , unfinalized_constants
+                 , proof_with_data
+                 , evals )
+                 H6.T(PS).t
               -> (Inner_curve.t, total_num_input_proofs) Vector.t =
            fun proofss lengths sum proof_systems ->
             match (proofss, lengths, sum, proof_systems) with
@@ -726,7 +800,7 @@ let step_main
         let bulletproof_challenges =
           with_label "prevs_verified" (fun () ->
               let rec go
-                  : type prev_varss prev_valuess prev_num_input_proofss prev_num_ruless per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants lengths total_length.
+                  : type prev_varss prev_valuess prev_num_input_proofss prev_num_ruless per_proof_witnesses per_proof_witness_constants unfinalizeds unfinalized_constants lengths total_length proof_with_data evals.
                      ( prev_varss
                      , prev_num_input_proofss
                      , prev_num_ruless
@@ -745,8 +819,10 @@ let step_main
                   -> ( per_proof_witnesses
                      , per_proof_witness_constants
                      , unfinalizeds
-                     , unfinalized_constants )
-                     H4.T(PS).t
+                     , unfinalized_constants
+                     , proof_with_data
+                     , evals )
+                     H6.T(PS).t
                   -> ( (Field.t, Backend.Tick.Rounds.n) Vector.t
                      , total_length )
                      Vector.t

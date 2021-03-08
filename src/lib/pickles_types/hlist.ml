@@ -611,6 +611,21 @@ module H3_1 = struct
           let y = C.f x in
           y :: f xs
   end
+
+  module Map2_to_H1
+      (F : T4)
+      (G : T1)
+      (H : T0) (C : sig
+          val f : ('a, 'b, 'c, H.t) F.t -> 'b G.t
+      end) =
+  struct
+    let rec f : type a b c. (a, b, c, H.t) T(F).t -> b H1.T(G).t = function
+      | [] ->
+          []
+      | x :: xs ->
+          let y = C.f x in
+          y :: f xs
+  end
 end
 
 module H4 = struct

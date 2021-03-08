@@ -13,6 +13,7 @@ open Import
 open Types
 open Pickles_types
 open Poly_types
+open Higher_kinded_poly
 open Hlist
 open Common
 open Backend
@@ -509,7 +510,7 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
     in
     Timer.clock __LOC__ ;
     let module Branch_data = struct
-      type ('vars, 'vals, 'n, 'm) t =
+      type ('vars, 'vals, 'n, 'm, 'ps) t =
         ( A.t
         , A_value.t
         , Max_num_input_proofs.n
@@ -517,7 +518,8 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
         , 'vars
         , 'vals
         , 'n
-        , 'm )
+        , 'm
+        , 'ps )
         Step_branch_data.t
     end in
     let rules_num_input_proofs =
@@ -539,8 +541,25 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
       V.f prev_varss_length (M.f rules)
     in
     let module Branch_data_ = struct
+      module type S =
+        Step_main.Proof_system
+        with module Step.Types = Step_main.Proof_system.Step.Types
+
       type ('a, 'b, 'c, 'd) t =
-        ('a * unit, 'b * unit, 'c * unit, 'd * unit) Branch_data.t
+        ( 'a * unit
+        , 'b * unit
+        , 'c * unit
+        , 'd * unit
+        , ( Step_main.Proof_system.Step.Types.Per_proof_witness.witness * unit
+          , Step_main.Proof_system.Step.Types.Per_proof_witness_constant
+            .witness
+            * unit
+          , Step_main.Proof_system.Step.Types.Unfinalized.t * unit
+          , Step_main.Proof_system.Step.Types.Unfinalized_constant.t * unit
+          , Step_main.Proof_system.Step.Types.Proof_with_data.witness * unit
+          , Step_main.Proof_system.Step.Types.Evals.t * unit )
+          H6.T(Step_main.PS).t )
+        Branch_data.t
     end in
     let step_data =
       let i = ref 0 in
@@ -555,6 +574,7 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
               let res =
                 Common.time "make step data" (fun () ->
                     Step_branch_data.create ~index:(Index.of_int_exn !i)
+                      ~proof_systems:[(module Step.Proof_system)]
                       ~max_num_input_proofs:Max_num_input_proofs.n
                       ~max_num_input_proofss:
                         [Nat.Adds.add_zr Max_num_input_proofs.n]
@@ -593,14 +613,16 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
           (E04 (Lazy_keys))
           (struct
             let etyp =
-              Impls.Step.input_of_hlist
-                ~num_input_proofss:[Max_num_input_proofs.n]
-                ~per_proof_specs:
-                  [ Step_main.Proof_system.Step.per_proof_spec
-                      ~wrap_rounds:Tock.Rounds.n ]
+              Step_branch_data.input_of_hlist
+                ~max_num_input_proofss:[Nat.Adds.add_zr Max_num_input_proofs.n]
+                ~proof_systems:[(module Step.Proof_system)]
 
             let f (T b : _ Branch_data_.t) =
               let (T (typ, conv)) = etyp in
+              let _, [_], _ = b.num_input_proofs in
+              let [_] = b.ltes in
+              let [add_max_num_input_proofs] = b.sum in
+              let T = Nat.Adds.add_zr_refl add_max_num_input_proofs in
               let main x () : unit =
                 b.main
                   (Impls.Step.with_label "conv" (fun () -> conv x))
@@ -767,6 +789,7 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
           let wrap_vk = Lazy.force wrap_vk in
           S.f ?handler branch_data next_state ~prevs_length ~prevs_lengths
             ~self ~step_domains ~self_dlog_plonk_index:wrap_vk.commitments
+            ~proof_systems:[(module Step.Proof_system)]
             (Impls.Step.Keypair.pk (fst (Lazy.force step_pk)))
             wrap_vk.index prevs
         in
@@ -774,20 +797,24 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
         let wrap ?handler prevs next_state =
           let wrap_vk = Lazy.force wrap_vk in
           let prevs =
-            let module M =
-              H3.Map (Statement_with_proof) (P.With_data)
-                (struct
-                  let f ((app_state, T proof) : _ Statement_with_proof.t) =
-                    P.T
-                      { proof with
-                        statement=
-                          { proof.statement with
-                            pass_through=
-                              {proof.statement.pass_through with app_state} }
-                      }
-                end)
+            let module M = P3.T (P.With_data) in
+            let rec f : type a b c.
+                   (a, b, c) H3.T(Statement_with_proof).t
+                -> (a, b, c, P3.W(P.With_data).t) H3_1.T(P3).t = function
+              | [] ->
+                  []
+              | (app_state, T proof) :: proofs ->
+                  M.to_poly
+                    (P.T
+                       { proof with
+                         statement=
+                           { proof.statement with
+                             pass_through=
+                               {proof.statement.pass_through with app_state} }
+                       })
+                  :: f proofs
             in
-            M.f prevs
+            f prevs
           in
           let%bind.Async proof =
             step handler ~maxes:(module Maxes) prevs next_state

@@ -13,7 +13,8 @@ type ( 'a_var
      , 'prev_vars
      , 'prev_values
      , 'prev_num_input_proofss
-     , 'prev_num_ruless )
+     , 'prev_num_ruless
+     , 'prev_proof_systems )
      t =
   | T :
       { num_input_proofs:
@@ -22,6 +23,8 @@ type ( 'a_var
           * ('num_input_proofss, 'num_input_proofs) Nat.Sum.t
       ; index: Types.Index.t
       ; lte: ('num_input_proofs, 'max_num_input_proofs) Nat.Lte.t
+      ; ltes: ('num_input_proofss, 'max_num_input_proofss) H2.T(Nat.Lte).t
+      ; sum: ('max_num_input_proofss, 'max_num_input_proofs) Nat.Sum.t
       ; domains: Domains.t
       ; rule:
           ( 'prev_vars
@@ -33,23 +36,20 @@ type ( 'a_var
           Inductive_rule.t
       ; main:
              step_domains:(Domains.t, 'num_rules) Vector.t
-          -> ( ( Unfinalized.t * unit
-               , 'max_num_input_proofs * unit )
-               H2.T(Vector).t
+          -> ( ('unfinalizeds, 'max_num_input_proofss) H2.T(Vector).t
              , Impls.Step.Field.t
-             , ('max_num_input_proofs * unit)
+             , 'max_num_input_proofss
                H1.T(Vector.Carrying(Impls.Step.Digest)).t )
              Types.Pairing_based.Statement.t
           -> unit
       ; requests:
           (module Requests.Step.S
              with type statement = 'a_value
-              and type max_num_input_proofs = 'max_num_input_proofs * unit
+              and type max_num_input_proofs = 'max_num_input_proofss
               and type prev_values = 'prev_values
               and type prev_num_input_proofss = 'prev_num_input_proofss
               and type prev_num_ruless = 'prev_num_ruless
-              and type per_proof_witnesses = P3.W(Per_proof_witness.Constant).t
-                                             * unit) }
+              and type per_proof_witnesses = 'per_proof_witness_constants) }
       -> ( 'a_var
          , 'a_value
          , 'max_num_input_proofs
@@ -57,7 +57,14 @@ type ( 'a_var
          , 'prev_vars
          , 'prev_values
          , 'prev_num_input_proofss
-         , 'prev_num_ruless )
+         , 'prev_num_ruless
+         , ( 'per_proof_witnesses
+           , 'per_proof_witness_constants
+           , 'unfinalizeds
+           , 'unfinalized_constants
+           , 'proof_with_data
+           , 'evals )
+           H6.T(Step_main.PS).t )
          t
 
 let rec sum_ltes_exn : type terms1 terms2 total1 total2.
@@ -80,17 +87,56 @@ let rec sum_ltes_exn : type terms1 terms2 total1 total2.
   | [], _ :: _ ->
       failwith "sum_ltes_exn"
 
+let input_of_hlist ~max_num_input_proofss ~proof_systems =
+  let open Impls.Step in
+  let rec f : type a b unfinalized unfinalized_constant e f ns tot.
+         (a, b, unfinalized, unfinalized_constant, e, f) H6.T(Step_main.PS).t
+      -> (ns, tot) Nat.Sum.t
+      -> ( unfinalized_constant
+         , unfinalized
+         , _ )
+         H2_1.T(Composition_types.Spec).t
+         * ns H1.T(Nat).t =
+   fun proof_systems maxes ->
+    match (proof_systems, maxes) with
+    | [], [] ->
+        ([], [])
+    | (module PS_) :: proof_systems, max_num_input_proofs :: maxes ->
+        let per_proofs_spec, num_input_proofss = f proof_systems maxes in
+        ( PS_.Step.per_proof_spec ~wrap_rounds:Backend.Tock.Rounds.n
+          :: per_proofs_spec
+        , Nat.Adds.to_nat max_num_input_proofs :: num_input_proofss )
+    | [], _ :: _ ->
+        failwith "input_of_hlist"
+    | _ :: _, [] ->
+        failwith "input_of_hlist"
+  in
+  let per_proof_specs, num_input_proofss =
+    f proof_systems max_num_input_proofss
+  in
+  Impls.Step.input_of_hlist ~num_input_proofss ~per_proof_specs
+
 (* Compile an inductive rule. *)
 let create
-    (type num_rules max_num_input_proofs prev_num_input_proofss prev_num_ruless
-    a_var a_value prev_vars prev_values) ~index
+    (type num_rules max_num_input_proofss max_num_input_proofs
+    prev_num_input_proofss prev_num_ruless a_var a_value prev_vars prev_values
+    per_proof_witnesses per_proof_witness_constants unfinalizeds
+    unfinalized_constants proof_with_datas evalss) ~index
     ~(self : (a_var, a_value, max_num_input_proofs, num_rules) Tag.t)
     ~wrap_domains ~(max_num_input_proofs : max_num_input_proofs Nat.t)
     ~(max_num_input_proofss :
-       (max_num_input_proofs * unit, max_num_input_proofs) Nat.Sum.t)
+       (max_num_input_proofss, max_num_input_proofs) Nat.Sum.t)
     ~(rules_num_input_proofs : (int, num_rules) Vector.t)
     ~(num_rules : num_rules Nat.t) ~typ var_to_field_elements
-    value_to_field_elements (rule : _ Inductive_rule.t) =
+    value_to_field_elements
+    ~(proof_systems :
+       ( per_proof_witnesses
+       , per_proof_witness_constants
+       , unfinalizeds
+       , unfinalized_constants
+       , proof_with_datas
+       , evalss )
+       H6.T(Step_main.PS).t) (rule : _ Inductive_rule.t) =
   Timer.clock __LOC__ ;
   let module HT = H4.T (Tag) in
   let module HHT = H4.Sum_length (H4.T (Tag)) (HT) in
@@ -147,7 +193,6 @@ let create
   in
   let lte = Nat.lte_exn total_num_input_proofs max_num_input_proofs in
   let ltes = sum_ltes_exn prevs_length max_num_input_proofss in
-  let max_lengths = Nat.Sum.[Nat.Adds.add_zr max_num_input_proofs] in
   let requests = Requests.Step.create () in
   Timer.clock __LOC__ ;
   let step ~step_domains =
@@ -161,10 +206,10 @@ let create
         ; value_to_field_elements
         ; wrap_domains
         ; step_domains }
-      ~proof_systems:[(module Step_main.Proof_system)]
-      ~num_rules ~prevs_lengths ~prevs_length ~prev_num_input_proofss
-      ~max_lengths ~prev_num_input_proofss_length ~prev_num_ruless
-      ~prev_num_ruless_length ~ltes ~self
+      ~proof_systems ~num_rules ~prevs_lengths ~prevs_length
+      ~prev_num_input_proofss ~max_lengths:max_num_input_proofss
+      ~prev_num_input_proofss_length ~prev_num_ruless ~prev_num_ruless_length
+      ~ltes ~self
     |> unstage
   in
   Timer.clock __LOC__ ;
@@ -174,12 +219,7 @@ let create
         ~step_domains:
           (Vector.init num_rules ~f:(fun _ -> Fix_domains.rough_domains))
     in
-    let etyp =
-      Impls.Step.input_of_hlist ~num_input_proofss:[max_num_input_proofs]
-        ~per_proof_specs:
-          [ Step_main.Proof_system.Step.per_proof_spec
-              ~wrap_rounds:Backend.Tock.Rounds.n ]
-    in
+    let etyp = input_of_hlist ~max_num_input_proofss ~proof_systems in
     Fix_domains.domains (module Impls.Step) etyp main
   in
   Timer.clock __LOC__ ;
@@ -187,6 +227,8 @@ let create
     { num_input_proofs= (total_num_input_proofs, prevs_lengths, prevs_length)
     ; index
     ; lte
+    ; ltes
+    ; sum= max_num_input_proofss
     ; rule
     ; domains= own_domains
     ; main= step

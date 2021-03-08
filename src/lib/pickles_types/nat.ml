@@ -57,6 +57,13 @@ module Adds = struct
     | S n ->
         let T = add_zr_refl n in
         T
+
+  let rec to_nat : type n a b. (n, a, b) t -> n nat = function
+    | Z ->
+        Z
+    | S n ->
+        let pi = to_nat n in
+        S pi
 end
 
 module Lte = struct
