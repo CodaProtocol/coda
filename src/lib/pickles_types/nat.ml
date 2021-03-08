@@ -49,6 +49,14 @@ module Adds = struct
     | S n ->
         let pi = add_zr n in
         S pi
+
+  let rec add_zr_refl : type n m.
+      (n, z, m) t -> (n, m) Core_kernel.Type_equal.t = function
+    | Z ->
+        T
+    | S n ->
+        let T = add_zr_refl n in
+        T
 end
 
 module Lte = struct
@@ -140,6 +148,14 @@ module S (N : Add.Intf) = struct
     (S k, Adds.S pi)
 
   let eq = match N.eq with T -> Core_kernel.Type_equal.T
+end
+
+module Sum = struct
+  type (_, _) t =
+    | [] : (unit, z) t
+    | ( :: ) :
+        ('term, 'prev_total, 'total) Adds.t * ('terms, 'prev_total) t
+        -> ('term * 'terms, 'total) t
 end
 
 module N1 = S (N0)

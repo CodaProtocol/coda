@@ -291,32 +291,32 @@ let check w ?handler ~proof_level ~constraint_constants txn_snark
 let rule ~proof_level ~constraint_constants transaction_snark self :
     _ Pickles.Inductive_rule.t =
   { identifier= "step"
-  ; prevs= [self; transaction_snark]
+  ; prevs= [[self; transaction_snark]]
   ; main=
-      (fun [x1; x2] x ->
+      (fun [[x1; x2]] x ->
         let b1, b2 =
           Run.run_checked
             (step ~proof_level ~constraint_constants ~logger:(Logger.create ())
                [x1; x2] x)
         in
-        [b1; b2] )
+        [[b1; b2]] )
   ; main_value=
-      (fun [prev; (txn : Transaction_snark.Statement.With_sok.t)] curr ->
+      (fun [[prev; (txn : Transaction_snark.Statement.With_sok.t)]] curr ->
         let lh t =
           Protocol_state.blockchain_state t
           |> Blockchain_state.snarked_ledger_hash
         in
-        [ not
-            (Consensus.Data.Consensus_state.is_genesis_state
-               (Protocol_state.consensus_state curr))
-        ; List.for_all ~f:Fn.id
-            [ Frozen_ledger_hash.equal (lh prev) (lh curr)
-            ; Currency.Amount.(equal zero)
-                txn.Transaction_snark.Statement.supply_increase
-            ; Pending_coinbase.Stack.equal
-                txn.pending_coinbase_stack_state.source
-                txn.pending_coinbase_stack_state.target ]
-          |> not ] ) }
+        [ [ not
+              (Consensus.Data.Consensus_state.is_genesis_state
+                 (Protocol_state.consensus_state curr))
+          ; List.for_all ~f:Fn.id
+              [ Frozen_ledger_hash.equal (lh prev) (lh curr)
+              ; Currency.Amount.(equal zero)
+                  txn.Transaction_snark.Statement.supply_increase
+              ; Pending_coinbase.Stack.equal
+                  txn.pending_coinbase_stack_state.source
+                  txn.pending_coinbase_stack_state.target ]
+            |> not ] ] ) }
 
 module Statement = struct
   type t = Protocol_state.Value.t

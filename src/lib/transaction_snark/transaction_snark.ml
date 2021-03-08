@@ -1720,12 +1720,12 @@ module Base = struct
 
       let _rule ~constraint_constants : _ Pickles.Inductive_rule.t =
         { identifier= "snapp-two-proved"
-        ; prevs= [snapp1_tag; snapp2_tag]
+        ; prevs= [[snapp1_tag; snapp2_tag]]
         ; main=
-            (fun [t1; t2] x ->
+            (fun [[t1; t2]] x ->
               let s1, s2 = main t1 t2 ~constraint_constants x in
-              [s1; s2] )
-        ; main_value= (fun _ _ -> [true; true]) }
+              [[s1; s2]] )
+        ; main_value= (fun _ _ -> [[true; true]]) }
     end
 
     module One_proved = struct
@@ -1861,12 +1861,12 @@ module Base = struct
 
       let _rule ~constraint_constants : _ Pickles.Inductive_rule.t =
         { identifier= "snapp-one-proved"
-        ; prevs= [snapp1_tag]
+        ; prevs= [[snapp1_tag]]
         ; main=
-            (fun [t1] x ->
+            (fun [[t1]] x ->
               let s1 = main t1 ~constraint_constants x in
-              [s1] )
-        ; main_value= (fun _ _ -> [true]) }
+              [[s1]] )
+        ; main_value= (fun _ _ -> [[true]]) }
     end
 
     module Zero_proved = struct
@@ -2852,12 +2852,12 @@ module Base = struct
 
   let rule ~constraint_constants : _ Pickles.Inductive_rule.t =
     { identifier= "transaction"
-    ; prevs= []
+    ; prevs= [[]]
     ; main=
-        (fun [] x ->
+        (fun [[]] x ->
           Run.run_checked (main ~constraint_constants x) ;
-          [] )
-    ; main_value= (fun [] _ -> []) }
+          [[]] )
+    ; main_value= (fun [[]] _ -> [[]]) }
 
   let transaction_union_handler handler (transaction : Transaction_union.t)
       (state_body : Mina_state.Protocol_state.Body.Value.t)
@@ -2942,12 +2942,12 @@ module Merge = struct
     in
     let b = Boolean.var_of_value prev_should_verify in
     { identifier= "merge"
-    ; prevs= [self; self]
+    ; prevs= [[self; self]]
     ; main=
-        (fun ps x ->
+        (fun [ps] x ->
           Run.run_checked (main ps x) ;
-          [b; b] )
-    ; main_value= (fun _ _ -> [prev_should_verify; prev_should_verify]) }
+          [[b; b]] )
+    ; main_value= (fun _ _ -> [[prev_should_verify; prev_should_verify]]) }
 end
 
 open Pickles_types

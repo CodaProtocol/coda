@@ -25,10 +25,30 @@ type ( 'prev_vars
       , 'prev_values
       , 'prev_num_input_proofss
       , 'prev_num_ruless )
-      H4.T(Tag).t
-  ; main: 'prev_vars H1.T(Id).t -> 'a_var -> 'prev_vars H1.T(E01(B)).t
+      H4.T(H4.T(Tag)).t
+  ; main:
+      'prev_vars H1.T(H1.T(Id)).t -> 'a_var -> 'prev_vars H1.T(H1.T(E01(B))).t
   ; main_value:
-      'prev_values H1.T(Id).t -> 'a_value -> 'prev_vars H1.T(E01(Bool)).t }
+         'prev_values H1.T(H1.T(Id)).t
+      -> 'a_value
+      -> 'prev_vars H1.T(H1.T(E01(Bool))).t }
+
+module Singleton = struct
+  type nonrec ( 'prev_vars
+              , 'prev_values
+              , 'prev_num_input_proofss
+              , 'prev_num_ruless
+              , 'a_var
+              , 'a_value )
+              t =
+    ( 'prev_vars * unit
+    , 'prev_values * unit
+    , 'prev_num_input_proofss * unit
+    , 'prev_num_ruless * unit
+    , 'a_var
+    , 'a_value )
+    t
+end
 
 module T (Statement : T0) (Statement_value : T0) = struct
   type nonrec ( 'prev_vars

@@ -295,7 +295,19 @@ module Proof_system = struct
 end
 
 module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
-  module IR = Inductive_rule.T (A) (A_value)
+  module IR = struct
+    type ( 'prev_vars
+         , 'prev_values
+         , 'prev_num_input_proofss
+         , 'prev_num_ruless )
+         t =
+      ( 'prev_vars * unit
+      , 'prev_values * unit
+      , 'prev_num_input_proofss * unit
+      , 'prev_num_ruless * unit )
+      Inductive_rule.T(A)(A_value).t
+  end
+
   module HIR = H4.T (IR)
 
   let prev_num_input_proofss_per_slot :
@@ -352,10 +364,9 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
            let f : type a b c d.
                (a, b, c, d) IR.t -> Local_max_num_input_proofs.t =
             fun rule ->
-             let (T (_, l)) = HT.length rule.prevs in
-             Vector.extend_exn
-               (V.f l (M.f rule.prevs))
-               Max_num_input_proofs.n 0
+             let [prevs] = rule.prevs in
+             let (T (_, l)) = HT.length prevs in
+             Vector.extend_exn (V.f l (M.f prevs)) Max_num_input_proofs.n 0
          end)
      in
      let module V = H4.To_vector (Local_max_num_input_proofs) in
@@ -519,27 +530,34 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
 
             let f : type a b c d. (a, b, c, d) IR.t -> int =
              fun r ->
-              let (T (n, _)) = M.length r.prevs in
+              let [prevs] = r.prevs in
+              let (T (n, _)) = M.length prevs in
               Nat.to_int n
           end)
       in
       let module V = H4.To_vector (Int) in
       V.f prev_varss_length (M.f rules)
     in
+    let module Branch_data_ = struct
+      type ('a, 'b, 'c, 'd) t =
+        ('a * unit, 'b * unit, 'c * unit, 'd * unit) Branch_data.t
+    end in
     let step_data =
       let i = ref 0 in
       Timer.clock __LOC__ ;
       let module M =
-        H4.Map (IR) (Branch_data)
+        H4.Map (IR) (Branch_data_)
           (struct
             let f : type a b c d.
-                (a, b, c, d) IR.t -> (a, b, c, d) Branch_data.t =
+                (a, b, c, d) IR.t -> (a, b, c, d) Branch_data_.t =
              fun rule ->
               Timer.clock __LOC__ ;
               let res =
                 Common.time "make step data" (fun () ->
                     Step_branch_data.create ~index:(Index.of_int_exn !i)
                       ~max_num_input_proofs:Max_num_input_proofs.n
+                      ~max_num_input_proofss:
+                        [Nat.Adds.add_zr Max_num_input_proofs.n]
                       ~num_rules:Num_rules.n ~self ~typ A.to_field_elements
                       A_value.to_field_elements rule ~wrap_domains
                       ~rules_num_input_proofs )
@@ -553,10 +571,10 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
     let step_domains =
       let module M =
         H4.Map
-          (Branch_data)
+          (Branch_data_)
           (E04 (Domains))
           (struct
-            let f (T b : _ Branch_data.t) = b.domains
+            let f (T b : _ Branch_data_.t) = b.domains
           end)
       in
       let module V = H4.To_vector (Domains) in
@@ -571,14 +589,17 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
       in
       let module M =
         H4.Map
-          (Branch_data)
+          (Branch_data_)
           (E04 (Lazy_keys))
           (struct
             let etyp =
-              Impls.Step.input ~num_input_proofs:Max_num_input_proofs.n
-                ~wrap_rounds:Tock.Rounds.n
+              Impls.Step.input_of_hlist
+                ~num_input_proofss:[Max_num_input_proofs.n]
+                ~per_proof_specs:
+                  [ Step_main.Proof_system.Step.per_proof_spec
+                      ~wrap_rounds:Tock.Rounds.n ]
 
-            let f (T b : _ Branch_data.t) =
+            let f (T b : _ Branch_data_.t) =
               let (T (typ, conv)) = etyp in
               let main x () : unit =
                 b.main
@@ -663,7 +684,8 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
                                  Common.wrap_domains )
                        end)
                    in
-                   M.f rule.Inductive_rule.prevs
+                   let [prevs] = rule.Inductive_rule.prevs in
+                   M.f prevs
                end)
         in
         M.f rules
@@ -718,14 +740,14 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
     let wrap_vk = Lazy.map wrap_vk ~f:fst in
     let module S = Step.Make (A) (A_value) (Max_num_input_proofs) in
     let provers =
-      let module Z = H4.Zip (Branch_data) (E04 (Impls.Step.Keypair)) in
+      let module Z = H4.Zip (Branch_data_) (E04 (Impls.Step.Keypair)) in
       let f
           : type prev_vars prev_values prev_num_input_proofss prev_num_ruless.
              ( prev_vars
              , prev_values
              , prev_num_input_proofss
              , prev_num_ruless )
-             Branch_data.t
+             Branch_data_.t
           -> Lazy_keys.t
           -> ?handler:(   Snarky_backendless.Request.request
                        -> Snarky_backendless.Request.response)
@@ -738,10 +760,12 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
              Async.Deferred.t =
        fun (T b as branch_data) (step_pk, step_vk) ->
         let (module Requests) = b.requests in
-        let _, prev_vars_length = b.num_input_proofs in
+        let total_num_input_proofs, prevs_lengths, prevs_length =
+          b.num_input_proofs
+        in
         let step handler prevs next_state =
           let wrap_vk = Lazy.force wrap_vk in
-          S.f ?handler branch_data next_state ~prevs_length:prev_vars_length
+          S.f ?handler branch_data next_state ~prevs_length ~prevs_lengths
             ~self ~step_domains ~self_dlog_plonk_index:wrap_vk.commitments
             (Impls.Step.Keypair.pk (fst (Lazy.force step_pk)))
             wrap_vk.index prevs
@@ -796,7 +820,7 @@ module Make (A : Statement_var_intf) (A_value : Statement_value_intf) = struct
         wrap
       in
       let rec go : type xs1 xs2 xs3 xs4.
-             (xs1, xs2, xs3, xs4) H4.T(Branch_data).t
+             (xs1, xs2, xs3, xs4) H4.T(Branch_data_).t
           -> (xs1, xs2, xs3, xs4) H4.T(E04(Lazy_keys)).t
           -> ( xs2
              , xs3
@@ -937,7 +961,7 @@ let compile
                  , prev_num_ruless
                  , a_var
                  , a_value )
-                 H4_2.T(Inductive_rule).t)
+                 H4_2.T(Inductive_rule.Singleton).t)
     -> (a_var, a_value, max_num_input_proofs, num_rules) Tag.t
        * Cache_handle.t
        * (module Proof_intf
@@ -961,7 +985,13 @@ let compile
   in
   let module M = Make (A_var) (A_value) in
   let rec conv_irs : type v1ss v2ss wss hss.
-         (v1ss, v2ss, wss, hss, a_var, a_value) H4_2.T(Inductive_rule).t
+         ( v1ss
+         , v2ss
+         , wss
+         , hss
+         , a_var
+         , a_value )
+         H4_2.T(Inductive_rule.Singleton).t
       -> (v1ss, v2ss, wss, hss) H4.T(M.IR).t = function
     | [] ->
         []
@@ -1051,19 +1081,19 @@ let%test_module "test no side-loaded" =
                 ; fork= None }
               ~rules:(fun ~self ->
                 [ { identifier= "main"
-                  ; prevs= [self; self]
+                  ; prevs= [[self; self]]
                   ; main=
-                      (fun [prev; _] self ->
+                      (fun [[prev; _]] self ->
                         let is_base_case = Field.equal Field.zero self in
                         let proof_must_verify = Boolean.not is_base_case in
                         let self_correct = Field.(equal (one + prev) self) in
                         Boolean.Assert.any [self_correct; is_base_case] ;
-                        [proof_must_verify; Boolean.false_] )
+                        [[proof_must_verify; Boolean.false_]] )
                   ; main_value=
                       (fun _ self ->
                         let is_base_case = Field.Constant.(equal zero self) in
                         let proof_must_verify = not is_base_case in
-                        [proof_must_verify; false] ) } ] ) )
+                        [[proof_must_verify; false]] ) } ] ) )
 
       module Proof = (val p)
     end

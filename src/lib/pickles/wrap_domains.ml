@@ -6,41 +6,67 @@ open Hlist
 
 (* Compute the domains corresponding to wrap_main *)
 module Make (A : T0) (A_value : T0) = struct
-  module I = Inductive_rule.T (A) (A_value)
+  module I = struct
+    type ( 'prev_vars
+         , 'prev_values
+         , 'prev_num_input_proofss
+         , 'prev_num_ruless )
+         t =
+      ( 'prev_vars * unit
+      , 'prev_values * unit
+      , 'prev_num_input_proofss * unit
+      , 'prev_num_ruless * unit )
+      Inductive_rule.T(A)(A_value).t
+  end
 
   let prev (type xs ys ws hs) ~self ~(rules : (xs, ys, ws, hs) H4.T(I).t) =
     let module M_inner =
       H4.Map
-        (Tag)
-        (E04 (Domains))
-        (struct
-          let f : type a b c d. (a, b, c, d) Tag.t -> Domains.t =
-           fun t ->
-            Types_map.lookup_map t ~self:self.Tag.id
-              ~default:Common.wrap_domains ~f:(function
-              | `Side_loaded _ ->
-                  Common.wrap_domains
-              | `Compiled d ->
-                  d.wrap_domains )
-        end)
+        (H4.T
+           (Tag))
+           (H4.T
+              (E04 (Domains)))
+              (H4.Map
+                 (Tag)
+                 (E04 (Domains))
+                 (struct
+                   let f : type a b c d. (a, b, c, d) Tag.t -> Domains.t =
+                    fun t ->
+                     Types_map.lookup_map t ~self:self.Tag.id
+                       ~default:Common.wrap_domains ~f:(function
+                       | `Side_loaded _ ->
+                           Common.wrap_domains
+                       | `Compiled d ->
+                           d.wrap_domains )
+                 end))
     in
     let module M =
       H4.Map
         (I)
-        (H4.T
-           (E04 (Domains)))
-           (struct
-             let f : type vars values env num_input_proofss num_ruless.
-                    (vars, values, num_input_proofss, num_ruless) I.t
-                 -> ( vars
-                    , values
-                    , num_input_proofss
-                    , num_ruless )
-                    H4.T(E04(Domains)).t =
-              fun rule -> M_inner.f rule.prevs
-           end)
+        (H4.Singleton
+           (H4.T
+              (E04 (Domains))))
+              (struct
+                let f : type vars values env num_input_proofss num_ruless.
+                       (vars, values, num_input_proofss, num_ruless) I.t
+                    -> ( vars
+                       , values
+                       , num_input_proofss
+                       , num_ruless )
+                       H4.Singleton(H4.T(E04(Domains))).t =
+                 fun rule -> M_inner.f rule.prevs
+              end)
     in
-    M.f rules
+    let rec unwrap_prev_domains : type a b c d.
+           (a, b, c, d) H4.T(H4.Singleton(H4.T(E04(Domains)))).t
+        -> (a, b, c, d) H4.T(H4.T(E04(Domains))).t = function
+      | [] ->
+          []
+      | [y] :: xs ->
+          let ys = unwrap_prev_domains xs in
+          y :: ys
+    in
+    unwrap_prev_domains (M.f rules)
 
   let result =
     lazy
@@ -87,8 +113,8 @@ module Make (A : T0) (A_value : T0) = struct
     in
     Timer.clock __LOC__ ; t
 
-  let f full_signature num_rules rules_length ~self ~rules
-      ~max_num_input_proofs =
+  let f (type l) full_signature num_rules (rules_length : (l, _) Length.t)
+      ~self ~rules ~max_num_input_proofs =
     let res = Lazy.force result in
     ( if debug then
       let res' =

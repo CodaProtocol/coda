@@ -3,6 +3,7 @@ open Core
 module P = Proof
 open Pickles_types
 open Poly_types
+open Higher_kinded_poly
 open Hlist
 open Backend
 open Tuple_lib
@@ -29,22 +30,24 @@ struct
   (* The prover corresponding to the given inductive rule. *)
   let f
       (type prev_max_num_input_proofss self_num_rules prev_vars prev_values
-      prev_num_input_proofss prev_num_ruless prevs_length) ?handler
+      prev_num_input_proofss prev_num_ruless prevs_lengths prevs_length)
+      ?handler
       (T branch_data :
         ( A.t
         , A_value.t
         , Max_num_input_proofs.n
         , self_num_rules
-        , prev_vars
-        , prev_values
-        , prev_num_input_proofss
-        , prev_num_ruless )
+        , prev_vars * unit
+        , prev_values * unit
+        , prev_num_input_proofss * unit
+        , prev_num_ruless * unit )
         Step_branch_data.t) (next_state : A_value.t)
       ~maxes:(module Maxes : Pickles_types.Hlist.Maxes.S
         with type length = Max_num_input_proofs.n
          and type ns = prev_max_num_input_proofss)
-      ~(prevs_length : (prev_vars, prevs_length) Length.t) ~self ~step_domains
-      ~self_dlog_plonk_index pk self_dlog_vk
+      ~(prevs_lengths : (prev_vars * unit, prevs_lengths) H2.T(Length).t)
+      ~(prevs_length : (prevs_lengths, prevs_length) Nat.Sum.t) ~self
+      ~step_domains ~self_dlog_plonk_index pk self_dlog_vk
       (prev_with_proofs :
         ( prev_values
         , prev_num_input_proofss
@@ -58,18 +61,39 @@ struct
       , (_, Max_num_input_proofs.n) Vector.t )
       P.Base.Pairing_based.t
       Async.Deferred.t =
-    let _, prev_vars_length = branch_data.num_input_proofs in
-    let T = Length.contr prev_vars_length prevs_length in
-    let (module Req) = branch_data.requests in
-    let T =
-      Hlist.Length.contr (snd branch_data.num_input_proofs) prev_vars_length
-    in
-    let prev_values_length =
-      let module L12 = H4.Length_1_to_2 (Tag) in
-      L12.f branch_data.rule.prevs prev_vars_length
+    let _, prev_vars_lengths, prev_vars_length =
+      branch_data.num_input_proofs
     in
     let lte = branch_data.lte in
-    let inners_must_verify =
+    let T = Lengths.contr prev_vars_lengths prevs_lengths in
+    let [_] = prev_vars_lengths in
+    let [add_vars_length] = prev_vars_length in
+    let [_] = prevs_lengths in
+    let [add_length] = prevs_length in
+    let T = Nat.Adds.add_zr_refl add_length in
+    let T = Nat.Adds.add_zr_refl add_vars_length in
+    (*let _, prev_vars_length = branch_data.num_input_proofs in
+    let T = Length.contr prev_vars_length prevs_length in
+    let T =
+      Hlist.Length.contr (snd branch_data.num_input_proofs) prev_vars_length
+    in*)
+    let (module Req) = branch_data.requests in
+    let prev_values_length =
+      let rec f : type a b c d e.
+             (a, b, c, d) H4.T(H4.T(Tag)).t
+          -> (a, e) H2.T(Length).t
+          -> (b, e) H2.T(Length).t =
+       fun tagss lengths ->
+        match (tagss, lengths) with
+        | [], [] ->
+            []
+        | tags :: tagss, length :: lengths ->
+            let module L12 = H4.Length_1_to_2 (Tag) in
+            L12.f tags length :: f tagss lengths
+      in
+      f branch_data.rule.prevs prev_vars_lengths
+    in
+    let [inners_must_verify] =
       let prevs =
         let module M =
           H3.Map1_to_H1 (P.With_data) (Id)
@@ -80,8 +104,11 @@ struct
         in
         M.f prev_with_proofs
       in
-      branch_data.rule.main_value prevs next_state
+      branch_data.rule.main_value [prevs] next_state
     in
+    let [prevs] = branch_data.rule.prevs in
+    let [prev_vars_lengths] = prev_vars_lengths in
+    let [prev_values_length] = prev_values_length in
     let module X_hat = struct
       type t = Tock.Field.t Double.t
     end in
@@ -112,7 +139,11 @@ struct
              * Unfinalized.Constant.t
              * Statement_with_hashes.t
              * X_hat.t
-             * (value, max_num_input_proofs, m) Per_proof_witness.Constant.t =
+             * ( value
+               , max_num_input_proofs
+               , m
+               , P3.W(Per_proof_witness.Constant).t )
+               P3.t =
        fun max dlog_vk dlog_index (T t) tag ~must_verify ->
         let plonk0 = t.statement.proof_state.deferred_values.plonk in
         let plonk =
@@ -341,6 +372,7 @@ struct
         let shifted_value =
           Shifted_value.of_field (module Tock.Field) ~shift:Shifts.tock
         in
+        let module M = P3.T (Per_proof_witness.Constant) in
         ( `Sg sg
         , { Types.Pairing_based.Proof_state.Per_proof.deferred_values=
               { plonk=
@@ -358,7 +390,7 @@ struct
               Digest.Constant.of_tock_field sponge_digest_before_evaluations }
         , prev_statement_with_hashes
         , x_hat
-        , witness )
+        , M.to_poly witness )
       in
       let rec go : type vars values ns ms maxes k.
              (values, ns, ms) H3.T(P.With_data).t
@@ -370,7 +402,11 @@ struct
              * (Unfinalized.Constant.t, k) Vector.t
              * (Statement_with_hashes.t, k) Vector.t
              * (X_hat.t, k) Vector.t
-             * (values, ns, ms) H3.T(Per_proof_witness.Constant).t =
+             * ( values
+               , ns
+               , ms
+               , P3.W(Per_proof_witness.Constant).t )
+               H3_1.T(P3).t =
        fun ps maxes ts must_verifys l ->
         match (ps, maxes, ts, must_verifys, l) with
         | [], _, [], [], Z ->
@@ -389,8 +425,8 @@ struct
         | _ :: _, [], _, _, _ ->
             assert false
       in
-      go prev_with_proofs Maxes.maxes branch_data.rule.prevs inners_must_verify
-        prev_vars_length
+      go prev_with_proofs Maxes.maxes prevs inners_must_verify
+        prev_vars_lengths
     in
     let next_statement : _ Types.Pairing_based.Statement.t =
       let unfinalized_proofs_extended =
@@ -442,7 +478,7 @@ struct
       let k x = respond (Provide x) in
       match request with
       | Req.Proof_with_datas ->
-          k witnesses
+          k [witnesses]
       | Req.Wrap_index ->
           k self_dlog_plonk_index
       | Req.App_state ->
@@ -456,8 +492,10 @@ struct
     in
     let%map.Async (next_proof : Tick.Proof.t) =
       let (T (input, conv)) =
-        Impls.Step.input ~num_input_proofs:Max_num_input_proofs.n
-          ~wrap_rounds:Tock.Rounds.n
+        Impls.Step.input_of_hlist ~num_input_proofss:[Max_num_input_proofs.n]
+          ~per_proof_specs:
+            [ Step_main.Proof_system.Step.per_proof_spec
+                ~wrap_rounds:Tock.Rounds.n ]
       in
       let rec pad : type n k maxes pvals lws lhs.
              (Digest.Constant.t, k) Vector.t
@@ -525,17 +563,18 @@ struct
                 : unit ) )
             ()
             { proof_state=
-                { next_statement.proof_state with
-                  me_only=
+                { unfinalized_proofs=
+                    [next_statement.proof_state.unfinalized_proofs]
+                ; me_only=
                     Common.hash_pairing_me_only
                       ~app_state:A_value.to_field_elements
                       next_me_only_prepared }
             ; pass_through=
                 (* TODO: Use the same pad_pass_through function as in wrap *)
-                pad
-                  (Vector.map statements_with_hashes ~f:(fun s ->
-                       s.proof_state.me_only ))
-                  Maxes.maxes Maxes.length } )
+                [ pad
+                    (Vector.map statements_with_hashes ~f:(fun s ->
+                         s.proof_state.me_only ))
+                    Maxes.maxes Maxes.length ] } )
     in
     let prev_evals =
       let module M =

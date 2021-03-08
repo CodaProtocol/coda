@@ -21,3 +21,7 @@ end
 module type T5 = sig
   type (_, _, _, _, _) t
 end
+
+module type T6 = sig
+  type (_, _, _, _, _, _) t
+end

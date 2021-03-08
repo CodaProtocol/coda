@@ -1,5 +1,6 @@
 open Pickles_types
 open Core_kernel
+open Hlist
 open Import
 open Backend
 module Wrap_impl = Snarky_backendless.Snark.Run.Make (Tock) (Unit)
@@ -90,6 +91,127 @@ module Step = struct
     in
     let typ = Typ.transport typ ~there:to_data ~back:of_data in
     Spec.ETyp.T (typ, fun x -> of_data (f x))
+
+  let input_of_hlist (type num_input_proofss vars values)
+      ~(num_input_proofss : num_input_proofss H1.T(Nat).t)
+      ~(per_proof_specs : (values, vars, _) H2_1.T(Spec).t) :
+      ( ( (vars, num_input_proofss) H2.T(Vector).t
+        , Field.t
+        , num_input_proofss H1.T(Vector.Carrying(Digest)).t )
+        Types.Pairing_based.Statement.t
+      , ( (values, num_input_proofss) H2.T(Vector).t
+        , Digest.Constant.t
+        , num_input_proofss H1.T(Vector.Carrying(Digest.Constant)).t )
+        Types.Pairing_based.Statement.t
+      , _ )
+      Spec.ETyp.t =
+    let open Types.Pairing_based.Statement in
+    let packed_typ spec =
+      Spec.packed_typ
+        (module Impl)
+        (T
+           ( Shifted_value.typ Other_field.typ_unchecked
+           , fun (Shifted_value x as t) ->
+               Impl.run_checked (Other_field.check x) ;
+               t ))
+        spec
+    in
+    let rec build_typs : type num_input_proofss vars values.
+           num_input_proofss H1.T(Nat).t
+        -> (values, vars, _) H2_1.T(Spec).t
+        -> ( (vars, num_input_proofss) H2.T(Vector).t
+           , (values, num_input_proofss) H2.T(Vector).t
+           , _ )
+           Spec.ETyp.t
+           * ( num_input_proofss H1.T(Vector.Carrying(Digest)).t
+             , num_input_proofss H1.T(Vector.Carrying(Digest.Constant)).t
+             , _ )
+             Spec.ETyp.t =
+     fun num_input_proofss specs ->
+      match (num_input_proofss, specs) with
+      | [], [] ->
+          let per_proof_typ =
+            let open Snarky_backendless.Typ in
+            let module M = H2.T (Vector) in
+            let open M in
+            transport (unit ()) ~there:(fun [] -> ()) ~back:(fun () -> [])
+            |> transport_var ~there:(fun [] -> ()) ~back:(fun () -> [])
+          in
+          let digest_typ =
+            let open Snarky_backendless.Typ in
+            let module M = H1.T (Vector.Carrying (Digest.Constant)) in
+            let module N = H1.T (Vector.Carrying (Digest)) in
+            let open M in
+            transport (unit ()) ~there:(fun [] -> ()) ~back:(fun () -> [])
+            |> transport_var ~there:N.(fun [] -> ()) ~back:N.(fun () -> [])
+          in
+          (Spec.ETyp.T (per_proof_typ, Fn.id), Spec.ETyp.T (digest_typ, Fn.id))
+      | [], _ ->
+          failwith "Pickles.Impls.Step.input_of_hlist: too many specs"
+      | _, [] ->
+          failwith
+            "Pickles.Impls.Step.input_of_hlist: too many num_input_proofss"
+      | num_input_proofs :: num_input_proofss, spec :: specs ->
+          let T (per_proofs_typ, per_proofs_fn), T (digests_typ, digests_fn) =
+            build_typs num_input_proofss specs
+          in
+          let (T (per_proof_typ, per_proof_fn)) =
+            packed_typ (Vector (spec, num_input_proofs))
+          in
+          let (T (digest_typ, digest_fn)) =
+            packed_typ (Vector (B Spec.Digest, num_input_proofs))
+          in
+          let per_proof_typ =
+            let open Snarky_backendless.Typ in
+            let module M = H2.T (Vector) in
+            let open M in
+            let typ =
+              transport
+                (tuple2 per_proof_typ per_proofs_typ)
+                ~there:(fun (x :: y) -> (x, y))
+                ~back:(fun (x, y) -> x :: y)
+            in
+            Spec.ETyp.T (typ, fun (x, y) -> per_proof_fn x :: per_proofs_fn y)
+          in
+          let digest_typ =
+            let open Snarky_backendless.Typ in
+            let module M = H1.T (Vector.Carrying (Digest.Constant)) in
+            let module N = H1.T (Vector.Carrying (Digest)) in
+            let open N in
+            let typ =
+              transport
+                (tuple2 digest_typ digests_typ)
+                ~there:M.(fun (x :: y) -> (x, y))
+                ~back:(fun (x, y) -> x :: y)
+            in
+            Spec.ETyp.T (typ, fun (x, y) -> digest_fn x :: digests_fn y)
+          in
+          (per_proof_typ, digest_typ)
+    in
+    let T (per_proof_typ, per_proof_fn), T (digests_typ, digests_fn) =
+      build_typs num_input_proofss per_proof_specs
+    in
+    let (T (me_only_typ, me_only_fn)) = packed_typ (B Spec.Digest) in
+    let proof_state_typ =
+      let open Types.Pairing_based.Proof_state in
+      Snarky_backendless.Typ.of_hlistable
+        [per_proof_typ; me_only_typ]
+        ~var_to_hlist:to_hlist ~var_of_hlist:of_hlist ~value_to_hlist:to_hlist
+        ~value_of_hlist:of_hlist
+    in
+    let typ =
+      Snarky_backendless.Typ.of_hlistable
+        [proof_state_typ; digests_typ]
+        ~var_to_hlist:to_hlist ~var_of_hlist:of_hlist ~value_to_hlist:to_hlist
+        ~value_of_hlist:of_hlist
+    in
+    Spec.ETyp.T
+      ( typ
+      , fun {proof_state= {unfinalized_proofs; me_only}; pass_through} ->
+          { proof_state=
+              { unfinalized_proofs= per_proof_fn unfinalized_proofs
+              ; me_only= me_only_fn me_only }
+          ; pass_through= digests_fn pass_through } )
 end
 
 module Wrap = struct

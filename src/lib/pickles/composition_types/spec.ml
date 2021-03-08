@@ -1,6 +1,7 @@
 module D = Digest
 open Core_kernel
 open Pickles_types
+open Higher_kinded_poly
 open Hlist
 module Sc = Pickles_types.Scalar_challenge
 
@@ -42,6 +43,12 @@ module rec T : sig
     | Struct :
         ('xs1, 'xs2, 'env) H2_1.T(T).t
         -> ('xs1 Hlist.HlistId.t, 'xs2 Hlist.HlistId.t, 'env) t
+    | Map_value :
+        ('a_old, 'b, 'env) t * ('a -> 'a_old) * ('a_old -> 'a)
+        -> ('a, 'b, 'env) t
+    | Map_var :
+        ('a, 'b_old, 'env) t * ('b -> 'b_old) * ('b_old -> 'b)
+        -> ('a, 'b, 'env) t
 end =
   T
 
@@ -69,6 +76,10 @@ let rec pack : type t v env.
       Array.append hd (pack p (Struct specs) tl)
   | Array (spec, _) ->
       Array.concat_map t ~f:(pack p spec)
+  | Map_value (spec, _there, _back) ->
+      pack p spec t
+  | Map_var (spec, there, _back) ->
+      pack p spec (there t)
 
 type ('f, 'env) typ =
   { typ:
@@ -103,6 +114,10 @@ let rec typ : type f var value env.
         |> transport_var
              ~there:(fun (x :: xs) -> (x, xs))
              ~back:(fun (x, xs) -> x :: xs)
+    | Map_value (spec, there, back) ->
+        typ t spec |> transport ~there ~back
+    | Map_var (spec, there, back) ->
+        typ t spec |> transport_var ~there ~back
 
 type 'env exists = T : ('t1, 't2, 'env) T.t -> 'env exists
 
@@ -151,6 +166,12 @@ let rec etyp : type f var value env.
                  ~there:(fun (x :: xs) -> (x, xs))
                  ~back:(fun (x, xs) -> x :: xs)
           , fun (x, xs) -> f1 x :: f2 xs )
+    | Map_value (spec, there, back) ->
+        let (T (t1, f1)) = etyp e spec in
+        T (t1 |> transport ~there ~back, f1)
+    | Map_var (spec, there, back) ->
+        let (T (t1, f1)) = etyp e spec in
+        T (t1, fun x -> back (f1 x))
 
 module Common (Impl : Snarky_backendless.Snark_intf.Run) = struct
   module Digest = D.Make (Impl)

@@ -212,7 +212,7 @@ val compile :
                , 'prev_num_ruless
                , 'a_var
                , 'a_value )
-               H4_2.T(Inductive_rule).t)
+               H4_2.T(Inductive_rule.Singleton).t)
   -> ('a_var, 'a_value, 'max_num_input_proofs, 'num_rules) Tag.t
      * Cache_handle.t
      * (module Proof_intf

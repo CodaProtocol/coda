@@ -15,6 +15,10 @@ end
 
 include T
 
+module Flipped = struct
+  type ('n, 'a) t = ('a, 'n) T.t
+end
+
 let rec iter : type a n. (a, n) t -> f:(a -> unit) -> unit =
  fun t ~f -> match t with [] -> () | x :: xs -> f x ; iter xs ~f
 
@@ -345,6 +349,13 @@ module With_length (N : Nat.Intf) = struct
   let of_list_exn : 'a list -> 'a t = fun ls -> of_list_and_length_exn ls N.n
 
   let to_list : 'a t -> 'a list = to_list
+end
+
+module Carrying (M : sig
+  type t
+end) =
+struct
+  type 'n t = (M.t, 'n) vec
 end
 
 let rec typ' : type f var value n.
