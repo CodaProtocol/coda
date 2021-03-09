@@ -1,9 +1,3 @@
-/dns4/seed-1.finalfinal2.o1test.net/tcp/10000/p2p/12D3KooWGb3tna8uSs1dyTVX5qMRbxQzTXmyGJMLw2hFZePCzSTg
-/dns4/seed-2.finalfinal2.o1test.net/tcp/10001/p2p/12D3KooWHhdinXC7ViTdEe5Z9z2A3qxWonUwqU1imo7cs4VL5pbt
-/dns4/seed-3.finalfinal2.o1test.net/tcp/10002/p2p/12D3KooWNmwrfbAqwfT65z3ksGzt6y6vumGik11p5HsPhBMmu3eR
-/dns4/seed-4.finalfinal2.o1test.net/tcp/10003/p2p/12D3KooWRvprUtP1curcr5eR8nUeNr5uTTPo4ax2gW6efhZWnfPm
-/dns4/seed-5.finalfinal2.o1test.net/tcp/10004/p2p/12D3KooWMSJvBWJL7B8c28xzaHBSZYhukTmqLyjaCq8eoWBYdHWD
-/dns4/seed-6.finalfinal2.o1test.net/tcp/10005/p2p/12D3KooWK61S6DrQLrk7LgU6P9a1Zd4CGdPG4brcHDSLeoDRLWVK
 /dns4/earth.mina.kelepool.pro/tcp/8302/p2p/12D3KooWELkaJdeNx2srRrKNvroJiCbqkYv4xbQGvN2NeSzzzsBy
 /dns4/mina-1.figment.io/tcp/8302/p2p/12D3KooWSkfwArLtqGMht1a9w3z3QiiqA2E6seBRAk378rvanGRZ
 /dns4/mina-2.figment.io/tcp/8302/p2p/12D3KooWH9CPa9dU7WBs64jyM5LGkTa8TPonUj9r8hPeGR8cVC1V
@@ -11,7 +5,7 @@
 /dns4/mina-seed-1.nodeasy.com/tcp/10001/p2p/12D3KooWRMXtoYktAqkNFd9LkT1XpAJWryqje88owWf9v9SpaayN
 /dns4/mina-seed-1.zkvalidator.com/tcp/8302/p2p/12D3KooWSR7LMBSfEk3LQUudmsX27yuRHe9NUxwLumurGF5P1MNS
 /dns4/mina-seed-2.zkvalidator.com/tcp/8302/p2p/12D3KooWHPAqBh4rF2K94p7ucW2pyQvpYstRRSZZZAn1ib1TU3v6
-/dns4/mina-seed.bitcat365.com/tcp/10001/p2p/12D3KooWQzozNTDKL7MqUh6Nh11GMA4pQhRCAsNTRWxCAzAi4VbE
+/dns4/mina-seed.bitcat365.com/tcp/10001/p2p/112D3KooWQzozNTDKL7MqUh6Nh11GMA4pQhRCAsNTRWxCAzAi4VbE
 /dns4/mina-seed.dsrvlabs.net/tcp/8302/p2p/12D3KooWJQAvnn3dcQgpiMXBczkKQs58rVVbakZHJEvCvQC9XubE
 /dns4/mina-seed.genesislab.net/tcp/8302/p2p/12D3KooWRcHiFQsbYgjPSxtMg4Y9ifrvmCFtJQ8Qztqd3z4L9buU
 /dns4/mina-seed.hashquark.io/tcp/8302/p2p/12D3KooWRqdbJszoX6AB2E47KR45Kex1RptichA2MDkNSCqX5eb4

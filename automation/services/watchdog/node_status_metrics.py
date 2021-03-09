@@ -128,7 +128,7 @@ def crawl_for_peers(v1, namespace, seed, seed_daemon_port, max_crawl_requests=10
         del unqueried_peers[p]
 
   cmd = "mina advanced node-status -daemon-port " + seed_daemon_port + " -daemon-peers" + " -show-errors"
-  resp = util.exec_on_pod(v1, namespace, seed, 'seed', cmd)
+  resp = util.exec_on_pod(v1, namespace, seed, 'coda', cmd)
   add_resp(resp, [])
 
   requests = 0
@@ -139,7 +139,7 @@ def crawl_for_peers(v1, namespace, seed, seed_daemon_port, max_crawl_requests=10
 
     print ('Queried ' + str(len(queried_peers)) + ' peers. Gathering node status on %s unqueried peers'%(str(len(unqueried_peers))))
 
-    resp = util.exec_on_pod(v1, namespace, seed, 'seed', "mina advanced node-status -daemon-port " + seed_daemon_port + " -peers " + peers + " -show-errors")
+    resp = util.exec_on_pod(v1, namespace, seed, 'coda', "mina advanced node-status -daemon-port " + seed_daemon_port + " -peers " + peers + " -show-errors")
     add_resp(resp, peers_to_query)
 
     requests += 1

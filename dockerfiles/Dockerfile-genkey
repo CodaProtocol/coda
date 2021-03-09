@@ -26,7 +26,7 @@ RUN apt-get -y update \
 # mina keypair package
 RUN echo "deb [trusted=yes] http://packages.o1test.net release main" > /etc/apt/sources.list.d/o1.list \
    && apt-get update \
-   && apt-get install -y "mina-generate-keypair=0.2.7-fbe3495"
+   && apt-get install -y "mina-generate-keypair=1.0.2-06f3c5c"
 
 WORKDIR /
 

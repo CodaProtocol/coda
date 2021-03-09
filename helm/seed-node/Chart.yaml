@@ -2,11 +2,12 @@ apiVersion: v2
 name: seed-node
 description: A Helm chart for Mina Protocol's seed nodes
 type: application
-version: 1.0.1
+version: 1.0.3
 appVersion: 1.16.0
 annotations:
   artifacthub.io/changes: |
-    - enable daemon blockchain archival capability
+    - Log precomputed blocks by default
+    - Add maxConnections value of 200
 dependencies:
   - name: common-utilities
     version: 0.0.8

@@ -2,6 +2,8 @@ testnetName: "coda-testnet"
 coda:
   runtimeConfig:
   generateGenesisProof: true
+  logPrecomputedBlocks: true
+  maxConnections: 200
   image: codaprotocol/coda-daemon:0.0.12-beta-develop-589b507
   seedPeers:
     - /ip4/35.185.66.37/tcp/10105/p2p/12D3KooWQ7Pz3SPizarzx9ZhCJ6jNmQ2iDPgHQxVzRzqYU2SgRSd

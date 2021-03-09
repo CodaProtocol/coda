@@ -38,6 +38,8 @@ instrumentation = sexpdata.loads('instrumentation')
 ppx_lint = sexpdata.loads('ppx_version')
 ppx_coverage = sexpdata.loads('bisect_ppx')
 
+version_lint_as_warning_flag = sexpdata.loads('-lint-version-syntax-warnings')
+
 exit_code = 0
 
 
@@ -78,6 +80,16 @@ def get_ppx_ndx(dune, ppxs, ppx):
         global exit_code
         exit_code = 1
 
+def check_for_proscribed_flag(dune, ppxs, flag):
+    try:
+        ndx = ppxs.index(flag)
+        print("In dune file " + dune +
+              ", the preprocessing clause contains proscribed flag " + (sexpdata.dumps(flag)))
+        global exit_code
+        exit_code = 1
+    except:
+        None
+
 def get_backends_ndx(dune, backends, ppx):
     try:
         backends.index(ppx)
@@ -108,6 +120,7 @@ for dune in dune_paths:
                             no_ppx_error(dune, ppx_lint)
                         elif sexpdata.car(subclause) == pps:
                             ppxs = sexpdata.cdr(subclause)
+                            check_for_proscribed_flag(dune,ppxs,version_lint_as_warning_flag)
                             lint_ppx_ndx = get_ppx_ndx(dune, ppxs, ppx_lint)
                     if sexpdata.car(clause) == instrumentation:
                         found_instrumentation = True

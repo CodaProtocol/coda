@@ -30,7 +30,7 @@ Pipeline.build
         Command.Config::{
           commands = [
               Cmd.run "cd automation/terraform/monitoring && terraform init",
-              Cmd.run "terraform apply -auto-approve -target docker_container.sync_alert_rules" ]
+              Cmd.run "terraform apply -auto-approve -target module.o1testnet_alerts.docker_container.sync_alert_rules" ]
           , label = "Deploy Testnet alert rules"
           , key = "deploy-testnet-alerts"
           , target = Size.Medium

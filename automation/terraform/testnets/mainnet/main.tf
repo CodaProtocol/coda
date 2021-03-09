@@ -1,7 +1,7 @@
 terraform {
   required_version = ">= 0.14.0"
   backend "s3" {
-    key     = "terraform-finalfinal2-new.tfstate"
+    key     = "terraform-mainnet.tfstate"
     encrypt = true
     region  = "us-west-2"
     bucket  = "o1labs-terraform-state"
@@ -54,9 +54,9 @@ variable "seed_count" {
 }
 
 locals {
-  testnet_name = "finalfinal2"
-  coda_image = "gcr.io/o1labs-192920/coda-daemon-baked:1.0.0-fd39808-finalfinal2-fd39808"
-  coda_archive_image = "gcr.io/o1labs-192920/coda-archive:1.0.0-fix-archive-build-profile-e344c96"
+  testnet_name = "mainnet"
+  coda_image = "gcr.io/o1labs-192920/coda-daemon-baked:1.0.2-06f3c5c-finalfinal2-fd9fee4"
+  coda_archive_image = "gcr.io/o1labs-192920/coda-archive:1.0.2-06f3c5c"
 
   # replace with `make_report_discord_webhook_url = ""` if not in use (will fail if file not present)
   make_report_discord_webhook_url = <<EOT
@@ -70,7 +70,7 @@ locals {
   make_report_accounts = ""
 }
 
-module "finalfinal2" {
+module "mainnet" {
   providers = { google.gke = google.google-us-east1 }
   source    = "../../modules/o1-testnet"
 
@@ -83,12 +83,12 @@ module "finalfinal2" {
 
   coda_image         = local.coda_image
   coda_archive_image = local.coda_archive_image
-  watchdog_image     = "gcr.io/o1labs-192920/watchdog:0.4.0"
+  watchdog_image     = "gcr.io/o1labs-192920/watchdog:0.4.1"
 
-  block_producer_key_pass = "naughty blue worm"
+  block_producer_key_pass = ""
 
   archive_node_count  = 3
-  mina_archive_schema = "https://raw.githubusercontent.com/MinaProtocol/mina/fd3980820fb82c7355af49462ffefe6718800b77/src/app/archive/create_schema.sql"
+  mina_archive_schema = "https://raw.githubusercontent.com/MinaProtocol/mina/06f3c5cdeb635b2564fcb2edac4f10db85b93c36/src/app/archive/create_schema.sql"
 
   archive_configs       = [
     {
@@ -101,7 +101,7 @@ module "finalfinal2" {
       name = "archive-2"
       enableLocalDaemon = false
       enablePostgresDB  = false
-      postgresHost      = "archive-1-postgresql"
+      postgresHost      = "archive-3-postgresql"
     },
     {
       name = "archive-3"
@@ -123,8 +123,8 @@ module "finalfinal2" {
   restart_nodes                   = false
   restart_nodes_every_mins        = "60"
   make_reports                    = true
-  make_report_every_mins          = "5"
+  make_report_every_mins          = "30"
   make_report_discord_webhook_url = local.make_report_discord_webhook_url
   make_report_accounts            = local.make_report_accounts
-  seed_peers_url                  = "https://storage.googleapis.com/seed-lists/finalfinal2_seeds.txt?123"
+  seed_peers_url                  = "https://storage.googleapis.com/seed-lists/mainnet_seeds.txt?456"
 }

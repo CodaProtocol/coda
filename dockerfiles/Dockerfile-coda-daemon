@@ -43,10 +43,10 @@ while true; do\n\
   rm -f /root/.mina-config/.mina-lock\n\
   mina "$@" 2>&1 >mina.log &\n\
   coda_pid=$!\n\
-  tail -q -f mina.log -f .mina-config/mina-prover.log -f .mina-config/mina-verifier.log -f .mina-config/mina-best-tip.log &\n\
+  tail -q -f mina.log &\n\
   tail_pid=$!\n\
   wait "$coda_pid"\n\
-  echo "Coda process exited with status code $?"\n\
+  echo "Mina process exited with status code $?"\n\
   sleep 10\n\
   kill "$tail_pid"\n\
   if [ ! -f stay_alive ]; then\n\

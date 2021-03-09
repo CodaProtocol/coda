@@ -20,3 +20,12 @@
 1.0.1:
 ------
 - enable daemon blockchain archival capability
+
+1.0.2:
+------
+- adds support for uploading blocks to gcloud
+
+1.0.3:
+------
+- Log precomputed blocks by default
+- Add maxConnections value of 200
