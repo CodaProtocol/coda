@@ -99,6 +99,11 @@
                 left: 5px!important;
                 top: -32px;
             }
+            .table td {
+                font-size: 18px;
+                line-height: 27px;
+                color: #000000;
+            }
             /* for Image to Design */
             .Margin-right-for-text {
                 margin-right: 38rem;
