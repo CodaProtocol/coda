@@ -1,10 +1,10 @@
-# $: rule_namespace - Grafanacloud rules config namespace for storing rules (see: https://grafana.com/docs/grafana-cloud/alerts/grafana-cloud-alerting/namespaces-and-groups/)
+# $: rule_namespace - Grafanacloud rules config namespace for organizing rulesets (see: https://grafana.com/docs/grafana-cloud/alerts/grafana-cloud-alerting/namespaces-and-groups/)
 # $: rule_filter - filter for subset of testnets to include in rule alert search space
 # $: alerting_timeframe - range of time to inspect for alert rule violations
 
 namespace: ${rule_namespace}
 groups:
-- name: Critical Alerts
+- name: Critical
   rules:
   - alert: WatchdogClusterCrashes
     expr: max by (testnet) (max_over_time(Coda_watchdog_cluster_crashes ${rule_filter} [${alerting_timeframe}])) > 0.5
