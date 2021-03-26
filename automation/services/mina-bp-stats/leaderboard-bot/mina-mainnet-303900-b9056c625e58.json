@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "mina-mainnet-303900",
+  "private_key_id": "b9056c625e58deb78f570e21a91afae183a94401",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCsQQIR1ls7NV3C\nQ553Q5o0n9I7REOd4aWraBQNMo27YlhjMDJyZyMllBdcF3KUVfnqXo0SAzfCEiui\nxBvdUsbL9Skr/N+A1cvV7PVVJ1ChVY7kuSzII08BFg6J/COU1gOpSHxd8i2Zi8tR\nmJXEI4dGvPbAZKtLY3Af5IQwBXmto/f13Dr0I762Smg0IiVQTClXhMlZvajLyeMm\nyEtXA1DJUxCtJt/CwudGRz5iaSFpy9rHlDn1ZiZrePF67VkyoNhvlRnMTr6IJWp6\nqpKN9irw5/DrRq4nBXOnCr6FaB83D+vHPt+XfJ2pJUFx5mevWAVGYVffNu7aFB0B\necOCK93vAgMBAAECggEABdD27DndmcAbDg8XcwJ8dGNv7bvH2ehl6vkLZRV8aKpE\nJSraJ54o6lqeRIGvYKfbvCV8kPIJeD5oOWMMZ9ELamHSuPjQZfrFThz/fORKpvy+\nSiXTuvkXCiI/1Ach/zzcu2LgF17KjS4FuJfoErF6a16ND5qc/nr5YCWCR/BsMK5t\nV3ogzWIGGyTO/bpHl3ZJiFVsZnrOTaTLiEdVXJHMc+5n27Clc2/JhroFGqHU0QDz\nx+q5fxFyY33wLZhYBmlF/ROIBQWp1+BGqzEDGo5erUSFoZNiuziyKFhknB5KluYD\n4M84YPSXKYwWJpSrXCb+E65af7udleWatZmRFZ86GQKBgQDmx5SEIFkmYTjeIpax\nkXe7eWhjVgwJE032BkbMa+RqZIlrJb47uAbyGy4zcbs/2GByRaxEhybeR7CSEHTm\ngvAhDxAbUii4C7HUch8ciLKB3CVJWHlw/mB70UDr7fYgnQqdSHq2fWKO7T4urxb7\nY0n26Kwfzwd6JzQRUcmy+RGpFwKBgQC/FBS1/ju5mHcPisNfRp+ndwRssGlJsPnu\n+CubOe4c5rIMSu2O905lfFCsGGbGe2iEk4Y56szxhY6Li8YVAnCvPRUyPXk67ut9\nG2Fr6dCzPtjJCp1y0BKVFNS8qAXZ3HVQ2jFJsX263o5pjUfEB8KCnwseHdib2F61\ncUFSJFnI6QKBgG+ZW8x5CCNzKFjjSRQdUFUsZLqExdUtrKmoZ1w7YH3CmGFkIxYl\n69XwJuthuDcrn5gi8SdCZB1hdZVst9swvoZ+Dj/n/yDhJuGhPkJCKHB70NwjGLb3\njBjUHBz7OeaTiqp8fjr5b0vGlidlLCvs27u20GWha/A6PQeTEYKmx0+JAoGBAL7f\nFlk+HvckwDo8STGRYMZuc3MHPgWozeHS8exbj+o64Ly61Fct35gs+IEQ1wmKGTvm\nCf0s+ZCB84SeGT6/c0T55YSMN9+Q7pfIlCayKBIFw5QAEIuyIf3eEyxpQ37/ZAli\nDD4rGQdkbiouQPQnNDw7F2X8NnZnSyRAgBnHyhCRAoGAPJOtv8Vod4pzmOMqFnTs\nTSk7OmwZknNmWEkPR++tqluMsuevmDdxz6TTFWuXTPQEE4o9uLSp8D3vNkHIj0f6\nmIdNED8xNTF8o0FXL3fZ8WEsZENV7MBrcYWQv+/vwg+R/BGbr1YaNgR1k6MW5R1y\nfhzVjqlaH2gm6aOadX1qKi4=\n-----END PRIVATE KEY-----\n",
+  "client_email": "block-producer-stats-reader@mina-mainnet-303900.iam.gserviceaccount.com",
+  "client_id": "106378815781389057845",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/block-producer-stats-reader%40mina-mainnet-303900.iam.gserviceaccount.com"
+}
