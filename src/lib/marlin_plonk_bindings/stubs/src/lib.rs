@@ -33,11 +33,14 @@ pub mod urs_utils;
 /* Gates */
 pub mod plonk_gate;
 pub mod plonk_5_wires_gate;
+pub mod plonk_plookup_gate;
 /* Indices */
 pub mod index_serialization;
 pub mod index_serialization_5_wires;
+pub mod index_serialization_plookup;
 pub mod plonk_verifier_index;
 pub mod plonk_5_wires_verifier_index;
+pub mod plonk_plookup_verifier_index;
 pub mod tweedle_fp_plonk_index;
 pub mod tweedle_fp_plonk_verifier_index;
 pub mod tweedle_fq_plonk_index;
@@ -50,6 +53,10 @@ pub mod pasta_fp_plonk_5_wires_index;
 pub mod pasta_fp_plonk_5_wires_verifier_index;
 pub mod pasta_fq_plonk_5_wires_index;
 pub mod pasta_fq_plonk_5_wires_verifier_index;
+pub mod pasta_fp_plonk_plookup_index;
+pub mod pasta_fp_plonk_plookup_verifier_index;
+pub mod pasta_fq_plonk_plookup_index;
+pub mod pasta_fq_plonk_plookup_verifier_index;
 /* Proofs */
 pub mod tweedle_fp_plonk_proof;
 pub mod tweedle_fq_plonk_proof;
@@ -57,6 +64,8 @@ pub mod pasta_fp_plonk_proof;
 pub mod pasta_fq_plonk_proof;
 pub mod pasta_fp_plonk_5_wires_proof;
 pub mod pasta_fq_plonk_5_wires_proof;
+pub mod pasta_fp_plonk_plookup_proof;
+pub mod pasta_fq_plonk_plookup_proof;
 /* Oracles */
 pub mod tweedle_fp_plonk_oracles;
 pub mod tweedle_fq_plonk_oracles;
@@ -64,3 +73,8 @@ pub mod pasta_fp_plonk_oracles;
 pub mod pasta_fq_plonk_oracles;
 pub mod pasta_fp_plonk_5_wires_oracles;
 pub mod pasta_fq_plonk_5_wires_oracles;
+pub mod pasta_fp_plonk_plookup_oracles;
+pub mod pasta_fq_plonk_plookup_oracles;
+// temporary
+pub mod lookup_fp_table;
+pub mod lookup_fq_table;

@@ -1,6 +1,6 @@
 open Marlin_plonk_bindings_types
 
-type t = Marlin_plonk_bindings_pasta_fp.t Oracles.t
+type t = Marlin_plonk_bindings_pasta_fp.t Oracles_plonk.t
 
 external create :
      Marlin_plonk_bindings_pasta_fp_urs.Poly_comm.t array

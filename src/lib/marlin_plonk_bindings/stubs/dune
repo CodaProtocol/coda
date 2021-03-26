@@ -9,8 +9,7 @@
    (source_tree ../../marlin))
  (action
   (progn
-   (setenv RUSTFLAGS "-C target-feature=+bmi2,+adx"
-    (run cargo build --release))
+    (run cargo build --release)
    (run cp target/release/libmarlin_plonk_stubs.a .))))
 
 (library

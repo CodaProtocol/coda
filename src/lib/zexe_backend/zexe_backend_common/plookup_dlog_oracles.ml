@@ -22,7 +22,7 @@ module type Inputs_intf = sig
   end
 
   module Backend : sig
-    type t = Field.t Marlin_plonk_bindings.Types.Oracles_plonk.t
+    type t = Field.t Marlin_plonk_bindings.Types.Oracles_plookup.t
 
     val create : Verifier_index.t -> Proof.Backend.t -> t
   end
@@ -41,9 +41,13 @@ module Make (Inputs : Inputs_intf) = struct
 
   let alpha (t : t) = t.o.alpha_chal
 
-  let beta (t : t) = t.o.beta
+  let beta1 (t : t) = t.o.beta1
 
-  let gamma (t : t) = t.o.gamma
+  let gamma1 (t : t) = t.o.gamma1
+
+  let beta2 (t : t) = t.o.beta2
+
+  let gamma2 (t : t) = t.o.gamma2
 
   let zeta (t : t) = t.o.zeta_chal
 

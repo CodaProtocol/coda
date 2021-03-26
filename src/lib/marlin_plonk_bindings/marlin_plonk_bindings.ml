@@ -43,6 +43,8 @@ module Pasta_fp_index = Marlin_plonk_bindings_pasta_fp_index
 module Pasta_fq_index = Marlin_plonk_bindings_pasta_fq_index
 module Pasta_5_wires_fp_index = Marlin_plonk_bindings_pasta_5_wires_fp_index
 module Pasta_5_wires_fq_index = Marlin_plonk_bindings_pasta_5_wires_fq_index
+module Pasta_plookup_fp_index = Marlin_plonk_bindings_pasta_plookup_fp_index
+module Pasta_plookup_fq_index = Marlin_plonk_bindings_pasta_plookup_fq_index
 module Tweedle_fp_index = Marlin_plonk_bindings_tweedle_fp_index
 module Tweedle_fq_index = Marlin_plonk_bindings_tweedle_fq_index
 
@@ -54,6 +56,10 @@ module Pasta_5_wires_fp_verifier_index =
   Marlin_plonk_bindings_pasta_5_wires_fp_verifier_index
 module Pasta_5_wires_fq_verifier_index =
   Marlin_plonk_bindings_pasta_5_wires_fq_verifier_index
+module Pasta_plookup_fp_verifier_index =
+  Marlin_plonk_bindings_pasta_plookup_fp_verifier_index
+module Pasta_plookup_fq_verifier_index =
+  Marlin_plonk_bindings_pasta_plookup_fq_verifier_index
 module Tweedle_fp_verifier_index =
   Marlin_plonk_bindings_tweedle_fp_verifier_index
 module Tweedle_fq_verifier_index =
@@ -64,6 +70,8 @@ module Pasta_fp_proof = Marlin_plonk_bindings_pasta_fp_proof
 module Pasta_fq_proof = Marlin_plonk_bindings_pasta_fq_proof
 module Pasta_5_wires_fp_proof = Marlin_plonk_bindings_pasta_5_wires_fp_proof
 module Pasta_5_wires_fq_proof = Marlin_plonk_bindings_pasta_5_wires_fq_proof
+module Pasta_plookup_fp_proof = Marlin_plonk_bindings_pasta_plookup_fp_proof
+module Pasta_plookup_fq_proof = Marlin_plonk_bindings_pasta_plookup_fq_proof
 module Tweedle_fp_proof = Marlin_plonk_bindings_tweedle_fp_proof
 module Tweedle_fq_proof = Marlin_plonk_bindings_tweedle_fq_proof
 
@@ -74,5 +82,9 @@ module Pasta_5_wires_fp_oracles =
   Marlin_plonk_bindings_pasta_5_wires_fp_oracles
 module Pasta_5_wires_fq_oracles =
   Marlin_plonk_bindings_pasta_5_wires_fq_oracles
+module Pasta_plookup_fp_oracles =
+  Marlin_plonk_bindings_pasta_plookup_fp_oracles
+module Pasta_plookup_fq_oracles =
+  Marlin_plonk_bindings_pasta_plookup_fq_oracles
 module Tweedle_fp_oracles = Marlin_plonk_bindings_tweedle_fp_oracles
 module Tweedle_fq_oracles = Marlin_plonk_bindings_tweedle_fq_oracles

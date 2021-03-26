@@ -30,6 +30,7 @@ dlog_solver = { path = "../../marlin/dlog_solver" }
 marlin_circuits = { path = "../../marlin/circuits/marlin" }
 plonk_circuits = { path = "../../marlin/circuits/plonk", features = [ "ocaml_types" ] }
 plonk_5_wires_circuits = { path = "../../marlin/circuits/plonk-5-wires", features = [ "ocaml_types" ] }
+plonk_plookup_circuits = { path = "../../marlin/circuits/plonk-plookup", features = [ "ocaml_types" ] }
 
 commitment_pairing = { path = "../../marlin/pairing/commitment" }
 marlin_protocol_pairing = { path = "../../marlin/pairing/marlin" }
@@ -38,6 +39,7 @@ commitment_dlog = { path = "../../marlin/dlog/commitment", features = [ "ocaml_t
 marlin_protocol_dlog = { path = "../../marlin/dlog/marlin/" }
 plonk_protocol_dlog = { path = "../../marlin/dlog/plonk", features = [ "ocaml_types" ] }
 plonk_5_wires_protocol_dlog = { path = "../../marlin/dlog/plonk-5-wires", features = [ "ocaml_types" ] }
+plonk_plookup_protocol_dlog = { path = "../../marlin/dlog/plonk-plookup", features = [ "ocaml_types" ] }
 
 [profile.release]
 debug = true

@@ -5,15 +5,15 @@ module H_list = Snarky_backendless.H_list
 module Stable = struct
   module V1 = struct
     type 'a t =
-      { b2: 'a
-      ; xt: 'a
-      ; b1: 'a
+      { mutable b2: 'a
+      ; mutable xt: 'a
+      ; mutable b1: 'a
       ; xq: 'a
-      ; yt: 'a
-      ; xp: 'a
+      ; mutable yt: 'a
+      ; mutable xp: 'a
       ; l1: 'a
       ; l2: 'a
-      ; yp: 'a
+      ; mutable yp: 'a
       ; xs: 'a
       ; ys: 'a }
     [@@deriving sexp, fields, hlist]

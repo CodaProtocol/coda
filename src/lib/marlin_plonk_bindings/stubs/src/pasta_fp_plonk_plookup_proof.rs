@@ -8,7 +8,7 @@ use algebra::{
     One,
 };
 
-use plonk_5_wires_circuits::scalars::ProofEvaluations as DlogProofEvaluations;
+use plonk_plookup_circuits::scalars::ProofEvaluations as DlogProofEvaluations;
 
 use oracle::{
     poseidon_5_wires::PlonkSpongeConstants,
@@ -18,15 +18,15 @@ use oracle::{
 use groupmap::GroupMap;
 
 use commitment_dlog::commitment::{CommitmentCurve, OpeningProof, PolyComm};
-use plonk_5_wires_protocol_dlog::index::{Index as DlogIndex, VerifierIndex as DlogVerifierIndex};
-use plonk_5_wires_protocol_dlog::prover::{ProverCommitments as DlogCommitments, ProverProof as DlogProof};
+use plonk_plookup_protocol_dlog::index::{Index as DlogIndex, VerifierIndex as DlogVerifierIndex};
+use plonk_plookup_protocol_dlog::prover::{ProverCommitments as DlogCommitments, ProverProof as DlogProof};
 
-use crate::pasta_fp_plonk_5_wires_index::CamlPastaFpPlonkIndexPtr;
-use crate::pasta_fp_plonk_5_wires_verifier_index::CamlPastaFpPlonkVerifierIndex;
+use crate::pasta_fp_plonk_plookup_index::CamlPastaFpPlonkIndexPtr;
+use crate::pasta_fp_plonk_plookup_verifier_index::CamlPastaFpPlonkVerifierIndex;
 use crate::pasta_fp_vector::CamlPastaFpVector;
 
 #[ocaml::func]
-pub fn caml_pasta_fp_plonk_5_wires_proof_create(
+pub fn caml_pasta_fp_plonk_plookup_proof_create(
     index: CamlPastaFpPlonkIndexPtr<'static>,
     primary_input: CamlPastaFpVector,
     auxiliary_input: (Vec<Fp>, Vec<Fp>, Vec<Fp>, Vec<Fp>, Vec<Fp>),
@@ -100,7 +100,7 @@ pub fn proof_verify(
 }
 
 #[ocaml::func]
-pub fn caml_pasta_fp_plonk_5_wires_proof_verify(
+pub fn caml_pasta_fp_plonk_plookup_proof_verify(
     lgr_comm: Vec<PolyComm<GAffine>>,
     index: CamlPastaFpPlonkVerifierIndex,
     proof: DlogProof<GAffine>,
@@ -109,7 +109,7 @@ pub fn caml_pasta_fp_plonk_5_wires_proof_verify(
 }
 
 #[ocaml::func]
-pub fn caml_pasta_fp_plonk_5_wires_proof_batch_verify(
+pub fn caml_pasta_fp_plonk_plookup_proof_batch_verify(
     lgr_comms: Vec<Vec<PolyComm<GAffine>>>,
     indexes: Vec<CamlPastaFpPlonkVerifierIndex>,
     proofs: Vec<DlogProof<GAffine>>,
@@ -131,7 +131,7 @@ pub fn caml_pasta_fp_plonk_5_wires_proof_batch_verify(
 }
 
 #[ocaml::func]
-pub fn caml_pasta_fp_plonk_5_wires_proof_dummy() -> DlogProof<GAffine> {
+pub fn caml_pasta_fp_plonk_plookup_proof_dummy() -> DlogProof<GAffine> {
     let g = || GAffine::prime_subgroup_generator();
     let comm = || PolyComm {
         shifted: Some(g()),
@@ -154,6 +154,10 @@ pub fn caml_pasta_fp_plonk_5_wires_proof_dummy() -> DlogProof<GAffine> {
             w_comm: [comm(), comm(), comm(), comm(), comm()],
             z_comm: comm(),
             t_comm: comm(),
+            l_comm: comm(),
+            lw_comm: comm(),
+            h1_comm: comm(),
+            h2_comm: comm(),
         },
         public: vec![Fp::one(), Fp::one()],
         evals: {
@@ -164,6 +168,11 @@ pub fn caml_pasta_fp_plonk_5_wires_proof_dummy() -> DlogProof<GAffine> {
                 t: evals(),
                 f: evals(),
                 s: [evals(), evals(), evals(), evals()],
+                l: evals(),
+                lw: evals(),
+                h1: evals(),
+                h2: evals(),
+                tb: evals(),
             };
             [evals(), evals()]
         },
@@ -171,6 +180,6 @@ pub fn caml_pasta_fp_plonk_5_wires_proof_dummy() -> DlogProof<GAffine> {
 }
 
 #[ocaml::func]
-pub fn caml_pasta_fp_plonk_5_wires_proof_deep_copy(x: DlogProof<GAffine>) -> DlogProof<GAffine> {
+pub fn caml_pasta_fp_plonk_plookup_proof_deep_copy(x: DlogProof<GAffine>) -> DlogProof<GAffine> {
     x
 }
