@@ -12,9 +12,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.dialects import postgresql
 from download_batch_files import download_batch_into_memory
 
-db_string = BaseConfig.SQLALCHEMY_DATABASE_URI
-db = create_engine(db_string,pool_size=20, max_overflow=0)
-credential_path = "mina-mainnet-303900-b9056c625e58.json"
+import psycopg2
+import psycopg2.extras as extras
+
+connection = psycopg2.connect(
+    host=BaseConfig.POSTGRES_HOST,
+    port=BaseConfig.POSTGRES_PORT,
+    database=BaseConfig.POSTGRES_DB,
+    user=BaseConfig.POSTGRES_USER,
+    password=BaseConfig.POSTGRES_PASSWORD
+)
+#connection.autocommit = True
+
+credential_path = "buoyant-purpose-307004-fdd8c8803a81.json"
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
 os.environ['GCS_API_KEY'] = BaseConfig.API_KEY
 
@@ -54,12 +64,98 @@ def Download_Files(start_offset, script_start_time, ten_min_add):
         df = pd.DataFrame()
     return df
 
+def execute_node_record_batch(conn, df, page_size=100):
+    """
+    Using psycopg2.extras.execute_batch() to insert node records dataframe
+    Make sure datafram has exact following columns
+    block_producer_key, updated_at
+    """
+    tuples = [tuple(x) for x in df.to_numpy()]
+   
+    query  = """INSERT INTO node_record_table ( block_producer_key,updated_at) 
+            VALUES ( %s,  %s ) ON CONFLICT (block_producer_key) DO NOTHING """
+    cursor = conn.cursor()
+    try:
+        
+        extras.execute_batch(cursor, query, tuples, page_size)
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print("Error: %s" % error)
+        conn.rollback()
+        cursor.close()
+        return 1
+    finally:
+        conn.commit()
+        cursor.close()
+        return 0
+
+def execute_point_record_batch(conn, df, page_size=100):
+    """
+    Using psycopg2.extras.execute_batch() to insert point records dataframe
+    Make sure datafram has exact following columns in sequence
+    file_name,blockchain_epoch, block_producer_key, state_hash,blockchain_height,amount,bot_log_id, created_at
+    """
+    tuples = [tuple(x) for x in df.to_numpy()]
+   
+    query  = """INSERT INTO point_record_table ( file_name,blockchain_epoch, node_id, state_hash,blockchain_height,amount,bot_log_id, created_at) 
+            VALUES ( %s,  %s, (SELECT id FROM node_record_table WHERE block_producer_key= %s), %s, %s, %s,  %s, %s )"""
+    try:
+        cursor = conn.cursor()
+        extras.execute_batch(cursor, query, tuples, page_size)
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print("Error: %s" % error)
+        conn.rollback()
+        cursor.close()
+        return 1
+    finally:
+        conn.commit()
+        cursor.close()
+        return 0
+
+def create_bot_log(conn, values):
+    query  = """INSERT INTO bot_log_record_table(name_of_file,epoch_time,files_processed,batch_start_epoch,batch_end_epoch) values (%s,%s,
+                    %s, %s, %s) RETURNING id """
+    try:
+        cursor = conn.cursor()
+        extras.execute_values(cursor, query, values)
+        result = cursor.fetchone()
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print("Error: %s" % error)
+        conn.rollback()
+        cursor.close()
+        return -1
+    finally:
+        conn.commit()
+        cursor.close()
+        return result['id']        
+
+
+def update_scoreboard(conn):
+    sql = """with score as ( select node_id,count(distinct bot_log_id) total from  point_record_table prt group by node_id )	
+            update node_record_table nrt set score = total from score s where nrt.id=s.node_id"""
+    try:
+        cursor = conn.cursor()
+        cursor.execut(query)
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print("Error: %s" % error)
+        conn.rollback()
+        cursor.close()
+        return -1
+    finally:
+        conn.commit()
+        cursor.close()
+        return 0
 
 def GCS_main(read_file_interval):
     process_loop_count = 0
-    
-    batch_end_epoch = db.execute("SELECT batch_end_epoch FROM bot_log_record_table WHERE file_processed=0")
-    script_start_time = datetime.fromtimestamp((int(batch_end_epoch.first()[0]) / 1000), timezone.utc)
+    bot_cursor = connection.cursor()
+    bot_cursor.execute("SELECT batch_end_epoch FROM bot_log_record_table ORDER BY id DESC limit 1")
+    result = bot_cursor.fetchone()
+    batch_end_epoch = result[0]
+    script_start_time = datetime.fromtimestamp((int(batch_end_epoch) / 1000), timezone.utc)
     script_end_time = datetime.now(timezone.utc)
     while script_start_time != script_end_time:
         
@@ -82,8 +178,7 @@ def GCS_main(read_file_interval):
         master_df = Download_Files(script_offset, script_start_time, ten_min_add)
         all_file_count = master_df.shape[0]
         point_record_df = master_df
-        conn = db.connect()
-        transaction = conn.begin()
+        
         try:
             # get the id of bot_log to insert in Point_record
             # last Epoch time & last filename
@@ -95,9 +190,7 @@ def GCS_main(read_file_interval):
                 last_file_name = ''
                 last_filename_epoch_time = 0
             values = last_file_name, last_filename_epoch_time, all_file_count, script_start_time.timestamp(),ten_min_add.timestamp()
-            result = db.execute("""INSERT INTO bot_log_record_table(name_of_file,epoch_time,file_processed,batch_start_epoch,batch_end_epoch) values (%s,%s,
-                    %s, %s, %s) RETURNING id """,  values)
-            bot_log_id = result.fetchone()[0]
+            bot_log_id = create_bot_log(connection, values)
             print( "========= bot_log_id : ",  bot_log_id)
             
             if(not point_record_df.empty):
@@ -124,7 +217,8 @@ def GCS_main(read_file_interval):
                 # create new dataframe for node record
                 node_record_df = final_point_record_df0.filter(['blockProducerKey', 'amount'], axis=1)
                 node_record_updated_df = node_record_df.groupby('blockProducerKey')['amount'].sum().reset_index()
-                node_record_updated_df['updated_at'] = int(time())
+                node_record_updated_df['updated_at'] = time()
+                print(node_record_df)
                 node_record_updated_df.rename(columns={'amount': 'score'}, inplace=True)
             
                 # add node_id to point record dataframe
@@ -137,16 +231,8 @@ def GCS_main(read_file_interval):
                 node_to_insert = node_record_updated_df[['blockProducerKey']]
                 node_to_insert = node_to_insert.rename(columns={'blockProducerKey': 'block_producer_key'})
                 node_to_insert['updated_at'] = int(time())
-            
-                #upsert(db,'public','node_record_table', node_to_insert)
-                print("====================  Node Data to Insert")
-                print(node_to_insert)
-                # data insertion to point_record_table
-                try:
-                    node_to_insert.to_sql(table1_name, db, if_exists='append', index=False)
-                except Exception:
-                    pass      
-                
+
+                execute_node_record_batch(connection, node_to_insert, 100)
                 
                 points_to_insert = final_point_record_df0[['receivedAt','blockProducerKey','nodeData.blockHeight','nodeData.block.stateHash','amount']]
                 points_to_insert = points_to_insert.rename(columns={'receivedAt': 'blockchain_epoch','blockProducerKey':'block_producer_key','nodeData.blockHeight':'blockchain_height',
@@ -155,13 +241,13 @@ def GCS_main(read_file_interval):
                 points_to_insert['bot_log_id'] = bot_log_id
                 
                 table_name = 'point_record_table'
-                points_to_insert.to_sql(table_name, db, if_exists='append')
-                transaction.commit()
+                execute_point_record_batch(connection, points_to_insert)
                 print('data in point records table is inserted')
-        except Exception:
-            transaction.rollback()
+        except Exception as e:
+            print(e)
+            #transaction.rollback()
         finally:
-            conn.close()
+            connection.close()
         ## end if for count of files
         
         print('The last file information is added to DB')
