@@ -118,9 +118,10 @@ def create_bot_log(conn, values):
                     %s, %s, %s) RETURNING id """
     try:
         cursor = conn.cursor()
-        extras.execute_values(cursor, query, values)
+        cursor.execute(query, values)
         result = cursor.fetchone()
         conn.commit()
+    
     except (Exception, psycopg2.DatabaseError) as error:
         print("Error: %s" % error)
         conn.rollback()
@@ -129,7 +130,7 @@ def create_bot_log(conn, values):
     finally:
         conn.commit()
         cursor.close()
-        return result['id']        
+        return result[0]        
 
 
 def update_scoreboard(conn):
@@ -243,11 +244,13 @@ def GCS_main(read_file_interval):
                 table_name = 'point_record_table'
                 execute_point_record_batch(connection, points_to_insert)
                 print('data in point records table is inserted')
+                update_scoreboard(connection)
         except Exception as e:
             print(e)
             #transaction.rollback()
         finally:
-            connection.close()
+            print("done")
+            #connection.close()
         ## end if for count of files
         
         print('The last file information is added to DB')
