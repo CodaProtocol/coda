@@ -14,7 +14,7 @@ class BaseConfig(object):
     POSTGRES_PASSWORD = 'postgres'
     POSTGRES_DB = 'minanetdb'
     SQLALCHEMY_DATABASE_URI = f'postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
-    API_KEY = 'AIzaSyA3z01DZpfHFDq5Ln1nnebOeJ2aXElvd1Y'
+    API_KEY = 'gcs_key'
     script_start_time = datetime.now()
     script_end_time = datetime.now() - timedelta(hours=2)
     read_file_interval = 10
