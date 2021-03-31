@@ -24,7 +24,7 @@ connection = psycopg2.connect(
 )
 #connection.autocommit = True
 
-credential_path = "buoyant-purpose-307004-fdd8c8803a81.json"
+credential_path = "mina-mainnet-303900-45050a0ba37b.json"
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
 os.environ['GCS_API_KEY'] = BaseConfig.API_KEY
 
@@ -59,7 +59,6 @@ def Download_Files(start_offset, script_start_time, ten_min_add):
         df.drop(df.columns[[1,3,4,5,6,7,8,9,10,11,12,14]], axis=1, inplace=True)    
         df.insert(0, 'file_timestamps',file_timestamps)
         df.insert(0, 'file_name',file_name_list)
-        print(df)
     else:
         df = pd.DataFrame()
     return df
@@ -71,7 +70,6 @@ def execute_node_record_batch(conn, df, page_size=100):
     block_producer_key, updated_at
     """
     tuples = [tuple(x) for x in df.to_numpy()]
-   
     query  = """INSERT INTO node_record_table ( block_producer_key,updated_at) 
             VALUES ( %s,  %s ) ON CONFLICT (block_producer_key) DO NOTHING """
     cursor = conn.cursor()
@@ -97,7 +95,7 @@ def execute_point_record_batch(conn, df, page_size=100):
     """
     tuples = [tuple(x) for x in df.to_numpy()]
    
-    query  = """INSERT INTO point_record_table ( file_name,blockchain_epoch, node_id, state_hash,blockchain_height,amount,bot_log_id, created_at) 
+    query  = """INSERT INTO point_record_table ( file_name,blockchain_epoch, node_id, state_hash,blockchain_height,amount,created_at,bot_log_id) 
             VALUES ( %s,  %s, (SELECT id FROM node_record_table WHERE block_producer_key= %s), %s, %s, %s,  %s, %s )"""
     try:
         cursor = conn.cursor()
@@ -138,7 +136,7 @@ def update_scoreboard(conn):
             update node_record_table nrt set score = total from score s where nrt.id=s.node_id"""
     try:
         cursor = conn.cursor()
-        cursor.execut(query)
+        cursor.execute(sql)
         conn.commit()
     except (Exception, psycopg2.DatabaseError) as error:
         print("Error: %s" % error)
@@ -156,7 +154,7 @@ def GCS_main(read_file_interval):
     bot_cursor.execute("SELECT batch_end_epoch FROM bot_log_record_table ORDER BY id DESC limit 1")
     result = bot_cursor.fetchone()
     batch_end_epoch = result[0]
-    script_start_time = datetime.fromtimestamp((int(batch_end_epoch) / 1000), timezone.utc)
+    script_start_time = datetime.fromtimestamp(batch_end_epoch , timezone.utc)
     script_end_time = datetime.now(timezone.utc)
     while script_start_time != script_end_time:
         
@@ -192,8 +190,7 @@ def GCS_main(read_file_interval):
                 last_filename_epoch_time = 0
             values = last_file_name, last_filename_epoch_time, all_file_count, script_start_time.timestamp(),ten_min_add.timestamp()
             bot_log_id = create_bot_log(connection, values)
-            print( "========= bot_log_id : ",  bot_log_id)
-            
+           
             if(not point_record_df.empty):
                 # min & max block height calculation
                 #print(Counter(point_record_df['blockchain_height']))
@@ -211,37 +208,33 @@ def GCS_main(read_file_interval):
                                                                                                         'nodeData.blockHeight'] == max_block_height)].index)
                 
                 most_common_state_hash = point_record_df['nodeData.block.stateHash'].value_counts().idxmax()
-                print("most common state hash-mode", most_common_state_hash)
+                
                 point_record_df['amount'] = np.where(point_record_df['nodeData.block.stateHash'] == str(most_common_state_hash), 1, -1)
                 
                 final_point_record_df0 = point_record_df.loc[point_record_df['amount'] == 1]
                 # create new dataframe for node record
                 node_record_df = final_point_record_df0.filter(['blockProducerKey', 'amount'], axis=1)
                 node_record_updated_df = node_record_df.groupby('blockProducerKey')['amount'].sum().reset_index()
-                node_record_updated_df['updated_at'] = time()
-                print(node_record_df)
+                
                 node_record_updated_df.rename(columns={'amount': 'score'}, inplace=True)
             
                 # add node_id to point record dataframe
                 
                 final_point_record_df0.set_index('file_name', inplace=True)
-                
-                
+
                 # data insertion to node_record_table
-                table1_name = 'node_record_table'
                 node_to_insert = node_record_updated_df[['blockProducerKey']]
                 node_to_insert = node_to_insert.rename(columns={'blockProducerKey': 'block_producer_key'})
-                node_to_insert['updated_at'] = int(time())
+                node_to_insert['updated_at'] = datetime.now(timezone.utc)
 
                 execute_node_record_batch(connection, node_to_insert, 100)
                 
-                points_to_insert = final_point_record_df0[['receivedAt','blockProducerKey','nodeData.blockHeight','nodeData.block.stateHash','amount']]
+                points_to_insert = final_point_record_df0
                 points_to_insert = points_to_insert.rename(columns={'receivedAt': 'blockchain_epoch','blockProducerKey':'block_producer_key','nodeData.blockHeight':'blockchain_height',
                         'nodeData.block.stateHash':'state_hash'})
-                points_to_insert['created_at'] = int(time())       
+                points_to_insert['created_at'] = datetime.now(timezone.utc)      
                 points_to_insert['bot_log_id'] = bot_log_id
                 
-                table_name = 'point_record_table'
                 execute_point_record_batch(connection, points_to_insert)
                 print('data in point records table is inserted')
                 update_scoreboard(connection)
