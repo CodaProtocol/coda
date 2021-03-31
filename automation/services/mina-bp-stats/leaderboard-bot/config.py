@@ -14,7 +14,6 @@ class BaseConfig(object):
     POSTGRES_PASSWORD = 'postgres'
     POSTGRES_DB = 'minanetdb'
     SQLALCHEMY_DATABASE_URI = f'postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
-    API_KEY = 'gcs_key'
-    script_start_time = datetime.now()
-    script_end_time = datetime.now() - timedelta(hours=2)
-    read_file_interval = 10
+    CREDENTIAL_PATH = 'credentials.json'
+    GCS_BUCKET_NAME = 'block-producer-stats'
+    READ_FILE_INTERVAL = 10

@@ -16,4 +16,4 @@ create table point_record_table(ID SERIAL primary key, file_name character varyi
 
 
 insert into bot_log_record_table(name_of_file,epoch_time,files_processed,file_timestamps,batch_start_epoch,batch_end_epoch) 
-	values('2021-03-17.1615939200000.1894.json',1615939200000,0,'2021-03-10 23:08:47', 1615939200000,1615939200000);
+	values('2021-03-17.1615939200000.1894.json',1615939200000,0,'2021-03-10 23:08:47', 1615939200,1615939200);

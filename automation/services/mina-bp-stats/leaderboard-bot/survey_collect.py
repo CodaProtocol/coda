@@ -22,14 +22,9 @@ connection = psycopg2.connect(
     user=BaseConfig.POSTGRES_USER,
     password=BaseConfig.POSTGRES_PASSWORD
 )
-#connection.autocommit = True
-
-credential_path = "mina-mainnet-303900-45050a0ba37b.json"
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
-os.environ['GCS_API_KEY'] = BaseConfig.API_KEY
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = BaseConfig.CREDENTIAL_PATH
 
 start_time = time()
-
 
 def Download_Files(start_offset, script_start_time, ten_min_add):
     storage_client = storage.Client()
@@ -41,15 +36,24 @@ def Download_Files(start_offset, script_start_time, ten_min_add):
     
     for blob in blobs:
         if (blob.updated < ten_min_add) and (blob.updated > script_start_time):
-            print(blob.name, "time: ", blob.updated, "size: ", blob.size)
             file_name_list_for_memory.append(blob.name)
             file_timestamps.append(blob.updated)
         elif blob.updated > ten_min_add:
             break
     print("file count for process", len(file_name_list_for_memory))
-    
+    # when downloading more files with 10 threads take more time
+    # try to use more threads
+    start = time()
+    if len(file_name_list_for_memory)<100:
+        max_threads=10
+    elif len(file_name_list_for_memory)<300:
+        max_threads=15 
+    else:
+         max_threads=30   
     if(len(file_name_list_for_memory)>0):
-        file_contents = download_batch_into_memory(file_name_list_for_memory, bucket)
+        file_contents = download_batch_into_memory(file_name_list_for_memory, bucket, max_threads)
+        end = time()
+        print("++++++ time to download: ", end-start)
         file_name_list = list()
         for k, v in file_contents.items():
             file_name_list.append(k)
@@ -94,7 +98,6 @@ def execute_point_record_batch(conn, df, page_size=100):
     file_name,blockchain_epoch, block_producer_key, state_hash,blockchain_height,amount,bot_log_id, created_at
     """
     tuples = [tuple(x) for x in df.to_numpy()]
-   
     query  = """INSERT INTO point_record_table ( file_name,blockchain_epoch, node_id, state_hash,blockchain_height,amount,created_at,bot_log_id) 
             VALUES ( %s,  %s, (SELECT id FROM node_record_table WHERE block_producer_key= %s), %s, %s, %s,  %s, %s )"""
     try:
@@ -112,8 +115,8 @@ def execute_point_record_batch(conn, df, page_size=100):
         return 0
 
 def create_bot_log(conn, values):
-    query  = """INSERT INTO bot_log_record_table(name_of_file,epoch_time,files_processed,batch_start_epoch,batch_end_epoch) values (%s,%s,
-                    %s, %s, %s) RETURNING id """
+    query  = """INSERT INTO bot_log_record_table(name_of_file,epoch_time,files_processed,file_timestamps,batch_start_epoch,batch_end_epoch) 
+            values (%s,%s,%s,%s, %s, %s) RETURNING id """
     try:
         cursor = conn.cursor()
         cursor.execute(query, values)
@@ -177,18 +180,19 @@ def GCS_main(read_file_interval):
         master_df = Download_Files(script_offset, script_start_time, ten_min_add)
         all_file_count = master_df.shape[0]
         point_record_df = master_df
-        
+       
         try:
             # get the id of bot_log to insert in Point_record
             # last Epoch time & last filename
             if(not point_record_df.empty):
                 last_file_name = master_df.iloc[-1]['file_name']
                 last_filename_epoch_time = int(master_df.iloc[-1]['receivedAt'])
-
+                last_file_timestamp = master_df.iloc[-1]['file_timestamps']
             else:
                 last_file_name = ''
                 last_filename_epoch_time = 0
-            values = last_file_name, last_filename_epoch_time, all_file_count, script_start_time.timestamp(),ten_min_add.timestamp()
+                last_file_timestamp= "NULL"
+            values = last_file_name, last_filename_epoch_time, all_file_count, last_file_timestamp, script_start_time.timestamp(),ten_min_add.timestamp()
             bot_log_id = create_bot_log(connection, values)
            
             if(not point_record_df.empty):
@@ -206,11 +210,8 @@ def GCS_main(read_file_interval):
                     height_filter_df = point_record_df.drop(
                         point_record_df[(point_record_df['nodeData.blockHeight'] == min_block_height) | (point_record_df[
                                                                                                         'nodeData.blockHeight'] == max_block_height)].index)
-                
                 most_common_state_hash = point_record_df['nodeData.block.stateHash'].value_counts().idxmax()
-                
                 point_record_df['amount'] = np.where(point_record_df['nodeData.block.stateHash'] == str(most_common_state_hash), 1, -1)
-                
                 final_point_record_df0 = point_record_df.loc[point_record_df['amount'] == 1]
                 # create new dataframe for node record
                 node_record_df = final_point_record_df0.filter(['blockProducerKey', 'amount'], axis=1)
@@ -220,7 +221,7 @@ def GCS_main(read_file_interval):
             
                 # add node_id to point record dataframe
                 
-                final_point_record_df0.set_index('file_name', inplace=True)
+                #final_point_record_df0.set_index('file_name', inplace=True)
 
                 # data insertion to node_record_table
                 node_to_insert = node_record_updated_df[['blockProducerKey']]
@@ -228,13 +229,13 @@ def GCS_main(read_file_interval):
                 node_to_insert['updated_at'] = datetime.now(timezone.utc)
 
                 execute_node_record_batch(connection, node_to_insert, 100)
-                
                 points_to_insert = final_point_record_df0
                 points_to_insert = points_to_insert.rename(columns={'receivedAt': 'blockchain_epoch','blockProducerKey':'block_producer_key','nodeData.blockHeight':'blockchain_height',
                         'nodeData.block.stateHash':'state_hash'})
                 points_to_insert['created_at'] = datetime.now(timezone.utc)      
                 points_to_insert['bot_log_id'] = bot_log_id
-                
+                print("dropping column ")
+                points_to_insert.drop('file_timestamps', inplace=True, axis=1)
                 execute_point_record_batch(connection, points_to_insert)
                 print('data in point records table is inserted')
                 update_scoreboard(connection)
@@ -259,5 +260,5 @@ def GCS_main(read_file_interval):
             
 
 if __name__ == '__main__':
-    time_interval = BaseConfig.read_file_interval
+    time_interval = BaseConfig.READ_FILE_INTERVAL
     GCS_main(time_interval)
