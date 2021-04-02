@@ -1,0 +1,2 @@
+*/2 * * * * /usr/local/bin/python /opt/minanet/survey_collect.py 
+

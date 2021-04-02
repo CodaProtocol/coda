@@ -1,0 +1,2 @@
+*/10 * * * * flock -x /opt/minanet/cron.lock -c '/opt/minanet/mina-cron.sh >> /opt/minanet/first_cron.log  2>&1'
+
