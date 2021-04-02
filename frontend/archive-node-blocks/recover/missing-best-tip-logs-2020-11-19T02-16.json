@@ -1,0 +1,592 @@
+[
+  {
+    "insertId": "px8w41k1no0tihjoa",
+    "jsonPayload": {
+      "metadata": {
+        "reorg_best_tip": false,
+        "removed_transitions": [],
+        "port": 10509,
+        "pid": 11,
+        "peer_id": "12D3KooWA93LxrwhHq4eBCf5GAXTionZzwCpBgQVTM8J2rWpbwbY",
+        "added_transitions": [
+          {
+            "just_emitted_a_proof": true,
+            "protocol_state": {
+              "body": {
+                "consensus_state": {
+                  "last_vrf_output": "mkRZEaspSGF6SiRoO3uSx_D5nyURcaKNOE-trP3CAAA=",
+                  "curr_global_slot": {
+                    "slot_number": "781",
+                    "slots_per_epoch": "7140"
+                  },
+                  "staking_epoch_data": {
+                    "seed": "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA",
+                    "ledger": {
+                      "total_currency": "99505884000001000",
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx"
+                    },
+                    "lock_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "epoch_length": "1",
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x"
+                  },
+                  "sub_window_densities": [
+                    "0",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7"
+                  ],
+                  "epoch_count": "0",
+                  "has_ancestor_in_same_checkpoint_window": true,
+                  "blockchain_length": "256",
+                  "next_epoch_data": {
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "epoch_length": "257",
+                    "lock_checkpoint": "3NK8RZ4GQNPhWLEkEq23zGBXBbE1einTsuDVqcCm4XgqXwosmj3G",
+                    "seed": "2vaSEDh2ZVi6SayM5CoFftxneC22Qay4trJ9ECiPdY7wkFHdgoFa",
+                    "ledger": {
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                      "total_currency": "99505884000001000"
+                    }
+                  },
+                  "total_currency": "99588684000001000",
+                  "min_window_density": "77"
+                },
+                "genesis_state_hash": "3NLVs8hfDhTvzEcjXurQdGKS1ykj6GcYKS1gXdHcNM1MorkbBEBX",
+                "constants": {
+                  "slots_per_epoch": "7140",
+                  "genesis_state_timestamp": "1605683480000",
+                  "delta": "0",
+                  "k": "290",
+                  "slots_per_sub_window": "7"
+                },
+                "blockchain_state": {
+                  "genesis_ledger_hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                  "timestamp": "1605824060000",
+                  "snarked_ledger_hash": "jwhBZTxYqfZnajfA9TnZqmuSm9UH5sLFP7XKr27WpBXFunEj7v8",
+                  "snarked_next_available_token": "2",
+                  "staged_ledger_hash": {
+                    "pending_coinbase_hash": "2mzgpjLtp7CAuTzb7PkByeqdRPPtreUupzBBNsZGMQSMamMXq5Lh",
+                    "non_snark": {
+                      "pending_coinbase_aux": "XY7kmWmKLP9TLpuHg1Jr4fHDsqPhWR5xigBhPS6bcvDLKJ2hcF",
+                      "aux_hash": "VE3uGkiiXk2x7pDK6iL84r4xKrTzyBfK4X1E5o3KMtQiHJ97sJ",
+                      "ledger_hash": "jwUkwm7YSt1A4J1seCFnqv6fnVh92iR4CSAAiiGLANjn3CWTvPL"
+                    }
+                  }
+                }
+              },
+              "previous_state_hash": "3NK8RZ4GQNPhWLEkEq23zGBXBbE1einTsuDVqcCm4XgqXwosmj3G"
+            },
+            "state_hash": "3NLB7pcvQEwrwxd4RkB4c9XoCDXiqGnoXzaY2z3iMQYgo8C41y3Z"
+          }
+        ],
+        "host": "34.74.216.121"
+      },
+      "level": "Spam",
+      "timestamp": "2020-11-19 22:16:09.970967Z",
+      "event_id": "d5cd43b465d7dee8fa3413e5c7923698",
+      "message": "Formed a new best tip"
+    },
+    "resource": {
+      "type": "k8s_container",
+      "labels": {
+        "cluster_name": "coda-infra-east",
+        "location": "us-east1",
+        "container_name": "coda",
+        "pod_name": "whale-block-producer-9-7dc778dc7b-fpbk5",
+        "project_id": "o1labs-192920",
+        "namespace_name": "turbo-pickles"
+      }
+    },
+    "timestamp": "2020-11-19T22:16:10.959087841Z",
+    "severity": "INFO",
+    "labels": {
+      "k8s-pod/app": "whale-block-producer-9",
+      "k8s-pod/pod-template-hash": "7dc778dc7b",
+      "k8s-pod/role": "block-producer",
+      "k8s-pod/class": "whale",
+      "k8s-pod/testnet": "turbo-pickles",
+      "k8s-pod/version": "0.0.16"
+    },
+    "logName": "projects/o1labs-192920/logs/stdout",
+    "receiveTimestamp": "2020-11-19T22:16:12.962768722Z"
+  },
+  {
+    "insertId": "2b5new7ugxzx07gsk",
+    "jsonPayload": {
+      "timestamp": "2020-11-19 22:16:08.843919Z",
+      "event_id": "d5cd43b465d7dee8fa3413e5c7923698",
+      "level": "Spam",
+      "metadata": {
+        "port": 10510,
+        "host": "35.231.245.46",
+        "peer_id": "12D3KooWEaoRNEvPvgPv4uTNip2xMs5c7dvek4Bnd65m4UFp2fPM",
+        "added_transitions": [
+          {
+            "just_emitted_a_proof": true,
+            "state_hash": "3NLB7pcvQEwrwxd4RkB4c9XoCDXiqGnoXzaY2z3iMQYgo8C41y3Z",
+            "protocol_state": {
+              "body": {
+                "genesis_state_hash": "3NLVs8hfDhTvzEcjXurQdGKS1ykj6GcYKS1gXdHcNM1MorkbBEBX",
+                "consensus_state": {
+                  "last_vrf_output": "mkRZEaspSGF6SiRoO3uSx_D5nyURcaKNOE-trP3CAAA=",
+                  "curr_global_slot": {
+                    "slot_number": "781",
+                    "slots_per_epoch": "7140"
+                  },
+                  "has_ancestor_in_same_checkpoint_window": true,
+                  "min_window_density": "77",
+                  "total_currency": "99588684000001000",
+                  "blockchain_length": "256",
+                  "next_epoch_data": {
+                    "seed": "2vaSEDh2ZVi6SayM5CoFftxneC22Qay4trJ9ECiPdY7wkFHdgoFa",
+                    "ledger": {
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                      "total_currency": "99505884000001000"
+                    },
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "epoch_length": "257",
+                    "lock_checkpoint": "3NK8RZ4GQNPhWLEkEq23zGBXBbE1einTsuDVqcCm4XgqXwosmj3G"
+                  },
+                  "sub_window_densities": [
+                    "0",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7"
+                  ],
+                  "epoch_count": "0",
+                  "staking_epoch_data": {
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "epoch_length": "1",
+                    "seed": "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA",
+                    "lock_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "ledger": {
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                      "total_currency": "99505884000001000"
+                    }
+                  }
+                },
+                "constants": {
+                  "k": "290",
+                  "genesis_state_timestamp": "1605683480000",
+                  "slots_per_epoch": "7140",
+                  "delta": "0",
+                  "slots_per_sub_window": "7"
+                },
+                "blockchain_state": {
+                  "timestamp": "1605824060000",
+                  "staged_ledger_hash": {
+                    "non_snark": {
+                      "pending_coinbase_aux": "XY7kmWmKLP9TLpuHg1Jr4fHDsqPhWR5xigBhPS6bcvDLKJ2hcF",
+                      "aux_hash": "VE3uGkiiXk2x7pDK6iL84r4xKrTzyBfK4X1E5o3KMtQiHJ97sJ",
+                      "ledger_hash": "jwUkwm7YSt1A4J1seCFnqv6fnVh92iR4CSAAiiGLANjn3CWTvPL"
+                    },
+                    "pending_coinbase_hash": "2mzgpjLtp7CAuTzb7PkByeqdRPPtreUupzBBNsZGMQSMamMXq5Lh"
+                  },
+                  "genesis_ledger_hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                  "snarked_ledger_hash": "jwhBZTxYqfZnajfA9TnZqmuSm9UH5sLFP7XKr27WpBXFunEj7v8",
+                  "snarked_next_available_token": "2"
+                }
+              },
+              "previous_state_hash": "3NK8RZ4GQNPhWLEkEq23zGBXBbE1einTsuDVqcCm4XgqXwosmj3G"
+            }
+          }
+        ],
+        "removed_transitions": [],
+        "reorg_best_tip": false,
+        "pid": 11
+      },
+      "message": "Formed a new best tip"
+    },
+    "resource": {
+      "type": "k8s_container",
+      "labels": {
+        "project_id": "o1labs-192920",
+        "cluster_name": "coda-infra-east",
+        "container_name": "coda",
+        "namespace_name": "turbo-pickles",
+        "pod_name": "whale-block-producer-10-85865d9b8d-mx7rk",
+        "location": "us-east1"
+      }
+    },
+    "timestamp": "2020-11-19T22:16:08.890357897Z",
+    "severity": "INFO",
+    "labels": {
+      "k8s-pod/role": "block-producer",
+      "k8s-pod/class": "whale",
+      "k8s-pod/pod-template-hash": "85865d9b8d",
+      "k8s-pod/testnet": "turbo-pickles",
+      "k8s-pod/app": "whale-block-producer-10",
+      "k8s-pod/version": "0.0.16"
+    },
+    "logName": "projects/o1labs-192920/logs/stdout",
+    "receiveTimestamp": "2020-11-19T22:16:15.400845847Z"
+  },
+  {
+    "insertId": "px8w41k1no0tihgtc",
+    "jsonPayload": {
+      "metadata": {
+        "peer_id": "12D3KooWA93LxrwhHq4eBCf5GAXTionZzwCpBgQVTM8J2rWpbwbY",
+        "removed_transitions": [],
+        "port": 10509,
+        "added_transitions": [
+          {
+            "state_hash": "3NL8HhhZCT42bDCcLMtYoUPWFjiDpqGGpXsAV46PRsSPYQBjXqvd",
+            "just_emitted_a_proof": true,
+            "protocol_state": {
+              "body": {
+                "blockchain_state": {
+                  "snarked_next_available_token": "2",
+                  "staged_ledger_hash": {
+                    "pending_coinbase_hash": "2n21peBHncUJCy7rY9nmUyRnYGeQtUyhUy69TyW9FHV9bejvUKyJ",
+                    "non_snark": {
+                      "pending_coinbase_aux": "WeLYrxS7dvYFwGKyBe9xbZofZQwYhXNUyZoem8YDsuRReKW6a7",
+                      "ledger_hash": "jxpFNCLudEhKYzrmhPiJ43noSEfCoKNCUVjsKfRNBx9mmC35r6b",
+                      "aux_hash": "VNMi73easFU4FJ8aBM47K3gWPNPuUUaGBjF3Mxw13WNEDAMtjn"
+                    }
+                  },
+                  "snarked_ledger_hash": "jxXP3fSmsvxinGsPGDbPkYb6rR15BGMjpZ7dH6Nrr13vTvozLKb",
+                  "genesis_ledger_hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                  "timestamp": "1605821000000"
+                },
+                "constants": {
+                  "delta": "0",
+                  "genesis_state_timestamp": "1605683480000",
+                  "slots_per_epoch": "7140",
+                  "slots_per_sub_window": "7",
+                  "k": "290"
+                },
+                "genesis_state_hash": "3NLVs8hfDhTvzEcjXurQdGKS1ykj6GcYKS1gXdHcNM1MorkbBEBX",
+                "consensus_state": {
+                  "min_window_density": "77",
+                  "staking_epoch_data": {
+                    "epoch_length": "1",
+                    "ledger": {
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                      "total_currency": "99505884000001000"
+                    },
+                    "seed": "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA",
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "lock_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x"
+                  },
+                  "total_currency": "99586684000001000",
+                  "has_ancestor_in_same_checkpoint_window": true,
+                  "epoch_count": "0",
+                  "sub_window_densities": [
+                    "0",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7"
+                  ],
+                  "next_epoch_data": {
+                    "ledger": {
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                      "total_currency": "99505884000001000"
+                    },
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "epoch_length": "253",
+                    "lock_checkpoint": "3NLGQ4fTsw7mL5Fk7GEL16FYqxWWSaNx6624DTPeTrZedqMUberr",
+                    "seed": "2vaefjvag1XgNCsBDfdG9wXfi31r352bWipFPCuzcZAxGTNdY4AN"
+                  },
+                  "last_vrf_output": "-bA8BO0mz6HiZxQVqDeoIV3y78D9OgxXdTNdbIYlAwA=",
+                  "curr_global_slot": {
+                    "slots_per_epoch": "7140",
+                    "slot_number": "764"
+                  },
+                  "blockchain_length": "252"
+                }
+              },
+              "previous_state_hash": "3NLGQ4fTsw7mL5Fk7GEL16FYqxWWSaNx6624DTPeTrZedqMUberr"
+            }
+          }
+        ],
+        "host": "34.74.216.121",
+        "reorg_best_tip": false,
+        "pid": 11
+      },
+      "level": "Spam",
+      "timestamp": "2020-11-19 21:25:20.615499Z",
+      "event_id": "d5cd43b465d7dee8fa3413e5c7923698",
+      "message": "Formed a new best tip"
+    },
+    "resource": {
+      "type": "k8s_container",
+      "labels": {
+        "container_name": "coda",
+        "location": "us-east1",
+        "project_id": "o1labs-192920",
+        "pod_name": "whale-block-producer-9-7dc778dc7b-fpbk5",
+        "namespace_name": "turbo-pickles",
+        "cluster_name": "coda-infra-east"
+      }
+    },
+    "timestamp": "2020-11-19T21:25:21.387225189Z",
+    "severity": "INFO",
+    "labels": {
+      "k8s-pod/role": "block-producer",
+      "k8s-pod/pod-template-hash": "7dc778dc7b",
+      "k8s-pod/class": "whale",
+      "k8s-pod/testnet": "turbo-pickles",
+      "k8s-pod/version": "0.0.16",
+      "k8s-pod/app": "whale-block-producer-9"
+    },
+    "logName": "projects/o1labs-192920/logs/stdout",
+    "receiveTimestamp": "2020-11-19T21:25:28.180415722Z"
+  },
+  {
+    "insertId": "2b5new7ugxzx07dwy",
+    "jsonPayload": {
+      "metadata": {
+        "pid": 11,
+        "removed_transitions": [],
+        "peer_id": "12D3KooWEaoRNEvPvgPv4uTNip2xMs5c7dvek4Bnd65m4UFp2fPM",
+        "host": "35.231.245.46",
+        "port": 10510,
+        "added_transitions": [
+          {
+            "state_hash": "3NL8HhhZCT42bDCcLMtYoUPWFjiDpqGGpXsAV46PRsSPYQBjXqvd",
+            "protocol_state": {
+              "previous_state_hash": "3NLGQ4fTsw7mL5Fk7GEL16FYqxWWSaNx6624DTPeTrZedqMUberr",
+              "body": {
+                "consensus_state": {
+                  "staking_epoch_data": {
+                    "lock_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "ledger": {
+                      "total_currency": "99505884000001000",
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx"
+                    },
+                    "seed": "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA",
+                    "epoch_length": "1",
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x"
+                  },
+                  "last_vrf_output": "-bA8BO0mz6HiZxQVqDeoIV3y78D9OgxXdTNdbIYlAwA=",
+                  "sub_window_densities": [
+                    "0",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7"
+                  ],
+                  "total_currency": "99586684000001000",
+                  "blockchain_length": "252",
+                  "min_window_density": "77",
+                  "curr_global_slot": {
+                    "slots_per_epoch": "7140",
+                    "slot_number": "764"
+                  },
+                  "next_epoch_data": {
+                    "epoch_length": "253",
+                    "lock_checkpoint": "3NLGQ4fTsw7mL5Fk7GEL16FYqxWWSaNx6624DTPeTrZedqMUberr",
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "seed": "2vaefjvag1XgNCsBDfdG9wXfi31r352bWipFPCuzcZAxGTNdY4AN",
+                    "ledger": {
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                      "total_currency": "99505884000001000"
+                    }
+                  },
+                  "epoch_count": "0",
+                  "has_ancestor_in_same_checkpoint_window": true
+                },
+                "blockchain_state": {
+                  "snarked_ledger_hash": "jxXP3fSmsvxinGsPGDbPkYb6rR15BGMjpZ7dH6Nrr13vTvozLKb",
+                  "snarked_next_available_token": "2",
+                  "staged_ledger_hash": {
+                    "pending_coinbase_hash": "2n21peBHncUJCy7rY9nmUyRnYGeQtUyhUy69TyW9FHV9bejvUKyJ",
+                    "non_snark": {
+                      "aux_hash": "VNMi73easFU4FJ8aBM47K3gWPNPuUUaGBjF3Mxw13WNEDAMtjn",
+                      "ledger_hash": "jxpFNCLudEhKYzrmhPiJ43noSEfCoKNCUVjsKfRNBx9mmC35r6b",
+                      "pending_coinbase_aux": "WeLYrxS7dvYFwGKyBe9xbZofZQwYhXNUyZoem8YDsuRReKW6a7"
+                    }
+                  },
+                  "timestamp": "1605821000000",
+                  "genesis_ledger_hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx"
+                },
+                "constants": {
+                  "k": "290",
+                  "slots_per_epoch": "7140",
+                  "delta": "0",
+                  "slots_per_sub_window": "7",
+                  "genesis_state_timestamp": "1605683480000"
+                },
+                "genesis_state_hash": "3NLVs8hfDhTvzEcjXurQdGKS1ykj6GcYKS1gXdHcNM1MorkbBEBX"
+              }
+            },
+            "just_emitted_a_proof": true
+          }
+        ],
+        "reorg_best_tip": false
+      },
+      "message": "Formed a new best tip",
+      "event_id": "d5cd43b465d7dee8fa3413e5c7923698",
+      "timestamp": "2020-11-19 21:25:16.090439Z",
+      "level": "Spam"
+    },
+    "resource": {
+      "type": "k8s_container",
+      "labels": {
+        "container_name": "coda",
+        "pod_name": "whale-block-producer-10-85865d9b8d-mx7rk",
+        "project_id": "o1labs-192920",
+        "namespace_name": "turbo-pickles",
+        "location": "us-east1",
+        "cluster_name": "coda-infra-east"
+      }
+    },
+    "timestamp": "2020-11-19T21:25:16.479908078Z",
+    "severity": "INFO",
+    "labels": {
+      "k8s-pod/pod-template-hash": "85865d9b8d",
+      "k8s-pod/app": "whale-block-producer-10",
+      "k8s-pod/role": "block-producer",
+      "k8s-pod/class": "whale",
+      "k8s-pod/version": "0.0.16",
+      "k8s-pod/testnet": "turbo-pickles"
+    },
+    "logName": "projects/o1labs-192920/logs/stdout",
+    "receiveTimestamp": "2020-11-19T21:25:19.634225680Z"
+  },
+  {
+    "insertId": "px8w41k1no0tihfye",
+    "jsonPayload": {
+      "event_id": "d5cd43b465d7dee8fa3413e5c7923698",
+      "level": "Spam",
+      "timestamp": "2020-11-19 21:10:56.329210Z",
+      "metadata": {
+        "peer_id": "12D3KooWA93LxrwhHq4eBCf5GAXTionZzwCpBgQVTM8J2rWpbwbY",
+        "added_transitions": [
+          {
+            "state_hash": "3NK7MQETkxNCdiwSjaSCLPp7gTjDrauFwe6isAFLCvo4veowTyGb",
+            "just_emitted_a_proof": true,
+            "protocol_state": {
+              "body": {
+                "blockchain_state": {
+                  "snarked_ledger_hash": "jwJeGcwF27YqeMVRszXAEKPuzxfdp8ejoe3sathV9rkNZSnvjtY",
+                  "staged_ledger_hash": {
+                    "pending_coinbase_hash": "2mzsqbmfGqqfczYjJUfJtrNrXizeNCLbyinhct4b1N8Xyhjh7zDh",
+                    "non_snark": {
+                      "ledger_hash": "jwBdaU6b2vRpPGfspx1qV554aKfZgw3hXHCy4LJrQGMPBASa3Sb",
+                      "pending_coinbase_aux": "WtM7nkKR72hYDnSyXeqm7ce7M6pJVBCFrQaCXya45twzkkVWAi",
+                      "aux_hash": "V8WjFGnq4AuHGbSqjbW8TUGnpKfUxkj3gN7KwT3GbBjJk5BCWR"
+                    }
+                  },
+                  "genesis_ledger_hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                  "snarked_next_available_token": "2",
+                  "timestamp": "1605820100000"
+                },
+                "genesis_state_hash": "3NLVs8hfDhTvzEcjXurQdGKS1ykj6GcYKS1gXdHcNM1MorkbBEBX",
+                "consensus_state": {
+                  "curr_global_slot": {
+                    "slots_per_epoch": "7140",
+                    "slot_number": "759"
+                  },
+                  "staking_epoch_data": {
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "seed": "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA",
+                    "epoch_length": "1",
+                    "ledger": {
+                      "total_currency": "99505884000001000",
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx"
+                    },
+                    "lock_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x"
+                  },
+                  "total_currency": "99586484000001000",
+                  "sub_window_densities": [
+                    "0",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7",
+                    "7"
+                  ],
+                  "min_window_density": "77",
+                  "last_vrf_output": "YEKNaIwxvC5FbWZ92dpFXX9LcEdICDOzCzZuh5xLJAA=",
+                  "blockchain_length": "249",
+                  "next_epoch_data": {
+                    "start_checkpoint": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+                    "seed": "2vbbuTBbrBFnx1KJpdezvb5DuxTLtLSQKiVeS8XWZwimh9NYFrkJ",
+                    "ledger": {
+                      "hash": "jxqupp5oGcqRuEFGaq9oTtJYBdMdtgHodLoxuMk7xt4m8gBUnNx",
+                      "total_currency": "99505884000001000"
+                    },
+                    "lock_checkpoint": "3NL4tz8AS7hFCwVdZCrB5rpmJTqBZGFKSbyxpiQ7qH3TBzRzs2ZW",
+                    "epoch_length": "250"
+                  },
+                  "has_ancestor_in_same_checkpoint_window": true,
+                  "epoch_count": "0"
+                },
+                "constants": {
+                  "genesis_state_timestamp": "1605683480000",
+                  "slots_per_sub_window": "7",
+                  "slots_per_epoch": "7140",
+                  "delta": "0",
+                  "k": "290"
+                }
+              },
+              "previous_state_hash": "3NL4tz8AS7hFCwVdZCrB5rpmJTqBZGFKSbyxpiQ7qH3TBzRzs2ZW"
+            }
+          }
+        ],
+        "port": 10509,
+        "host": "34.74.216.121",
+        "pid": 11,
+        "removed_transitions": [],
+        "reorg_best_tip": false
+      },
+      "message": "Formed a new best tip"
+    },
+    "resource": {
+      "type": "k8s_container",
+      "labels": {
+        "location": "us-east1",
+        "namespace_name": "turbo-pickles",
+        "pod_name": "whale-block-producer-9-7dc778dc7b-fpbk5",
+        "cluster_name": "coda-infra-east",
+        "container_name": "coda",
+        "project_id": "o1labs-192920"
+      }
+    },
+    "timestamp": "2020-11-19T21:10:57.263239488Z",
+    "severity": "INFO",
+    "labels": {
+      "k8s-pod/pod-template-hash": "7dc778dc7b",
+      "k8s-pod/role": "block-producer",
+      "k8s-pod/class": "whale",
+      "k8s-pod/app": "whale-block-producer-9",
+      "k8s-pod/testnet": "turbo-pickles",
+      "k8s-pod/version": "0.0.16"
+    },
+    "logName": "projects/o1labs-192920/logs/stdout",
+    "receiveTimestamp": "2020-11-19T21:11:03.759818627Z"
+  }
+]

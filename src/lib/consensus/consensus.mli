@@ -20,3 +20,6 @@ include
 [%%endif]
 
 module Proof_of_stake = Proof_of_stake
+module Epoch = Epoch
+module Slot = Slot
+module Global_slot = Global_slot

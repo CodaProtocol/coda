@@ -936,7 +936,9 @@ module Block_and_signed_command = struct
     in
     (* Any transaction included in a block will have had its fee paid, so we can
      * assume the fee payer balance will be Some here *)
-    let fee_payer_balance = Option.value_exn fee_payer_balance in
+    let fee_payer_balance =
+      Option.value ~default:Currency.Balance.zero fee_payer_balance
+    in
     let%bind fee_payer_balance_id =
       Balance.add_if_doesn't_exist
         (module Conn)
@@ -1066,12 +1068,14 @@ module Block = struct
          |sql})
       id
 
-  let add_parts_if_doesn't_exist (module Conn : CONNECTION)
-      ~constraint_constants ~protocol_state ~staged_ledger_diff ~hash =
+  let add_parts_if_doesn't_exist ?transactions_override
+      (module Conn : CONNECTION) ~constraint_constants ~protocol_state
+      ~staged_ledger_diff ~hash =
     let open Deferred.Result.Let_syntax in
+    Core.printf "hi\n%!" ;
     match%bind find_opt (module Conn) ~state_hash:hash with
     | Some block_id ->
-        return block_id
+        Core.printf "found\n%!" ; return block_id
     | None ->
         let consensus_state = Protocol_state.consensus_state protocol_state in
         let%bind parent_id =
@@ -1079,6 +1083,7 @@ module Block = struct
             (module Conn)
             ~state_hash:(Protocol_state.previous_state_hash protocol_state)
         in
+        Core.printf "no problem\n%!" ;
         let%bind creator_id =
           Public_key.add_if_doesn't_exist
             (module Conn)
@@ -1145,20 +1150,27 @@ module Block = struct
                 |> Blockchain_state.timestamp |> Block_time.to_int64 }
         in
         let transactions =
-          let coinbase_receiver =
-            Consensus.Data.Consensus_state.coinbase_receiver consensus_state
-          in
-          let supercharge_coinbase =
-            Consensus.Data.Consensus_state.supercharge_coinbase consensus_state
-          in
-          match
-            Staged_ledger.Pre_diff_info.get_transactions ~constraint_constants
-              ~coinbase_receiver ~supercharge_coinbase staged_ledger_diff
-          with
-          | Ok transactions ->
-              transactions
-          | Error e ->
-              Error.raise (Staged_ledger.Pre_diff_info.Error.to_error e)
+          match transactions_override with
+          | Some x ->
+              x
+          | None -> (
+              let coinbase_receiver =
+                Consensus.Data.Consensus_state.coinbase_receiver
+                  consensus_state
+              in
+              let supercharge_coinbase =
+                Consensus.Data.Consensus_state.supercharge_coinbase
+                  consensus_state
+              in
+              match
+                Staged_ledger.Pre_diff_info.get_transactions
+                  ~constraint_constants ~coinbase_receiver
+                  ~supercharge_coinbase staged_ledger_diff
+              with
+              | Ok transactions ->
+                  transactions
+              | Error e ->
+                  Error.raise (Staged_ledger.Pre_diff_info.Error.to_error e) )
         in
         let%bind (_ : int) =
           deferred_result_list_fold transactions ~init:0 ~f:(fun sequence_no ->
@@ -1307,9 +1319,10 @@ module Block = struct
         in
         return block_id
 
-  let add_if_doesn't_exist conn ~constraint_constants
+  let add_if_doesn't_exist ?transactions_override conn ~constraint_constants
       ({data= t; hash} : (External_transition.t, State_hash.t) With_hash.t) =
-    add_parts_if_doesn't_exist conn ~constraint_constants
+    add_parts_if_doesn't_exist ?transactions_override conn
+      ~constraint_constants
       ~protocol_state:(External_transition.protocol_state t)
       ~staged_ledger_diff:(External_transition.staged_ledger_diff t)
       ~hash

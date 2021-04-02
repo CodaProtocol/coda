@@ -4709,6 +4709,9 @@ let%test_module "Proof of stake tests" =
              ~f:chains_hold_transitivity)
   end )
 
+module Consensus_state = Data.Consensus_state
+module Vrf_output = Data.Vrf.Output
+
 module Exported = struct
   module Global_slot = Global_slot
   module Block_data = Data.Block_data
