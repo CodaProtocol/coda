@@ -117,6 +117,29 @@ a:hover {
     left: -216px;
     top: 3px;
 }
+#pagination>a.pages {
+    padding: 10px 14px;
+    color: #000000;
+    border-radius: 20%;
+    background: #CCC;
+    text-decoration: none;
+    margin: 0px 6px;
+    font-size: 0.9em;
+}
+
+#pagination>a.pages:hover {
+    color: #ffffff;
+    background: #666;
+}
+.current {
+    padding: 10px 14px;
+    color: #ffffff;
+    background: #73AD21;
+    text-decoration: none;
+    border-radius: 20%;
+    margin: 0px 6px;
+}
+
 
 
 /* for policyInfo New Design page */
