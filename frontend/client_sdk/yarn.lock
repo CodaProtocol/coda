@@ -12,10 +12,10 @@ bs-platform@^7.0.2-dev.2:
   resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-7.0.2-dev.2.tgz#ae055440ce075348179f84bac591ff874201e082"
   integrity sha512-IMHf+9JNrBZy4jpbDZROPjF/13xro5rGGuGmRqlbJe0rImXtHZMmT3jNFXveou/F5hKU8c40jpQEGdUUNv1iFA==
 
-gentype@^3.8.0:
-  version "3.10.0"
-  resolved "https://registry.yarnpkg.com/gentype/-/gentype-3.10.0.tgz#df42ac24b65bcac2c5363609252fdd870e039d2c"
-  integrity sha512-NQUnbrCKLd9r1IX/BuNLPUYM/5Mg3/dNI1VvBUzM205ac314wXKt/t0WySA7euoNaPqkDmC9g96YEo79QOZ3iA==
+gentype@^3.11.0:
+  version "3.44.0"
+  resolved "https://registry.yarnpkg.com/gentype/-/gentype-3.44.0.tgz#38f182d94bd3bef904da69122548182dcb27773d"
+  integrity sha512-+nbBrz3LO+OpiLr4tw8Mdy8LB/4vhGRfmiXMdZZFDNbK9k09KWIe071Zl8sOBlL+CAt7Nl1DyRVAaruhb9wuOw==
 
 typescript@^3.7.5:
   version "3.7.5"
