@@ -22,16 +22,18 @@ def main():
 
   v1, namespace = util.get_kubernetes()
 
-  cluster_crashes = Gauge('Coda_watchdog_cluster_crashes', 'Description of gauge')
+  cluster_crashes = Gauge('Coda_watchdog_cluster_crashes', 'Fraction of containers recently (30mins ago) restarted')
   error_counter = Counter('Coda_watchdog_errors', 'Description of gauge')
 
-  nodes_synced_near_best_tip = Gauge('Coda_watchdog_nodes_synced_near_best_tip', 'Description of gauge')
-  nodes_synced = Gauge('Coda_watchdog_nodes_synced', 'Description of gauge')
-  prover_errors = Counter('Coda_watchdog_prover_errors', 'Description of gauge')
+  nodes_synced_near_best_tip = Gauge('Coda_watchdog_nodes_synced_near_best_tip', 'Fraction of nodes that are synced to the latest 4 blocks in the canonical chain ')
+  nodes_synced = Gauge('Coda_watchdog_nodes_synced', 'Fraction of nodes with Synced status')
+  prover_errors = Counter('Coda_watchdog_prover_errors', 'Not implemented yet')
   pods_with_no_new_logs = Gauge('Coda_watchdog_pods_with_no_new_logs', 'Number of nodes whose latest log is older than 10 minutes')
 
-  recent_google_bucket_blocks = Gauge('Coda_watchdog_recent_google_bucket_blocks', 'Description of gauge')
-  seeds_reachable = Gauge('Coda_watchdog_seeds_reachable', 'Description of gauge')
+  max_fork_length = Gauge('Coda_node_status_max_fork_length', 'Maximum length of forks from node status')
+
+  recent_google_bucket_blocks = Gauge('Coda_watchdog_recent_google_bucket_blocks', 'Time since last added block data to the google storage bucket ')
+  seeds_reachable = Gauge('Coda_watchdog_seeds_reachable', 'Fraction of reachable seed peers')
 
   # ========================================================================
 

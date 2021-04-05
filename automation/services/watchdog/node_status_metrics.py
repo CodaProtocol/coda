@@ -21,7 +21,7 @@ def peer_to_multiaddr(peer):
     peer['libp2p_port'],
     peer['peer_id'] )
 
-def collect_node_status_metrics(v1, namespace, nodes_synced_near_best_tip, nodes_synced, prover_errors):
+def collect_node_status_metrics(v1, namespace, nodes_synced_near_best_tip, nodes_synced, prover_errors, max_fork_length):
   print('collecting node status metrics')
 
   pods = v1.list_namespaced_pod(namespace, watch=False)
@@ -48,8 +48,9 @@ def collect_node_status_metrics(v1, namespace, nodes_synced_near_best_tip, nodes
 
   # -------------------------------------------------
 
+  #Synced near the best tip
   # note: k_block_hashes_and_timestamps is most recent last
-  chains = [ p['k_block_hashes_and_timestamps'] for p in peers.values() ]
+  chains = [ p['k_block_hashes_and_timestamps'] for p in peers.values() if p['sync_status'] == 'Synced' ]
 
   tree = {}
   parents = {}
@@ -109,6 +110,53 @@ def collect_node_status_metrics(v1, namespace, nodes_synced_near_best_tip, nodes
   print("Number of  peers with 'Synced' status: {}\nPeers not synced near the best tip: {}".format(sum(all_synced_peers), peers_out_of_sync))
 
   nodes_synced_near_best_tip.set(synced_near_best_tip_fraction)
+
+
+  # forks
+  best_chain = [ most_common_best_protocol_state ]
+
+  while(True):
+    parent = best_chain[-1]
+    if parent in parents:
+      best_chain.append(parents[parent])
+    else:
+      break
+
+  block_producer_chains = [ (p['k_block_hashes_and_timestamps'], p['block_producers']) for p in peers.values() if p['sync_status'] == 'Synced' and len(p['block_producers'])>0 ]
+
+  fork_state_block_producers = {}
+  def get_fork(x):
+     chain, bp = x
+     fork = [c for (c,_) in chain if c not in best_chain]
+     length = len(fork)
+     if length > 0:
+      leaf = fork[length-1]
+      bp_set = set(bp)
+      if leaf in fork_state_block_producers:
+        x = fork_state_block_producers[leaf]
+        fork_state_block_producers[leaf] = x.union(bp_set)
+      else:
+        fork_state_block_producers[leaf] = bp_set
+     return fork
+
+  all_forks = [get_fork(c) for c in block_producer_chains]
+
+  fork = max(all_forks, key=lambda x: len(x))
+
+  #show all the block producers who are forked with a length > 5
+  leaves = set()
+  for fork in all_forks:
+    length = len(fork)
+    if length > 0:
+      leaf = fork[length-1]
+      if not leaves.__contains__(leaf):
+        if length > 5:
+          print("Block producers on a fork of length {} ending with the state_hash {}: {}".format(length, leaf, fork_state_block_producers[leaf]))
+        leaves.add(leaf)
+
+  max_fork_length.set(len(fork))
+
+
 
 # ========================================================================
 
