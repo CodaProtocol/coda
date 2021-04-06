@@ -74,37 +74,9 @@ $row = pg_fetch_all($results);
     <li class="<?php if($pageNumber == $pagesCount) {echo 'page-item disabled';} else {echo 'page-item';}?>">
       <a class="page-link" href="avascript:void(0);" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php  echo $pagesCount;  ?>');">Last</a>
     </li>
+    <li class = "ml-5 p-2">Page <?php echo $pageNumber; ?> of <?php echo $pagesCount; ?></li>
   </ul>
 </nav>
 
 
 
-<table width="50%" align="center">
-    <tr>
-
-        <td valign="top" align="left"></td>
-
-
-        <td valign="top" align="center" id = "pagination">
- 
-	<?php
-	for ($i = 1; $i <= $pagesCount; $i ++) {
-    if ($i == $pageNumber) {
-        ?>
-	      <a href="javascript:void(0);" class="current"><?php echo $i ?></a>
-<?php
-    } else {
-        ?>
-	      <a href="javascript:void(0);" class="pages"
-            onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php echo $i; ?>');"><?php echo $i ?></a>
-<?php
-    } // endIf
-} // endFor
-
-?>
-</td>
-        <td align="right" valign="top">
-	     Page <?php echo $pageNumber; ?> of <?php echo $pagesCount; ?>
-	</td>
-    </tr>
-</table>
