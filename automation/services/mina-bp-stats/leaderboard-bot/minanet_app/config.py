@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+import datetime
 
 
 class BaseConfig(object):
@@ -14,6 +14,11 @@ class BaseConfig(object):
     POSTGRES_PASSWORD = 'postgres'
     POSTGRES_DB = 'minanetdb'
     SQLALCHEMY_DATABASE_URI = f'postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
-    CREDENTIAL_PATH = 'mina-mainnet-303900-45050a0ba37b.json'
+    CREDENTIAL_PATH = 'gcs-credential.json'
     GCS_BUCKET_NAME = 'block-producer-stats'
     READ_FILE_INTERVAL = 10
+    FROM_EMAIL = ''
+    TO_EMAILS = ['', '']
+    SUBJECT = 'Ontab-key LeaderBoard positions As of {0}'.format(datetime.datetime.utcnow())
+    PLAIN_TEXT = 'Report for Leaderboard as of {0}'.format(datetime.datetime.utcnow())
+    SENDGRID_API_KEY = ''

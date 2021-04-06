@@ -4,7 +4,7 @@ from time import time
 import json
 import numpy as np
 import pandas as pd
-from looger_util import logger
+from logger_util import logger
 from config import BaseConfig
 from google.cloud import storage
 from download_batch_files import download_batch_into_memory
@@ -20,15 +20,11 @@ connection = psycopg2.connect(
     password=BaseConfig.POSTGRES_PASSWORD
 )
 
-credential_path = "mina-mainnet-303900-45050a0ba37b.json"
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
-os.environ['GCS_API_KEY'] = BaseConfig.API_KEY
-
 start_time = time()
 
-
 def Download_Files(start_offset, script_start_time, ten_min_add):
-    storage_client = storage.Client()
+
+    storage_client = storage.Client.from_service_account_json(BaseConfig.CREDENTIAL_PATH)
     bucket = storage_client.get_bucket(BaseConfig.GCS_BUCKET_NAME)
     blobs = storage_client.list_blobs(bucket, start_offset=start_offset)
     file_name_list_for_memory = list()
@@ -269,5 +265,5 @@ def GCS_main(read_file_interval):
 
 
 if __name__ == '__main__':
-    time_interval = BaseConfig.read_file_interval
+    time_interval = BaseConfig.READ_FILE_INTERVAL
     GCS_main(time_interval)
