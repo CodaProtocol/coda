@@ -75,9 +75,9 @@ module Step = struct
   module Digest = Digest.Make (Impl)
   module Challenge = Challenge.Make (Impl)
 
-  let input ~branching ~wrap_rounds =
+  let input ~num_input_proofs ~wrap_rounds =
     let open Types.Pairing_based.Statement in
-    let spec = spec branching wrap_rounds in
+    let spec = spec num_input_proofs wrap_rounds in
     let (T (typ, f)) =
       Spec.packed_typ
         (module Impl)

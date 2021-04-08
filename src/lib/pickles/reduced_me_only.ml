@@ -61,15 +61,16 @@ module Dlog_based = struct
     end
   end
 
-  type 'max_local_max_branching t =
+  type 'prev_max_num_input_proofss t =
     ( Tock.Inner_curve.Affine.t
-    , (Challenges_vector.t, 'max_local_max_branching) Vector.t )
+    , (Challenges_vector.t, 'prev_max_num_input_proofss) Vector.t )
     Dlog_based.Proof_state.Me_only.t
 
   module Prepared = struct
-    type 'max_local_max_branching t =
+    type 'prev_max_num_input_proofss t =
       ( Tock.Inner_curve.Affine.t
-      , (Challenges_vector.Prepared.t, 'max_local_max_branching) Vector.t )
+      , (Challenges_vector.Prepared.t, 'prev_max_num_input_proofss) Vector.t
+      )
       Dlog_based.Proof_state.Me_only.t
   end
 

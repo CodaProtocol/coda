@@ -38,7 +38,7 @@ let verify_heterogenous (ts : Instance.t list) =
   let in_circuit_plonks =
     List.map ts
       ~f:(fun (T
-                ( _max_branching
+                ( _max_num_input_proofs
                 , _statement
                 , key
                 , app_state
@@ -60,14 +60,14 @@ let verify_heterogenous (ts : Instance.t list) =
         let { Deferred_values.xi
             ; plonk= plonk0
             ; combined_inner_product
-            ; which_branch
+            ; which_rule
             ; bulletproof_challenges } =
           Deferred_values.map_challenges ~f:Challenge.Constant.to_tick_field
             ~scalar:sc statement.proof_state.deferred_values
         in
         let zeta = sc plonk0.zeta in
         let alpha = sc plonk0.alpha in
-        let step_domains = key.step_domains.(Index.to_int which_branch) in
+        let step_domains = key.step_domains.(Index.to_int which_rule) in
         let w =
           Tick.Field.domain_generator
             ~log2_size:(Domain.log2_size step_domains.h)
@@ -130,13 +130,13 @@ let verify_heterogenous (ts : Instance.t list) =
         Timer.clock __LOC__ ;
         (* TODO: The deferred values "bulletproof_challenges" should get routed
            into a "batch dlog Tick acc verifier" *)
-        let actual_branching =
+        let actual_num_input_proofs =
           Vector.length statement.pass_through.old_bulletproof_challenges
         in
         Timer.clock __LOC__ ;
         let combined_inner_product_actual =
           Wrap.combined_inner_product
-            ~actual_branching:(Nat.Add.create actual_branching)
+            ~actual_num_input_proofs:(Nat.Add.create actual_num_input_proofs)
             evals ~x_hat:prev_x_hat
             ~old_bulletproof_challenges:
               (Vector.map ~f:Ipa.Step.compute_challenges
@@ -182,7 +182,7 @@ let verify_heterogenous (ts : Instance.t list) =
             (List.map2_exn ts in_circuit_plonks
                ~f:(fun (T
                          ( ( module
-                         Max_branching )
+                         Max_num_input_proofs )
                          , ( module
                          A_value )
                          , key
@@ -203,7 +203,7 @@ let verify_heterogenous (ts : Instance.t list) =
                          deferred_values=
                            {t.statement.proof_state.deferred_values with plonk}
                        ; me_only=
-                           Common.hash_dlog_me_only Max_branching.n
+                           Common.hash_dlog_me_only Max_num_input_proofs.n
                              (Reduced_me_only.Dlog_based.prepare
                                 t.statement.proof_state.me_only) } }
                  in
@@ -222,7 +222,7 @@ let verify_heterogenous (ts : Instance.t list) =
                                    (Ipa.Wrap.compute_challenges cs)
                              ; commitment= g } )
                            (Vector.extend_exn t.statement.pass_through.sg
-                              Max_branching.n
+                              Max_num_input_proofs.n
                               (Lazy.force Dummy.Ipa.Wrap.sg))
                            t.statement.proof_state.me_only
                              .old_bulletproof_challenges)) ) )) ) ) ;
@@ -233,9 +233,10 @@ let verify_heterogenous (ts : Instance.t list) =
       eprintf !"bad verify: %s\n%!" e ;
       false
 
-let verify (type a n) (max_branching : (module Nat.Intf with type n = n))
+let verify (type a n)
+    (max_num_input_proofs : (module Nat.Intf with type n = n))
     (a_value : (module Intf.Statement_value with type t = a))
     (key : Verification_key.t) (ts : (a * (n, n) Proof.t) list) =
   verify_heterogenous
     (List.map ts ~f:(fun (x, p) ->
-         Instance.T (max_branching, a_value, key, x, p) ))
+         Instance.T (max_num_input_proofs, a_value, key, x, p) ))

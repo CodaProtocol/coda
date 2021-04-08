@@ -376,14 +376,13 @@ end) : S = struct
       (module Statement_var)
       (module Statement)
       ~typ
-      ~branches:(module Nat.N1)
-      ~max_branching:(module Nat.N2)
+      ~num_rules:(module Nat.N1)
+      ~max_num_input_proofs:(module Nat.N2)
       ~name:"blockchain-snark"
       ~constraint_constants:
         (Genesis_constants.Constraint_constants.to_snark_keys_header
            constraint_constants)
-      ~choices:(fun ~self ->
-        [rule ~proof_level ~constraint_constants T.tag self] )
+      ~rules:(fun ~self -> [rule ~proof_level ~constraint_constants T.tag self])
 
   let step = with_handler step
 

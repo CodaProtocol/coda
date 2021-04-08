@@ -17,7 +17,7 @@ module Make
 
         val to_field_elements : t -> Tick.Field.t array
     end)
-    (Max_branching : Nat.Add.Intf_transparent) =
+    (Max_num_input_proofs : Nat.Add.Intf_transparent) =
 struct
   let double_zip = Double.map2 ~f:Core_kernel.Tuple2.create
 
@@ -27,37 +27,42 @@ struct
 
   (* The prover corresponding to the given inductive rule. *)
   let f
-      (type max_local_max_branchings self_branches prev_vars prev_values
-      local_widths local_heights prevs_length) ?handler
+      (type prev_max_num_input_proofss self_num_rules prev_vars prev_values
+      prev_num_input_proofss prev_num_ruless prevs_length) ?handler
       (T branch_data :
         ( A.t
         , A_value.t
-        , Max_branching.n
-        , self_branches
+        , Max_num_input_proofs.n
+        , self_num_rules
         , prev_vars
         , prev_values
-        , local_widths
-        , local_heights )
+        , prev_num_input_proofss
+        , prev_num_ruless )
         Step_branch_data.t) (next_state : A_value.t)
       ~maxes:(module Maxes : Pickles_types.Hlist.Maxes.S
-        with type length = Max_branching.n
-         and type ns = max_local_max_branchings)
+        with type length = Max_num_input_proofs.n
+         and type ns = prev_max_num_input_proofss)
       ~(prevs_length : (prev_vars, prevs_length) Length.t) ~self ~step_domains
       ~self_dlog_plonk_index pk self_dlog_vk
       (prev_with_proofs :
-        (prev_values, local_widths, local_heights) H3.T(P.With_data).t) :
+        ( prev_values
+        , prev_num_input_proofss
+        , prev_num_ruless )
+        H3.T(P.With_data).t) :
       ( A_value.t
-      , (_, Max_branching.n) Vector.t
+      , (_, Max_num_input_proofs.n) Vector.t
       , (_, prevs_length) Vector.t
       , (_, prevs_length) Vector.t
       , _
-      , (_, Max_branching.n) Vector.t )
+      , (_, Max_num_input_proofs.n) Vector.t )
       P.Base.Pairing_based.t
       Async.Deferred.t =
-    let _, prev_vars_length = branch_data.branching in
+    let _, prev_vars_length = branch_data.num_input_proofs in
     let T = Length.contr prev_vars_length prevs_length in
     let (module Req) = branch_data.requests in
-    let T = Hlist.Length.contr (snd branch_data.branching) prev_vars_length in
+    let T =
+      Hlist.Length.contr (snd branch_data.num_input_proofs) prev_vars_length
+    in
     let prev_values_length =
       let module L12 = H4.Length_1_to_2 (Tag) in
       L12.f branch_data.rule.prevs prev_vars_length
@@ -95,18 +100,18 @@ struct
     end in
     let b_poly = Tock.Field.(Dlog_main.b_poly ~add ~mul ~one) in
     let sgs, unfinalized_proofs, statements_with_hashes, x_hats, witnesses =
-      let f : type var value max local_max_branching m.
+      let f : type var value max max_num_input_proofs m.
              max Nat.t
           -> Impls.Wrap.Verification_key.t
           -> 'a
-          -> (value, local_max_branching, m) P.With_data.t
-          -> (var, value, local_max_branching, m) Tag.t
+          -> (value, max_num_input_proofs, m) P.With_data.t
+          -> (var, value, max_num_input_proofs, m) Tag.t
           -> must_verify:bool
           -> [`Sg of Tock.Curve.Affine.t]
              * Unfinalized.Constant.t
              * Statement_with_hashes.t
              * X_hat.t
-             * (value, local_max_branching, m) Per_proof_witness.Constant.t =
+             * (value, max_num_input_proofs, m) Per_proof_witness.Constant.t =
        fun max dlog_vk dlog_index (T t) tag ~must_verify ->
         let plonk0 = t.statement.proof_state.deferred_values.plonk in
         let plonk =
@@ -116,7 +121,7 @@ struct
                                                                        .statement
                                                                        .proof_state
                                                                        .deferred_values
-                                                                       .which_branch)
+                                                                       .which_rule)
           in
           let to_field =
             SC.to_field_constant
@@ -150,8 +155,8 @@ struct
               |> fst )
         in
         let data = Types_map.lookup_basic tag in
-        let (module Local_max_branching) = data.max_branching in
-        let T = Local_max_branching.eq in
+        let (module Max_num_input_proofs) = data.max_num_input_proofs in
+        let T = Max_num_input_proofs.eq in
         let statement = t.statement in
         let prev_challenges =
           (* TODO: This is redone in the call to Dlog_based_reduced_me_only.prepare *)
@@ -175,10 +180,11 @@ struct
                       ; beta= plonk0.beta
                       ; gamma= plonk0.gamma } }
               ; me_only=
-                  Common.hash_dlog_me_only Max_branching.n
+                  Common.hash_dlog_me_only Max_num_input_proofs.n
                     { old_bulletproof_challenges=
                         (* TODO: Get rid of this padding *)
-                        Vector.extend_exn prev_challenges Max_branching.n
+                        Vector.extend_exn prev_challenges
+                          Max_num_input_proofs.n
                           Dummy.Ipa.Wrap.challenges_computed
                     ; sg= statement.proof_state.me_only.sg } } }
         in
@@ -191,9 +197,11 @@ struct
             Vector.(
               map2
                 (Vector.extend_exn statement.pass_through.sg
-                   Local_max_branching.n
+                   Max_num_input_proofs.n
                    (Lazy.force Dummy.Ipa.Wrap.sg))
-                (* This should indeed have length max_branching... No! It should have type max_branching_a. That is, the max_branching specific to a proof of this type...*)
+                (* This should indeed have length max_num_input_proofs... No!
+                   It should have type max_num_input_proofs_a. That is, the
+                   max_num_input_proofs specific to a proof of this type... *)
                 prev_challenges
                 ~f:(fun commitment chals ->
                   { Tock.Proof.Challenge_polynomial.commitment
@@ -266,13 +274,14 @@ struct
           ( t.P.Base.Dlog_based.statement.pass_through.app_state
           , {prev_statement_with_hashes.proof_state with me_only= ()}
           , Double.map2 t.prev_evals t.prev_x_hat ~f:Tuple.T2.create
-          , Vector.extend_exn t.statement.pass_through.sg Local_max_branching.n
+          , Vector.extend_exn t.statement.pass_through.sg
+              Max_num_input_proofs.n
               (Lazy.force Dummy.Ipa.Wrap.sg)
             (* TODO: This computation is also redone elsewhere. *)
           , Vector.extend_exn
               (Vector.map t.statement.pass_through.old_bulletproof_challenges
                  ~f:Ipa.Step.compute_challenges)
-              Local_max_branching.n Dummy.Ipa.Step.challenges_computed
+              Max_num_input_proofs.n Dummy.Ipa.Step.challenges_computed
           , ({t.proof.openings.proof with sg}, t.proof.messages) )
         in
         let combined_inner_product =
@@ -289,13 +298,13 @@ struct
               Vector.append
                 (Vector.map b_polys ~f:(fun f -> [|f pt|]))
                 ([|x_hat|] :: a)
-                (snd (Local_max_branching.add Nat.N8.n))
+                (snd (Max_num_input_proofs.add Nat.N8.n))
             in
             let open Tock.Field in
             let domains = data.wrap_domains in
             Pcs_batch.combine_split_evaluations
               (Common.dlog_pcs_batch
-                 (Local_max_branching.add Nat.N8.n)
+                 (Max_num_input_proofs.add Nat.N8.n)
                  ~max_quot_size:
                    (Common.max_quot_size_int (Domain.size domains.h)))
               ~xi ~init:Fn.id ~mul ~last:Array.last
@@ -384,7 +393,7 @@ struct
     in
     let next_statement : _ Types.Pairing_based.Statement.t =
       let unfinalized_proofs_extended =
-        Vector.extend unfinalized_proofs lte Max_branching.n
+        Vector.extend unfinalized_proofs lte Max_num_input_proofs.n
           Unfinalized.Constant.dummy
       in
       let pass_through =
@@ -446,7 +455,8 @@ struct
     in
     let%map.Async (next_proof : Tick.Proof.t) =
       let (T (input, conv)) =
-        Impls.Step.input ~branching:Max_branching.n ~wrap_rounds:Tock.Rounds.n
+        Impls.Step.input ~num_input_proofs:Max_num_input_proofs.n
+          ~wrap_rounds:Tock.Rounds.n
       in
       let rec pad : type n k maxes pvals lws lhs.
              (Digest.Constant.t, k) Vector.t
@@ -465,10 +475,10 @@ struct
             let t : _ Types.Dlog_based.Proof_state.Me_only.t =
               { sg= Lazy.force Dummy.Ipa.Step.sg
               ; old_bulletproof_challenges=
-                  Vector.init Max_branching.n ~f:(fun _ ->
+                  Vector.init Max_num_input_proofs.n ~f:(fun _ ->
                       Dummy.Ipa.Wrap.challenges_computed ) }
             in
-            Common.hash_dlog_me_only Max_branching.n t :: pad [] ms n
+            Common.hash_dlog_me_only Max_num_input_proofs.n t :: pad [] ms n
       in
       let {Domains.h; x} =
         List.nth_exn
@@ -545,5 +555,5 @@ struct
         Vector.extend
           (Vector.map2 prev_evals x_hats ~f:(fun es x_hat ->
                double_zip es x_hat ))
-          lte Max_branching.n Dummy.evals }
+          lte Max_num_input_proofs.n Dummy.evals }
 end

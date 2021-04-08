@@ -62,7 +62,7 @@ module type Proof_intf = sig
 end
 
 module Proof : sig
-  type ('max_width, 'mlmb) t
+  type ('max_num_input_proofs, 'mlmb) t
 
   val dummy : 'w Nat.t -> 'm Nat.t -> _ Nat.t -> ('w, 'm) t
 
@@ -81,7 +81,8 @@ module Proof : sig
 end
 
 module Statement_with_proof : sig
-  type ('s, 'max_width, _) t = 's * ('max_width, 'max_width) Proof.t
+  type ('s, 'max_num_input_proofs, _) t =
+    's * ('max_num_input_proofs, 'max_num_input_proofs) Proof.t
 end
 
 val verify :
@@ -92,12 +93,17 @@ val verify :
   -> bool
 
 module Prover : sig
-  type ('prev_values, 'local_widths, 'local_heights, 'a_value, 'proof) t =
+  type ( 'prev_values
+       , 'prev_num_input_proofss
+       , 'prev_num_ruless
+       , 'a_value
+       , 'proof )
+       t =
        ?handler:(   Snarky_backendless.Request.request
                  -> Snarky_backendless.Request.response)
     -> ( 'prev_values
-       , 'local_widths
-       , 'local_heights )
+       , 'prev_num_input_proofss
+       , 'prev_num_ruless )
        H3.T(Statement_with_proof).t
     -> 'a_value
     -> 'proof
@@ -140,18 +146,21 @@ module Side_loaded : sig
 
     val typ : (Checked.t, t) Impls.Step.Typ.t
 
-    module Max_branches : Nat.Add.Intf
+    module Max_num_rules : Nat.Add.Intf
 
-    module Max_width : Nat.Add.Intf
+    module Max_num_input_proofs : Nat.Add.Intf
   end
 
   module Proof : sig
     [%%versioned:
     module Stable : sig
       module V1 : sig
-        (* TODO: This should really be able to be any width up to the max width... *)
+        (* TODO: This should really be able to be any number up to the max
+           number of input_proofs... *)
         type t =
-          (Verification_key.Max_width.n, Verification_key.Max_width.n) Proof.t
+          ( Verification_key.Max_num_input_proofs.n
+          , Verification_key.Max_num_input_proofs.n )
+          Proof.t
         [@@deriving sexp, equal, yojson, hash, compare]
       end
     end]
@@ -159,11 +168,11 @@ module Side_loaded : sig
 
   val create :
        name:string
-    -> max_branching:(module Nat.Add.Intf with type n = 'n1)
+    -> max_num_input_proofs:(module Nat.Add.Intf with type n = 'n1)
     -> value_to_field_elements:('value -> Impls.Step.Field.Constant.t array)
     -> var_to_field_elements:('var -> Impls.Step.Field.t array)
     -> typ:('var, 'value) Impls.Step.Typ.t
-    -> ('var, 'value, 'n1, Verification_key.Max_branches.n) Tag.t
+    -> ('var, 'value, 'n1, Verification_key.Max_num_rules.n) Tag.t
 
   val verify :
        value_to_field_elements:('value -> Impls.Step.Field.Constant.t array)
@@ -184,33 +193,35 @@ end
     system for proving membership in that set, with a prover corresponding
     to each inductive rule. *)
 val compile :
-     ?self:('a_var, 'a_value, 'max_branching, 'branches) Tag.t
+     ?self:('a_var, 'a_value, 'max_num_input_proofs, 'num_rules) Tag.t
   -> ?cache:Key_cache.Spec.t list
-  -> ?disk_keys:(Cache.Step.Key.Verification.t, 'branches) Vector.t
+  -> ?disk_keys:(Cache.Step.Key.Verification.t, 'num_rules) Vector.t
                 * Cache.Wrap.Key.Verification.t
   -> (module Statement_var_intf with type t = 'a_var)
   -> (module Statement_value_intf with type t = 'a_value)
   -> typ:('a_var, 'a_value) Impls.Step.Typ.t
-  -> branches:(module Nat.Intf with type n = 'branches)
-  -> max_branching:(module Nat.Add.Intf with type n = 'max_branching)
+  -> num_rules:(module Nat.Intf with type n = 'num_rules)
+  -> max_num_input_proofs:(module Nat.Add.Intf
+                             with type n = 'max_num_input_proofs)
   -> name:string
   -> constraint_constants:Snark_keys_header.Constraint_constants.t
-  -> choices:(   self:('a_var, 'a_value, 'max_branching, 'branches) Tag.t
-              -> ( 'prev_varss
-                 , 'prev_valuess
-                 , 'widthss
-                 , 'heightss
-                 , 'a_var
-                 , 'a_value )
-                 H4_2.T(Inductive_rule).t)
-  -> ('a_var, 'a_value, 'max_branching, 'branches) Tag.t
+  -> rules:(   self:('a_var, 'a_value, 'max_num_input_proofs, 'num_rules) Tag.t
+            -> ( 'prev_varss
+               , 'prev_valuess
+               , 'prev_num_input_proofss
+               , 'prev_num_ruless
+               , 'a_var
+               , 'a_value )
+               H4_2.T(Inductive_rule).t)
+  -> ('a_var, 'a_value, 'max_num_input_proofs, 'num_rules) Tag.t
      * Cache_handle.t
      * (module Proof_intf
-          with type t = ('max_branching, 'max_branching) Proof.t
+          with type t = ('max_num_input_proofs, 'max_num_input_proofs) Proof.t
            and type statement = 'a_value)
      * ( 'prev_valuess
-       , 'widthss
-       , 'heightss
+       , 'prev_num_input_proofss
+       , 'prev_num_ruless
        , 'a_value
-       , ('max_branching, 'max_branching) Proof.t Async.Deferred.t )
+       , ('max_num_input_proofs, 'max_num_input_proofs) Proof.t
+         Async.Deferred.t )
        H3_2.T(Prover).t

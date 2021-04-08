@@ -301,9 +301,9 @@ struct
         assert false
 
   let incrementally_verify_proof (type b)
-      (module Branching : Nat.Add.Intf with type n = b) ~domain
+      (module Num_input_proofs : Nat.Add.Intf with type n = b) ~domain
       ~verification_key:(m : _ array Plonk_verification_key_evals.t) ~xi
-      ~sponge ~public_input ~(sg_old : (_, Branching.n) Vector.t)
+      ~sponge ~public_input ~(sg_old : (_, Num_input_proofs.n) Vector.t)
       ~combined_inner_product ~advice
       ~(messages : (_, Boolean.var * _) Dlog_plonk_types.Messages.t)
       ~openings_proof
@@ -415,7 +415,7 @@ struct
          the combined inner product.
       *)
           let without_degree_bound =
-            let T = Branching.eq in
+            let T = Num_input_proofs.eq in
             Vector.append
               (Vector.map sg_old ~f:(fun g -> [|g|]))
               [ [|x_hat|]
@@ -426,12 +426,13 @@ struct
               ; f_comm
               ; [|m.sigma_comm_0|]
               ; [|m.sigma_comm_1|] ]
-              (snd (Branching.add Nat.N8.n))
+              (snd (Num_input_proofs.add Nat.N8.n))
           in
           with_label __LOC__ (fun () ->
               check_bulletproof
                 ~pcs_batch:
-                  (Common.dlog_pcs_batch (Branching.add Nat.N8.n)
+                  (Common.dlog_pcs_batch
+                     (Num_input_proofs.add Nat.N8.n)
                      ~max_quot_size:
                        (Common.max_quot_size_int (Domain.size domain)))
                 ~sponge:sponge_before_evaluations ~xi ~combined_inner_product
@@ -493,17 +494,20 @@ struct
   let side_loaded_input_domain =
     let open Side_loaded_verification_key in
     let input_size = input_size ~of_int:Fn.id ~add:( + ) ~mul:( * ) in
-    let max_width = Width.Max.n in
+    let max_num_input_proofs = Num_input_proofs.Max.n in
     let domain_log2s =
-      Vector.init (S max_width) ~f:(fun w -> Int.ceil_log2 (input_size w))
+      Vector.init (S max_num_input_proofs) ~f:(fun w ->
+          Int.ceil_log2 (input_size w) )
     in
     let (T max_log2_size) =
-      let n = Int.ceil_log2 (input_size (Nat.to_int max_width)) in
+      let n = Int.ceil_log2 (input_size (Nat.to_int max_num_input_proofs)) in
       assert (List.last_exn (Vector.to_list domain_log2s) = n) ;
       Nat.of_int n
     in
-    fun ~width ->
-      let mask = O.of_index width ~length:(S max_width) in
+    fun ~num_input_proofs ->
+      let mask =
+        O.of_index num_input_proofs ~length:(S max_num_input_proofs)
+      in
       let shifts = lazy (Pseudo.Domain.shifts (mask, domain_log2s) ~shifts) in
       let generator =
         lazy (Pseudo.Domain.generator (mask, domain_log2s) ~domain_generator)
@@ -526,13 +530,13 @@ struct
         method vanishing_polynomial = vp
       end
 
-  let side_loaded_domains (type branches) =
+  let side_loaded_domains (type num_rules) =
     let open Side_loaded_verification_key in
-    fun (domains : (Field.t Domain.t Domains.t, branches) Vector.t)
-        (branch : branches One_hot_vector.T(Impl).t) ->
+    fun (domains : (Field.t Domain.t Domains.t, num_rules) Vector.t)
+        (which_rule : num_rules One_hot_vector.T(Impl).t) ->
       let domain v ~max =
         let (T max_n) = Nat.of_int max in
-        let log2_size = Pseudo.choose ~f:Domain.log2_size (branch, v) in
+        let log2_size = Pseudo.choose ~f:Domain.log2_size (which_rule, v) in
         let mask = ones_vector (module Impl) max_n ~first_zero:log2_size in
         let log2_sizes =
           (O.of_index log2_size ~length:max_n, Vector.init max_n ~f:Fn.id)
@@ -581,7 +585,8 @@ struct
         let open Side_loaded_verification_key in
         let input_size = input_size ~of_int:Fn.id ~add:( + ) ~mul:( * ) in
         let possibilities =
-          Vector.init (S Width.Max.n) ~f:(fun w -> Int.ceil_log2 (input_size w))
+          Vector.init (S Num_input_proofs.Max.n) ~f:(fun w ->
+              Int.ceil_log2 (input_size w) )
         in
         let pt = Field.Constant.random () in
         List.iteri (Vector.to_list possibilities) ~f:(fun i d ->
@@ -592,7 +597,7 @@ struct
                 ~domain_generator:Backend.Tick.Field.domain_generator
             in
             let checked_domain () =
-              side_loaded_input_domain ~width:(Field.of_int i)
+              side_loaded_input_domain ~num_input_proofs:(Field.of_int i)
             in
             [%test_eq: Field.Constant.t]
               (d_unchecked#vanishing_polynomial pt)
@@ -603,7 +608,7 @@ struct
       let%test_unit "side loaded domains" =
         let module O = One_hot_vector.Make (Impl) in
         let open Side_loaded_verification_key in
-        let branches = Nat.N2.n in
+        let num_rules = Nat.N2.n in
         let domains = Vector.[{Domains.h= 10}; {h= 15}] in
         let pt = Field.Constant.random () in
         List.iteri (Vector.to_list domains) ~f:(fun i ds ->
@@ -621,7 +626,7 @@ struct
                      ~f:
                        (Domains.map ~f:(fun x ->
                             Domain.Pow_2_roots_of_unity (Field.of_int x) )))
-                  (O.of_index (Field.of_int i) ~length:branches)
+                  (O.of_index (Field.of_int i) ~length:num_rules)
                 |> field2
               in
               [%test_eq: Field.Constant.t] d_unchecked#size
@@ -798,22 +803,23 @@ struct
    4. Perform the arithmetic checks from marlin. *)
   (* TODO: This needs to handle the fact of variable length evaluations.
    Meaning it needs opt sponge. *)
-  let finalize_other_proof (type b branches)
-      (module Branching : Nat.Add.Intf with type n = b) ~max_width
+  let finalize_other_proof (type b num_rules)
+      (module Num_input_proofs : Nat.Add.Intf with type n = b)
+      ~num_input_proofs
       ~(step_domains :
-         [ `Known of (Domains.t, branches) Vector.t
+         [ `Known of (Domains.t, num_rules) Vector.t
          | `Side_loaded of
            ( Field.t Side_loaded_verification_key.Domain.t
              Side_loaded_verification_key.Domains.t
-           , branches )
-           Vector.t ]) ~step_widths
-      ~(* TODO: Add "actual branching" so that proofs don't
+           , num_rules )
+           Vector.t ]) ~rules_num_input_proofs
+      ~(* TODO: Add "actual num input_proofs" so that proofs don't
    carry around dummy "old bulletproof challenges" *)
       sponge ~(old_bulletproof_challenges : (_, b) Vector.t)
       ({ xi
        ; combined_inner_product
        ; bulletproof_challenges
-       ; which_branch
+       ; which_rule
        ; b
        ; plonk } :
         ( _
@@ -830,16 +836,19 @@ struct
           | `Known domains ->
               ( `Known domains
               , Pseudo.Domain.to_domain ~shifts ~domain_generator
-                  (which_branch, Vector.map domains ~f:Domains.x) )
+                  (which_rule, Vector.map domains ~f:Domains.x) )
           | `Side_loaded ds ->
-              ( `Side_loaded (side_loaded_domains ds which_branch)
-              , (* This has to be the max_width of this proof system rather than actual width *)
+              ( `Side_loaded (side_loaded_domains ds which_rule)
+              , (* This has to be the num_input_proofs of this proof system rather than actual num_input_proofs *)
                 side_loaded_input_domain
-                  ~width:
-                    (Side_loaded_verification_key.Width.Checked.to_field
-                       (Option.value_exn max_width)) ) )
+                  ~num_input_proofs:
+                    (Side_loaded_verification_key.Num_input_proofs.Checked
+                     .to_field
+                       (Option.value_exn num_input_proofs)) ) )
     in
-    let actual_width = Pseudo.choose (which_branch, step_widths) ~f:Fn.id in
+    let actual_num_input_proofs =
+      Pseudo.choose (which_rule, rules_num_input_proofs) ~f:Fn.id
+    in
     let (evals1, x_hat1), (evals2, x_hat2) =
       with_label __LOC__ (fun () ->
           let lengths =
@@ -849,7 +858,7 @@ struct
                 Commitment_lengths.generic map ~h:(map hs ~f:Domain.size)
                   ~max_degree:Max_degree.step
                 |> Evals.map ~f:(fun lengths ->
-                       Bounded.of_pseudo (which_branch, lengths) )
+                       Bounded.of_pseudo (which_rule, lengths) )
                 |> Evals.map ~f:Split_evaluations.mask'
             | `Side_loaded {h} ->
                 side_loaded_commitment_lengths ~h
@@ -857,7 +866,7 @@ struct
           Tuple_lib.Double.map es ~f:(fun (e, x) ->
               (Evals.map2 lengths e ~f:Array.zip_exn, x) ) )
     in
-    let T = Branching.eq in
+    let T = Num_input_proofs.eq in
     (* You use the NEW bulletproof challenges to check b. Not the old ones. *)
     let open Field in
     let absorb_evals x_hat e =
@@ -890,7 +899,7 @@ struct
       match step_domains with
       | `Known ds ->
           let hs = map ds ~f:(fun {Domains.h; _} -> h) in
-          Pseudo.Domain.to_domain (which_branch, hs) ~shifts ~domain_generator
+          Pseudo.Domain.to_domain (which_rule, hs) ~shifts ~domain_generator
       | `Side_loaded {h} ->
           (h :> _ Plonk_checks.plonk_domain)
     in
@@ -909,7 +918,7 @@ struct
           | `Known step_domains ->
               let open Int in
               `Known
-                ( which_branch
+                ( which_rule
                 , Vector.map step_domains ~f:(fun x ->
                       Common.max_quot_size_int (Domain.size x.Domains.h) ) )
           | `Side_loaded domains ->
@@ -925,13 +934,15 @@ struct
               `Side_loaded (conv domains.h)
         in
         let combine pt x_hat e =
-          let pi = Branching.add Nat.N8.n in
+          let pi = Num_input_proofs.add Nat.N8.n in
           let a, b =
             Evals.to_vectors (e : (Boolean.var * Field.t) array Evals.t)
           in
           let sg_evals =
             Vector.map2
-              (ones_vector (module Impl) ~first_zero:actual_width Branching.n)
+              (ones_vector
+                 (module Impl)
+                 ~first_zero:actual_num_input_proofs Num_input_proofs.n)
               sg_olds
               ~f:(fun keep f -> [|(keep, f pt)|])
           in
@@ -1024,12 +1035,12 @@ struct
         ~f:(fun x -> Sponge.absorb sponge (`Field x)) ;
       sponge
     in
-    stage (fun t ~widths ~max_width ~which_branch ->
+    stage (fun t ~num_input_proofs ~max_num_input_proofs ~which_rule ->
         let mask =
           ones_vector
             (module Impl)
-            max_width
-            ~first_zero:(Pseudo.choose ~f:Fn.id (which_branch, widths))
+            max_num_input_proofs
+            ~first_zero:(Pseudo.choose ~f:Fn.id (which_rule, num_input_proofs))
         in
         let sponge = Sponge.copy after_index in
         let t =
@@ -1074,7 +1085,7 @@ struct
   let pack_scalar_challenge (Scalar_challenge c : Scalar_challenge.t) =
     Field.pack (Challenge.to_bits c)
 
-  let verify ~branching ~is_base_case ~sg_old
+  let verify ~num_input_proofs ~is_base_case ~sg_old
       ~(opening : _ Pickles_types.Dlog_plonk_types.Openings.Bulletproof.t)
       ~messages ~wrap_domain ~wrap_verification_key statement
       (unfinalized :
@@ -1107,7 +1118,7 @@ struct
         Pickles_types.Scalar_challenge.map xi
           ~f:(Field.unpack ~length:Challenge.length)
       in
-      incrementally_verify_proof branching ~domain:wrap_domain ~xi
+      incrementally_verify_proof num_input_proofs ~domain:wrap_domain ~xi
         ~verification_key:wrap_verification_key ~sponge ~public_input ~sg_old
         ~combined_inner_product ~advice:{b} ~messages ~openings_proof:opening
         ~plonk:

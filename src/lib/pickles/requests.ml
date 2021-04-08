@@ -9,9 +9,9 @@ open Backend
 
 module Wrap = struct
   module type S = sig
-    type max_branching
+    type max_num_input_proofs
 
-    type max_local_max_branchings
+    type prev_max_num_input_proofss
 
     open Impls.Wrap
     open Wrap_main_inputs
@@ -21,12 +21,13 @@ module Wrap = struct
       | Evals :
           ( (Field.Constant.t array Dlog_plonk_types.Evals.t * Field.Constant.t)
             Tuple_lib.Double.t
-          , max_branching )
+          , max_num_input_proofs )
           Vector.t
           t
-      | Step_accs : (Tock.Inner_curve.Affine.t, max_branching) Vector.t t
+      | Step_accs :
+          (Tock.Inner_curve.Affine.t, max_num_input_proofs) Vector.t t
       | Old_bulletproof_challenges :
-          max_local_max_branchings H1.T(Challenges_vector.Constant).t t
+          prev_max_num_input_proofss H1.T(Challenges_vector.Constant).t t
       | Proof_state :
           ( ( ( Challenge.Constant.t
               , Challenge.Constant.t Scalar_challenge.t
@@ -38,7 +39,7 @@ module Wrap = struct
               , Digest.Constant.t
               , bool )
               Types.Pairing_based.Proof_state.Per_proof.In_circuit.t
-            , max_branching )
+            , max_num_input_proofs )
             Vector.t
           , Digest.Constant.t )
           Types.Pairing_based.Proof_state.t
@@ -55,21 +56,22 @@ module Wrap = struct
           t
   end
 
-  type ('mb, 'ml) t =
+  type ('max_num_input_proofs, 'prev_max_num_input_proofss) t =
     (module S
-       with type max_branching = 'mb
-        and type max_local_max_branchings = 'ml)
+       with type max_num_input_proofs = 'max_num_input_proofs
+        and type prev_max_num_input_proofss = 'prev_max_num_input_proofss)
 
-  let create : type mb ml. unit -> (mb, ml) t =
+  let create : type max_num_input_proofs prev_max_num_input_proofss.
+      unit -> (max_num_input_proofs, prev_max_num_input_proofss) t =
    fun () ->
     let module R = struct
-      type nonrec max_branching = mb
+      type nonrec max_num_input_proofs = max_num_input_proofs
 
-      type nonrec max_local_max_branchings = ml
+      type nonrec prev_max_num_input_proofss = prev_max_num_input_proofss
 
       open Snarky_backendless.Request
 
-      type 'a vec = ('a, max_branching) Vector.t
+      type 'a vec = ('a, max_num_input_proofs) Vector.t
 
       type _ t +=
         | Evals :
@@ -79,7 +81,7 @@ module Wrap = struct
             t
         | Step_accs : Tock.Inner_curve.Affine.t vec t
         | Old_bulletproof_challenges :
-            max_local_max_branchings H1.T(Challenges_vector.Constant).t t
+            prev_max_num_input_proofss H1.T(Challenges_vector.Constant).t t
         | Proof_state :
             ( ( ( Challenge.Constant.t
                 , Challenge.Constant.t Scalar_challenge.t
@@ -91,7 +93,7 @@ module Wrap = struct
                 , Digest.Constant.t
                 , bool )
                 Types.Pairing_based.Proof_state.Per_proof.In_circuit.t
-              , max_branching )
+              , max_num_input_proofs )
               Vector.t
             , Digest.Constant.t )
             Types.Pairing_based.Proof_state.t
@@ -119,17 +121,17 @@ module Step = struct
     type prev_values
 
     (* TODO: As an optimization this can be the local branching size *)
-    type max_branching
+    type max_num_input_proofs
 
-    type local_signature
+    type prev_num_input_proofss
 
-    type local_branches
+    type prev_num_ruless
 
     type _ t +=
       | Proof_with_datas :
           ( prev_values
-          , local_signature
-          , local_branches )
+          , prev_num_input_proofss
+          , prev_num_ruless )
           H3.T(Per_proof_witness.Constant).t
           t
       | Wrap_index : Tock.Curve.Affine.t array Plonk_verification_key_evals.t t
@@ -137,31 +139,31 @@ module Step = struct
   end
 
   let create
-      : type local_signature local_branches statement prev_values max_branching.
+      : type prev_num_input_proofss prev_num_ruless statement prev_values max_num_input_proofs.
          unit
       -> (module S
-            with type local_signature = local_signature
-             and type local_branches = local_branches
+            with type prev_num_input_proofss = prev_num_input_proofss
+             and type prev_num_ruless = prev_num_ruless
              and type statement = statement
              and type prev_values = prev_values
-             and type max_branching = max_branching) =
+             and type max_num_input_proofs = max_num_input_proofs) =
    fun () ->
     let module R = struct
-      type nonrec max_branching = max_branching
+      type nonrec max_num_input_proofs = max_num_input_proofs
 
       type nonrec statement = statement
 
       type nonrec prev_values = prev_values
 
-      type nonrec local_signature = local_signature
+      type nonrec prev_num_input_proofss = prev_num_input_proofss
 
-      type nonrec local_branches = local_branches
+      type nonrec prev_num_ruless = prev_num_ruless
 
       type _ t +=
         | Proof_with_datas :
             ( prev_values
-            , local_signature
-            , local_branches )
+            , prev_num_input_proofss
+            , prev_num_ruless )
             H3.T(Per_proof_witness.Constant).t
             t
         | Wrap_index :

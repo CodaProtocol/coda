@@ -7,7 +7,7 @@ open Hlist
 module Make (A : T0) (A_value : T0) = struct
   module I = Inductive_rule.T (A) (A_value)
 
-  let prev (type xs ys ws hs) ~self ~(choices : (xs, ys, ws, hs) H4.T(I).t) =
+  let prev (type xs ys ws hs) ~self ~(rules : (xs, ys, ws, hs) H4.T(I).t) =
     let module M_inner =
       H4.Map
         (Tag)
@@ -29,13 +29,17 @@ module Make (A : T0) (A_value : T0) = struct
         (H4.T
            (E04 (Domains)))
            (struct
-             let f : type vars values env widths heights.
-                    (vars, values, widths, heights) I.t
-                 -> (vars, values, widths, heights) H4.T(E04(Domains)).t =
+             let f : type vars values env num_input_proofss num_ruless.
+                    (vars, values, num_input_proofss, num_ruless) I.t
+                 -> ( vars
+                    , values
+                    , num_input_proofss
+                    , num_ruless )
+                    H4.T(E04(Domains)).t =
               fun rule -> M_inner.f rule.prevs
            end)
     in
-    M.f choices
+    M.f rules
 
   let result =
     lazy
@@ -46,18 +50,19 @@ module Make (A : T0) (A_value : T0) = struct
        in
        {Common.wrap_domains with x})
 
-  let f_debug full_signature num_choices choices_length ~self ~choices
-      ~max_branching =
-    let num_choices = Hlist.Length.to_nat choices_length in
+  let f_debug full_signature num_rules rules_length ~self ~rules
+      ~max_num_input_proofs =
+    let num_rules = Hlist.Length.to_nat rules_length in
     let dummy_step_domains =
-      Vector.init num_choices ~f:(fun _ -> Fix_domains.rough_domains)
+      Vector.init num_rules ~f:(fun _ -> Fix_domains.rough_domains)
     in
-    let dummy_step_widths =
-      Vector.init num_choices ~f:(fun _ -> Nat.to_int (Nat.Add.n max_branching))
+    let dummy_rules_num_input_proofs =
+      Vector.init num_rules ~f:(fun _ ->
+          Nat.to_int (Nat.Add.n max_num_input_proofs) )
     in
     let dummy_step_keys =
       lazy
-        (Vector.init num_choices ~f:(fun _ ->
+        (Vector.init num_rules ~f:(fun _ ->
              let g = Backend.Tock.Inner_curve.(to_affine_exn one) in
              let g =
                Array.create g
@@ -68,11 +73,12 @@ module Make (A : T0) (A_value : T0) = struct
              in
              Verification_key.dummy_commitments g ))
     in
-    let prev_domains = prev ~self ~choices in
+    let prev_domains = prev ~self ~rules in
     Timer.clock __LOC__ ;
     let _, main =
-      Wrap_main.wrap_main full_signature choices_length dummy_step_keys
-        dummy_step_widths dummy_step_domains prev_domains max_branching
+      Wrap_main.wrap_main full_signature rules_length dummy_step_keys
+        dummy_rules_num_input_proofs dummy_step_domains prev_domains
+        max_num_input_proofs
     in
     Timer.clock __LOC__ ;
     let t =
@@ -80,13 +86,13 @@ module Make (A : T0) (A_value : T0) = struct
     in
     Timer.clock __LOC__ ; t
 
-  let f full_signature num_choices choices_length ~self ~choices ~max_branching
-      =
+  let f full_signature num_rules rules_length ~self ~rules
+      ~max_num_input_proofs =
     let res = Lazy.force result in
     ( if debug then
       let res' =
-        f_debug full_signature num_choices choices_length ~self ~choices
-          ~max_branching
+        f_debug full_signature num_rules rules_length ~self ~rules
+          ~max_num_input_proofs
       in
       [%test_eq: Domains.t] res res' ) ;
     res

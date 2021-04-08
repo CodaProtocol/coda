@@ -56,12 +56,17 @@ module Stable = struct
                 type nonrec t = t
 
                 let to_binable
-                    {Poly.step_data; max_width; wrap_index; wrap_vk= _} =
-                  {Repr.Stable.V1.step_data; max_width; wrap_index}
+                    {Poly.step_data; num_input_proofs; wrap_index; wrap_vk= _}
+                    =
+                  {Repr.Stable.V1.step_data; num_input_proofs; wrap_index}
 
                 let of_binable
-                    {Repr.Stable.V1.step_data; max_width; wrap_index= c} =
-                  {Poly.step_data; max_width; wrap_index= c; wrap_vk= Some ()}
+                    {Repr.Stable.V1.step_data; num_input_proofs; wrap_index= c}
+                    =
+                  { Poly.step_data
+                  ; num_input_proofs
+                  ; wrap_index= c
+                  ; wrap_vk= Some () }
               end)
   end
 end]
@@ -71,7 +76,8 @@ let to_input = Pickles_base.Side_loaded_verification_key.to_input
 let dummy : t =
   let open Pickles_types in
   { step_data= At_most.[]
-  ; max_width= Pickles_base.Side_loaded_verification_key.Width.zero
+  ; num_input_proofs=
+      Pickles_base.Side_loaded_verification_key.Num_input_proofs.zero
   ; wrap_index=
       (let g = [Snarkette.Pasta.Pallas.(to_affine_exn one)] in
        { sigma_comm_0= g

@@ -208,7 +208,7 @@ struct
       |> map ~f:(fun g -> Double.map ~f:(Util.seal (module Impl)) g)
 
   let lagrange (type n)
-      ~domain:( (which_branch : n One_hot_vector.t)
+      ~domain:( (which_rule : n One_hot_vector.t)
               , (domains : (Domains.t, n) Vector.t) ) i =
     Vector.map domains ~f:(fun d ->
         let d =
@@ -222,12 +222,12 @@ struct
         | _ ->
             assert false )
     |> Vector.map2
-         (which_branch :> (Boolean.var, n) Vector.t)
+         (which_rule :> (Boolean.var, n) Vector.t)
          ~f:(fun b (x, y) -> Field.((b :> t) * x, (b :> t) * y))
     |> Vector.reduce_exn ~f:(Double.map2 ~f:Field.( + ))
 
   let lagrange_with_correction (type n) ~input_length
-      ~domain:( (which_branch : n One_hot_vector.t)
+      ~domain:( (which_rule : n One_hot_vector.t)
               , (domains : (Domains.t, n) Vector.t) ) i =
     let rec pow2pow x i =
       if i = 0 then x else pow2pow Inner_curve.Constant.(x + x) (i - 1)
@@ -247,7 +247,7 @@ struct
             failwithf "expected commitment to have length 1. got %d"
               (Array.length xs) () )
     |> Vector.map2
-         (which_branch :> (Boolean.var, n) Vector.t)
+         (which_rule :> (Boolean.var, n) Vector.t)
          ~f:(fun b pr ->
            Double.map pr ~f:(fun (x, y) -> Field.((b :> t) * x, (b :> t) * y))
            )
@@ -325,7 +325,7 @@ struct
                        ~then_:
                          (Point.add p (Scalar_challenge.endo acc.point xi))
                        ~else_:
-                         ((* In this branch, the accumulator was zero, so there is no harm in
+                         ((* In this rule, the accumulator was zero, so there is no harm in
                             putting the potentially junk underlying point here. *)
                           Point.underlying p))
                   ~else_:acc.point)
@@ -472,15 +472,15 @@ struct
         Field.Assert.equal t1 (Field.project t2) )
 
   let incrementally_verify_proof (type b)
-      (module Max_branching : Nat.Add.Intf with type n = b) ~step_widths
-      ~step_domains ~verification_key:(m : _ Plonk_verification_key_evals.t)
-      ~xi ~sponge ~public_input ~(sg_old : (_, Max_branching.n) Vector.t)
+      (module Max_num_input_proofs : Nat.Add.Intf with type n = b)
+      ~rules_num_input_proofs ~step_domains
+      ~verification_key:(m : _ Plonk_verification_key_evals.t) ~xi ~sponge
+      ~public_input ~(sg_old : (_, Max_num_input_proofs.n) Vector.t)
       ~(combined_inner_product : _ Shifted_value.t) ~advice
-      ~(messages : (_, Boolean.var * _) Messages.t) ~which_branch
-      ~openings_proof
+      ~(messages : (_, Boolean.var * _) Messages.t) ~which_rule ~openings_proof
       ~(plonk :
          _ Types.Dlog_based.Proof_state.Deferred_values.Plonk.In_circuit.t) =
-    let T = Max_branching.eq in
+    let T = Max_num_input_proofs.eq in
     let messages =
       with_label __LOC__ (fun () ->
           let open Vector in
@@ -489,15 +489,17 @@ struct
             Commitment_lengths.generic map ~h:(f Domains.h)
               ~max_degree:Common.Max_degree.step
           in
-          mask_messages ~lengths which_branch messages )
+          mask_messages ~lengths which_rule messages )
     in
     let sg_old =
       with_label __LOC__ (fun () ->
-          let actual_width =
-            Pseudo.choose (which_branch, step_widths) ~f:Field.of_int
+          let actual_num_input_proofs =
+            Pseudo.choose (which_rule, rules_num_input_proofs) ~f:Field.of_int
           in
           Vector.map2
-            (ones_vector (module Impl) ~first_zero:actual_width Max_branching.n)
+            (ones_vector
+               (module Impl)
+               ~first_zero:actual_num_input_proofs Max_num_input_proofs.n)
             sg_old
             ~f:(fun keep sg -> [|(keep, sg)|]) )
     in
@@ -519,7 +521,7 @@ struct
         let open Dlog_plonk_types.Messages in
         let x_hat =
           with_label __LOC__ (fun () ->
-              let domain = (which_branch, step_domains) in
+              let domain = (which_rule, step_domains) in
               let terms =
                 Array.mapi public_input ~f:(fun i x ->
                     match Array.of_list x with
@@ -644,12 +646,12 @@ struct
               ; f_comm
               ; [|(Boolean.true_, m.sigma_comm_0)|]
               ; [|(Boolean.true_, m.sigma_comm_1)|] ]
-              (snd (Max_branching.add Nat.N8.n))
+              (snd (Max_num_input_proofs.add Nat.N8.n))
           in
           check_bulletproof
             ~pcs_batch:
               (Common.dlog_pcs_batch
-                 (Max_branching.add Nat.N8.n)
+                 (Max_num_input_proofs.add Nat.N8.n)
                  ~max_quot_size:())
             ~sponge:sponge_before_evaluations ~xi ~combined_inner_product
             ~advice ~openings_proof
@@ -762,8 +764,8 @@ struct
    3. Check that the "b" value was computed correctly.
    4. Perform the arithmetic checks from marlin. *)
   let finalize_other_proof (type b)
-      (module Branching : Nat.Add.Intf with type n = b) ?actual_branching
-      ~domain ~max_quot_size ~sponge
+      (module Num_input_proofs : Nat.Add.Intf with type n = b)
+      ?actual_num_input_proofs ~domain ~max_quot_size ~sponge
       ~(old_bulletproof_challenges : (_, b) Vector.t)
       ({xi; combined_inner_product; bulletproof_challenges; b; plonk} :
         ( _
@@ -772,7 +774,7 @@ struct
         , _ )
         Types.Pairing_based.Proof_state.Deferred_values.In_circuit.t)
       ((evals1, x_hat1), (evals2, x_hat2)) =
-    let T = Branching.eq in
+    let T = Num_input_proofs.eq in
     let open Vector in
     (* You use the NEW bulletproof challenges to check b. Not the old ones. *)
     let open Field in
@@ -825,17 +827,17 @@ struct
                   unstage (b_poly (Vector.to_array chals)) )
             in
             let combine pt x_hat e =
-              let pi = Branching.add Nat.N8.n in
+              let pi = Num_input_proofs.add Nat.N8.n in
               let a, b = Evals.to_vectors (e : Field.t array Evals.t) in
               let sg_evals =
-                match actual_branching with
+                match actual_num_input_proofs with
                 | None ->
                     Vector.map sg_olds ~f:(fun f -> [|f pt|])
-                | Some branching ->
+                | Some num_input_proofs ->
                     let mask =
                       ones_vector
                         (module Impl)
-                        ~first_zero:branching (Vector.length sg_olds)
+                        ~first_zero:num_input_proofs (Vector.length sg_olds)
                     in
                     Vector.map2 mask sg_olds ~f:(fun b f ->
                         [|Field.((b :> t) * f pt)|] )
@@ -908,7 +910,7 @@ struct
    that we compute when verifying the previous proof. That is a commitment
    to them. *)
 
-  let hash_me_only (type n) (_max_branching : n Nat.t)
+  let hash_me_only (type n) (_max_num_input_proofs : n Nat.t)
       (t : (_, (_, n) Vector.t) Types.Dlog_based.Proof_state.Me_only.t) =
     let sponge = Sponge.create sponge_params in
     Array.iter ~f:(Sponge.absorb sponge)

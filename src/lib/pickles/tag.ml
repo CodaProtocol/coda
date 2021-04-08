@@ -1,10 +1,12 @@
 open Core_kernel
 
-type ('var, 'value, 'n1, 'n2) tag = ('var * 'value * 'n1 * 'n2) Type_equal.Id.t
+type ('var, 'value, 'max_num_input_proofs, 'num_rules) tag =
+  ('var * 'value * 'max_num_input_proofs * 'num_rules) Type_equal.Id.t
 
 type kind = Side_loaded | Compiled
 
-type ('var, 'value, 'n1, 'n2) t = {kind: kind; id: ('var, 'value, 'n1, 'n2) tag}
+type ('var, 'value, 'max_num_input_proofs, 'num_rules) t =
+  {kind: kind; id: ('var, 'value, 'max_num_input_proofs, 'num_rules) tag}
 [@@deriving fields]
 
 let create ~name =

@@ -850,8 +850,8 @@ module Maxes = struct
 
   type 'length t = T : 'ns H1.T(Nat).t * ('ns, 'length) Length.t -> 'length t
 
-  let rec f : type branches n. ((int, branches) Vector.t, n) Vector.t -> n t =
-    function
+  let rec f : type num_rules n. ((int, num_rules) Vector.t, n) Vector.t -> n t
+      = function
     | [] ->
         T ([], Length.Z)
     | v :: vs ->

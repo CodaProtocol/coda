@@ -97,11 +97,11 @@ type ('s, 'mlmb, _) with_data =
   | T :
       ( 'mlmb Base.Me_only.Dlog_based.t
       , ( 's
-        , (Tock.Curve.Affine.t, 'most_recent_width) Vector.t
+        , (Tock.Curve.Affine.t, 'most_recent_num_input_proofs) Vector.t
         , ( Challenge.Constant.t Scalar_challenge.Stable.Latest.t
             Bulletproof_challenge.t
             Step_bp_vec.t
-          , 'most_recent_width )
+          , 'most_recent_num_input_proofs )
           Vector.t )
         Base.Me_only.Pairing_based.t )
       Base.Dlog_based.t
@@ -111,10 +111,11 @@ module With_data = struct
   type ('s, 'mlmb, 'w) t = ('s, 'mlmb, 'w) with_data
 end
 
-type ('max_width, 'mlmb) t = (unit, 'mlmb, 'max_width) With_data.t
+type ('max_num_input_proofs, 'mlmb) t =
+  (unit, 'mlmb, 'max_num_input_proofs) With_data.t
 
 let dummy (type w h r) (_w : w Nat.t) (h : h Nat.t)
-    (most_recent_width : r Nat.t) : (w, h) t =
+    (most_recent_num_input_proofs : r Nat.t) : (w, h) t =
   let open Ro in
   let g0 = Tock.Curve.(to_affine_exn one) in
   let g len = Array.create ~len g0 in
@@ -130,7 +131,7 @@ let dummy (type w h r) (_w : w Nat.t) (h : h Nat.t)
                 { xi= scalar_chal ()
                 ; combined_inner_product= Shifted_value (tick ())
                 ; b= Shifted_value (tick ())
-                ; which_branch= Option.value_exn (Index.of_int 0)
+                ; which_rule= Option.value_exn (Index.of_int 0)
                 ; bulletproof_challenges= Dummy.Ipa.Step.challenges
                 ; plonk=
                     { alpha= scalar_chal ()
@@ -147,11 +148,11 @@ let dummy (type w h r) (_w : w Nat.t) (h : h Nat.t)
             { app_state= ()
             ; old_bulletproof_challenges=
                 (* Not sure if this should be w or h honestly ...*)
-                Vector.init most_recent_width ~f:(fun _ ->
+                Vector.init most_recent_num_input_proofs ~f:(fun _ ->
                     Dummy.Ipa.Step.challenges )
                 (* TODO: Should this be wrap? *)
             ; sg=
-                Vector.init most_recent_width ~f:(fun _ ->
+                Vector.init most_recent_num_input_proofs ~f:(fun _ ->
                     Lazy.force Dummy.Ipa.Wrap.sg ) } }
     ; proof=
         { messages=
@@ -179,26 +180,27 @@ let dummy (type w h r) (_w : w Nat.t) (h : h Nat.t)
          (e (), e ()))
     ; prev_x_hat= (tick (), tick ()) }
 
-module Make (W : Nat.Intf) (MLMB : Nat.Intf) = struct
-  module Max_branching_at_most = At_most.With_length (W)
-  module MLMB_vec = Nvector (MLMB)
+module Make (W : Nat.Intf) (Prev_max_num_input_proofs : Nat.Intf) = struct
+  module Max_num_rules_at_most = At_most.With_length (W)
+  module Prev_max_num_input_proofs_vec = Nvector (Prev_max_num_input_proofs)
 
   module Repr = struct
     type t =
       ( ( Tock.Inner_curve.Affine.t
-        , Reduced_me_only.Dlog_based.Challenges_vector.t MLMB_vec.t )
+        , Reduced_me_only.Dlog_based.Challenges_vector.t
+          Prev_max_num_input_proofs_vec.t )
         Dlog_based.Proof_state.Me_only.t
       , ( unit
-        , Tock.Curve.Affine.t Max_branching_at_most.t
+        , Tock.Curve.Affine.t Max_num_rules_at_most.t
         , Challenge.Constant.t Scalar_challenge.t Bulletproof_challenge.t
           Step_bp_vec.t
-          Max_branching_at_most.t )
+          Max_num_rules_at_most.t )
         Base.Me_only.Pairing_based.t )
       Base.Dlog_based.t
     [@@deriving compare, sexp, yojson, hash, equal]
   end
 
-  type nonrec t = (W.n, MLMB.n) t
+  type nonrec t = (W.n, Prev_max_num_input_proofs.n) t
 
   let to_repr (T t) : Repr.t =
     let lte = Nat.lte_exn (Vector.length t.statement.pass_through.sg) W.n in
@@ -321,8 +323,8 @@ end
 module Branching_max = struct
   module T =
     Make
-      (Side_loaded_verification_key.Width.Max)
-      (Side_loaded_verification_key.Width.Max)
+      (Side_loaded_verification_key.Num_input_proofs.Max)
+      (Side_loaded_verification_key.Num_input_proofs.Max)
 
   module Repr = struct
     [%%versioned
@@ -333,17 +335,23 @@ module Branching_max = struct
         type t =
           ( ( Tock.Inner_curve.Affine.Stable.V1.t
             , Reduced_me_only.Dlog_based.Challenges_vector.Stable.V1.t
-              Side_loaded_verification_key.Width.Max_vector.Stable.V1.t )
+              Side_loaded_verification_key.Num_input_proofs.Max_vector.Stable
+              .V1
+              .t )
             Dlog_based.Proof_state.Me_only.Stable.V1.t
           , ( unit
             , Tock.Curve.Affine.t
-              Side_loaded_verification_key.Width.Max_at_most.Stable.V1.t
+              Side_loaded_verification_key.Num_input_proofs.Max_at_most.Stable
+              .V1
+              .t
             , Limb_vector.Constant.Hex64.Stable.V1.t
               Vector.Vector_2.Stable.V1.t
               Scalar_challenge.Stable.V1.t
               Bulletproof_challenge.Stable.V1.t
               Step_bp_vec.Stable.V1.t
-              Side_loaded_verification_key.Width.Max_at_most.Stable.V1.t )
+              Side_loaded_verification_key.Num_input_proofs.Max_at_most.Stable
+              .V1
+              .t )
             Base.Me_only.Pairing_based.Stable.V1.t )
           Base.Dlog_based.Stable.V1.t
         [@@deriving compare, sexp, yojson, hash, equal]

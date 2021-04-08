@@ -10,55 +10,62 @@ module B = Inductive_rule.B
 
 (* The SNARK function corresponding to the input inductive rule. *)
 let step_main
-    : type branching self_branches prev_vars prev_values a_var a_value max_branching local_branches local_signature.
+    : type num_input_proofs num_rules prev_vars prev_values a_var a_value max_num_input_proofs prev_num_ruless prev_num_input_proofss.
        (module Requests.Step.S
-          with type local_signature = local_signature
-           and type local_branches = local_branches
+          with type prev_num_input_proofss = prev_num_input_proofss
+           and type prev_num_ruless = prev_num_ruless
            and type statement = a_value
            and type prev_values = prev_values
-           and type max_branching = max_branching)
-    -> (module Nat.Add.Intf with type n = max_branching)
-    -> self_branches:self_branches Nat.t
-    -> local_signature:local_signature H1.T(Nat).t
-    -> local_signature_length:(local_signature, branching) Hlist.Length.t
-    -> local_branches:(* For each inner proof of type T , the number of branches that type T has. *)
-       local_branches H1.T(Nat).t
-    -> local_branches_length:(local_branches, branching) Hlist.Length.t
-    -> branching:(prev_vars, branching) Hlist.Length.t
-    -> lte:(branching, max_branching) Nat.Lte.t
+           and type max_num_input_proofs = max_num_input_proofs)
+    -> (module Nat.Add.Intf with type n = max_num_input_proofs)
+    -> num_rules:num_rules Nat.t
+    -> prev_num_input_proofss:prev_num_input_proofss H1.T(Nat).t
+    -> prev_num_input_proofss_length:( prev_num_input_proofss
+                                     , num_input_proofs )
+                                     Hlist.Length.t
+    -> prev_num_ruless:(* For each inner proof of type T , the number of rules that type T has. *)
+       prev_num_ruless H1.T(Nat).t
+    -> prev_num_ruless_length:( prev_num_ruless
+                              , num_input_proofs )
+                              Hlist.Length.t
+    -> prevs_length:(prev_vars, num_input_proofs) Hlist.Length.t
+    -> lte:(num_input_proofs, max_num_input_proofs) Nat.Lte.t
     -> basic:( a_var
              , a_value
-             , max_branching
-             , self_branches )
+             , max_num_input_proofs
+             , num_rules )
              Types_map.Compiled.basic
-    -> self:(a_var, a_value, max_branching, self_branches) Tag.t
+    -> self:(a_var, a_value, max_num_input_proofs, num_rules) Tag.t
     -> ( prev_vars
        , prev_values
-       , local_signature
-       , local_branches
+       , prev_num_input_proofss
+       , prev_num_ruless
        , a_var
        , a_value )
        Inductive_rule.t
-    -> (   ( (Unfinalized.t, max_branching) Vector.t
+    -> (   ( (Unfinalized.t, max_num_input_proofs) Vector.t
            , Field.t
-           , (Field.t, max_branching) Vector.t )
+           , (Field.t, max_num_input_proofs) Vector.t )
            Types.Pairing_based.Statement.t
         -> unit)
        Staged.t =
- fun (module Req) (module Max_branching) ~self_branches ~local_signature
-     ~local_signature_length ~local_branches ~local_branches_length ~branching
-     ~lte ~basic ~self rule ->
+ fun (module Req) (module Max_num_input_proofs) ~num_rules
+     ~prev_num_input_proofss ~prev_num_input_proofss_length ~prev_num_ruless
+     ~prev_num_ruless_length ~prevs_length ~lte ~basic ~self rule ->
   let module T (F : T4) = struct
     type ('a, 'b, 'n, 'm) t =
       | Other of ('a, 'b, 'n, 'm) F.t
-      | Self : (a_var, a_value, max_branching, self_branches) t
+      | Self : (a_var, a_value, max_num_input_proofs, num_rules) t
   end in
-  let module Typ_with_max_branching = struct
-    type ('var, 'value, 'local_max_branching, 'local_branches) t =
-      ( ('var, 'local_max_branching, 'local_branches) Per_proof_witness.t
+  let module Typ_with_max_num_input_proofs = struct
+    type ('var, 'value, 'local_max_num_input_proofs, 'local_num_rules) t =
+      ( ( 'var
+        , 'local_max_num_input_proofs
+        , 'local_num_rules )
+        Per_proof_witness.t
       , ( 'value
-        , 'local_max_branching
-        , 'local_branches )
+        , 'local_max_num_input_proofs
+        , 'local_num_rules )
         Per_proof_witness.Constant.t )
       Typ.t
   end in
@@ -70,7 +77,7 @@ let step_main
         -> (pvars, br) Length.t
         -> (ns1, br) Length.t
         -> (ns2, br) Length.t
-        -> (pvars, pvals, ns1, ns2) H4.T(Typ_with_max_branching).t =
+        -> (pvars, pvals, ns1, ns2) H4.T(Typ_with_max_num_input_proofs).t =
      fun ds ns1 ns2 ld ln1 ln2 ->
       match (ds, ns1, ns2, ld, ln1, ln2) with
       | [], [], [], Z, Z, Z ->
@@ -92,7 +99,7 @@ let step_main
                       let d = Types_map.lookup_side_loaded d.id in
                       (* TODO: This replication to please the type checker is
                        pointless... *)
-                      ( Vector.init d.permanent.branches ~f:(fun _ ->
+                      ( Vector.init d.permanent.num_rules ~f:(fun _ ->
                             Side_loaded_verification_key.max_domains_with_x )
                       , d.permanent.typ ) )
               in
@@ -106,11 +113,11 @@ let step_main
       | _ :: _, _, _, _, _, _ ->
           .
     in
-    join rule.prevs local_signature local_branches branching
-      local_signature_length local_branches_length
+    join rule.prevs prev_num_input_proofss prev_num_ruless prevs_length
+      prev_num_input_proofss_length prev_num_ruless_length
   in
   let module Prev_typ =
-    H4.Typ (Impls.Step) (Typ_with_max_branching) (Per_proof_witness)
+    H4.Typ (Impls.Step) (Typ_with_max_num_input_proofs) (Per_proof_witness)
       (Per_proof_witness.Constant)
       (struct
         let f = Fn.id
@@ -120,7 +127,7 @@ let step_main
     let open Requests.Step in
     let open Impls.Step in
     with_label "step_main" (fun () ->
-        let T = Max_branching.eq in
+        let T = Max_num_input_proofs.eq in
         let dlog_plonk_index =
           exists
             ~request:(fun () -> Req.Wrap_index)
@@ -152,13 +159,14 @@ let step_main
           let self_data :
               ( a_var
               , a_value
-              , max_branching
-              , self_branches )
+              , max_num_input_proofs
+              , num_rules )
               Types_map.For_step.t =
-            { branches= self_branches
-            ; branchings= Vector.map basic.branchings ~f:Field.of_int
-            ; max_branching= (module Max_branching)
-            ; max_width= None
+            { num_rules
+            ; rules_num_input_proofs=
+                Vector.map basic.rules_num_input_proofs ~f:Field.of_int
+            ; max_num_input_proofs= (module Max_num_input_proofs)
+            ; num_input_proofs= None
             ; typ= basic.typ
             ; var_to_field_elements= basic.var_to_field_elements
             ; value_to_field_elements= basic.value_to_field_elements
@@ -189,7 +197,8 @@ let step_main
         in
         let unfinalized_proofs =
           let module H = H1.Of_vector (Unfinalized) in
-          H.f branching (Vector.trim stmt.proof_state.unfinalized_proofs lte)
+          H.f prevs_length
+            (Vector.trim stmt.proof_state.unfinalized_proofs lte)
         in
         let module Packed_digest = Field in
         let module Proof = struct
@@ -199,7 +208,7 @@ let step_main
         let pass_throughs =
           with_label "pass_throughs" (fun () ->
               let module V = H1.Of_vector (Digest) in
-              V.f branching (Vector.trim stmt.pass_through lte) )
+              V.f prevs_length (Vector.trim stmt.pass_through lte) )
         in
         let sgs =
           let module M =
@@ -213,7 +222,7 @@ let step_main
               end)
           in
           let module V = H3.To_vector (Inner_curve) in
-          V.f branching (M.f prevs)
+          V.f prevs_length (M.f prevs)
         in
         let bulletproof_challenges =
           with_label "prevs_verified" (fun () ->
@@ -264,22 +273,24 @@ let step_main
                             sponge |> Opt_sponge.Underlying.of_sponge
                             |> S.Bit_sponge.make
                           in
-                          finalize_other_proof d.max_branching
-                            ~max_width:d.max_width ~step_widths:d.branchings
+                          finalize_other_proof d.max_num_input_proofs
+                            ~num_input_proofs:d.num_input_proofs
+                            ~rules_num_input_proofs:d.rules_num_input_proofs
                             ~step_domains:d.step_domains ~sponge
                             ~old_bulletproof_challenges state.deferred_values
                             prev_evals )
                     in
-                    let which_branch = state.deferred_values.which_branch in
+                    let which_rule = state.deferred_values.which_rule in
                     let state =
                       with_label __LOC__ (fun () ->
                           { state with
                             deferred_values=
                               { state.deferred_values with
-                                which_branch=
+                                which_rule=
                                   Pseudo.choose
-                                    ( state.deferred_values.which_branch
-                                    , Vector.init d.branches ~f:Field.of_int )
+                                    ( state.deferred_values.which_rule
+                                    , Vector.init d.num_rules ~f:Field.of_int
+                                    )
                                     ~f:Fn.id
                                   |> Types.Index.of_field (module Impl) } } )
                     in
@@ -292,9 +303,10 @@ let step_main
                                 (hash_me_only_opt ~index:d.wrap_key
                                    d.var_to_field_elements)
                             in
-                            hash ~widths:d.branchings
-                              ~max_width:(Nat.Add.n d.max_branching)
-                              ~which_branch
+                            hash ~num_input_proofs:d.rules_num_input_proofs
+                              ~max_num_input_proofs:
+                                (Nat.Add.n d.max_num_input_proofs)
+                              ~which_rule
                               (* Use opt sponge for cutting off the bulletproof challenges early *)
                               { app_state
                               ; dlog_plonk_index= d.wrap_key
@@ -306,7 +318,7 @@ let step_main
                     in
                     let verified =
                       with_label __LOC__ (fun () ->
-                          verify ~branching:d.max_branching
+                          verify ~num_input_proofs:d.max_num_input_proofs
                             ~wrap_domain:d.wrap_domains.h
                             ~is_base_case:should_verify ~sg_old ~opening
                             ~messages ~wrap_verification_key:d.wrap_key
@@ -334,7 +346,7 @@ let step_main
               in
               let chalss, vs =
                 go prevs datas pass_throughs unfinalized_proofs
-                  proofs_should_verify branching
+                  proofs_should_verify prevs_length
               in
               Boolean.Assert.all vs ; chalss )
         in

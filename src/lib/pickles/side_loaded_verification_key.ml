@@ -7,7 +7,7 @@ module V = Pickles_base.Side_loaded_verification_key
 include (
   V :
     module type of V
-    with module Width := V.Width
+    with module Num_input_proofs := V.Num_input_proofs
      and module Domains := V.Domains )
 
 let bits = V.bits
@@ -17,7 +17,7 @@ let input_size ~of_int ~add ~mul w =
   (* This should be an affine function in [a]. *)
   let size a =
     let (T (typ, conv)) =
-      Impls.Step.input ~branching:a ~wrap_rounds:Backend.Tock.Rounds.n
+      Impls.Step.input ~num_input_proofs:a ~wrap_rounds:Backend.Tock.Rounds.n
     in
     Impls.Step.Data_spec.size [typ]
   in
@@ -25,11 +25,11 @@ let input_size ~of_int ~add ~mul w =
   let slope = size Nat.N1.n - f0 in
   add (of_int f0) (mul (of_int slope) w)
 
-module Width : sig
+module Num_input_proofs : sig
   [%%versioned:
   module Stable : sig
     module V1 : sig
-      type t = V.Width.Stable.V1.t
+      type t = V.Num_input_proofs.Stable.V1.t
       [@@deriving sexp, equal, compare, hash, yojson]
     end
   end]
@@ -70,11 +70,11 @@ module Width : sig
 
   module Length : Nat.Add.Intf_transparent
 end = struct
-  include V.Width
+  include V.Num_input_proofs
   open Impls.Step
 
   module Checked = struct
-    (* A "width" is represented by a 4 bit integer. *)
+    (* A "number of input_proofs" is represented by a 4 bit integer. *)
     type t = (Boolean.var, Length.n) Vector.t
 
     let to_field : t -> Field.t = Fn.compose Field.project Vector.to_list
@@ -129,7 +129,7 @@ let max_domains_with_x =
     Plonk_checks.Domain.Pow_2_roots_of_unity
       (Int.ceil_log2
          (input_size ~of_int:Fn.id ~add:( + ) ~mul:( * )
-            (Nat.to_int Width.Max.n)))
+            (Nat.to_int Num_input_proofs.Max.n)))
   in
   {Ds.h= conv max_domains.h; x}
 
@@ -177,8 +177,9 @@ module Stable = struct
                   include Vk
 
                   let of_repr
-                      {Repr.Stable.V1.step_data; max_width; wrap_index= c} :
-                      Impls.Wrap.Verification_key.t =
+                      { Repr.Stable.V1.step_data
+                      ; num_input_proofs
+                      ; wrap_index= c } : Impls.Wrap.Verification_key.t =
                     let d = Common.wrap_domains.h in
                     let log2_size = Import.Domain.log2_size d in
                     let max_quot_size =
@@ -202,14 +203,16 @@ module Stable = struct
                 end
 
                 let to_binable
-                    {Poly.step_data; max_width; wrap_index; wrap_vk= _} =
-                  {Repr.Stable.V1.step_data; max_width; wrap_index}
+                    {Poly.step_data; num_input_proofs; wrap_index; wrap_vk= _}
+                    =
+                  {Repr.Stable.V1.step_data; num_input_proofs; wrap_index}
 
                 let of_binable
-                    ({Repr.Stable.V1.step_data; max_width; wrap_index= c} as t)
-                    =
+                    ( { Repr.Stable.V1.step_data
+                      ; num_input_proofs
+                      ; wrap_index= c } as t ) =
                   { Poly.step_data
-                  ; max_width
+                  ; num_input_proofs
                   ; wrap_index= c
                   ; wrap_vk= Some (Repr_conv.of_repr t) }
               end)
@@ -218,7 +221,7 @@ end]
 
 let dummy : t =
   { step_data= At_most.[]
-  ; max_width= Width.zero
+  ; num_input_proofs= Num_input_proofs.zero
   ; wrap_index=
       (let g = [Backend.Tock.Curve.(to_affine_exn one)] in
        { sigma_comm_0= g
@@ -246,41 +249,51 @@ module Checked = struct
   open Impl
 
   type t =
-    { step_domains: (Field.t Domain.t Domains.t, Max_branches.n) Vector.t
-    ; step_widths: (Width.Checked.t, Max_branches.n) Vector.t
-    ; max_width: Width.Checked.t
+    { step_domains: (Field.t Domain.t Domains.t, Max_num_rules.n) Vector.t
+    ; rules_num_input_proofs:
+        (Num_input_proofs.Checked.t, Max_num_rules.n) Vector.t
+    ; num_input_proofs: Num_input_proofs.Checked.t
     ; wrap_index: Inner_curve.t array Plonk_verification_key_evals.t
-    ; num_branches: (Boolean.var, Max_branches.Log2.n) Vector.t }
+    ; num_rules: (Boolean.var, Max_num_rules.Log2.n) Vector.t }
   [@@deriving hlist, fields]
 
   let to_input =
     let open Random_oracle_input in
     let map_reduce t ~f = Array.map t ~f |> Array.reduce_exn ~f:append in
-    fun {step_domains; step_widths; max_width; wrap_index; num_branches} ->
+    fun { step_domains
+        ; rules_num_input_proofs
+        ; num_input_proofs
+        ; wrap_index
+        ; num_rules } ->
       ( List.reduce_exn ~f:append
           [ map_reduce (Vector.to_array step_domains) ~f:(fun {Domains.h} ->
                 map_reduce [|h|] ~f:(fun (Domain.Pow_2_roots_of_unity x) ->
                     bitstring (Field.unpack x ~length:max_log2_degree) ) )
-          ; Array.map (Vector.to_array step_widths) ~f:Width.Checked.to_bits
+          ; Array.map
+              (Vector.to_array rules_num_input_proofs)
+              ~f:Num_input_proofs.Checked.to_bits
             |> bitstrings
-          ; bitstring (Width.Checked.to_bits max_width)
+          ; bitstring (Num_input_proofs.Checked.to_bits num_input_proofs)
           ; wrap_index_to_input
               (Array.concat_map
                  ~f:(Fn.compose Array.of_list Inner_curve.to_field_elements))
               wrap_index
-          ; bitstring (Vector.to_list num_branches) ]
+          ; bitstring (Vector.to_list num_rules) ]
         : _ Random_oracle_input.t )
 end
 
 let%test_unit "input_size" =
   List.iter
-    (List.range 0 (Nat.to_int Width.Max.n) ~stop:`inclusive ~start:`inclusive)
+    (List.range 0
+       (Nat.to_int Num_input_proofs.Max.n)
+       ~stop:`inclusive ~start:`inclusive)
     ~f:(fun n ->
       [%test_eq: int]
         (input_size ~of_int:Fn.id ~add:( + ) ~mul:( * ) n)
         (let (T a) = Nat.of_int n in
          let (T (typ, conv)) =
-           Impls.Step.input ~branching:a ~wrap_rounds:Backend.Tock.Rounds.n
+           Impls.Step.input ~num_input_proofs:a
+             ~wrap_rounds:Backend.Tock.Rounds.n
          in
          Impls.Step.Data_spec.size [typ]) )
 
@@ -288,27 +301,27 @@ let typ : (Checked.t, t) Impls.Step.Typ.t =
   let open Step_main_inputs in
   let open Impl in
   Typ.of_hlistable
-    [ Vector.typ Domains.typ Max_branches.n
-    ; Vector.typ Width.typ Max_branches.n
-    ; Width.typ
+    [ Vector.typ Domains.typ Max_num_rules.n
+    ; Vector.typ Num_input_proofs.typ Max_num_rules.n
+    ; Num_input_proofs.typ
     ; Plonk_verification_key_evals.typ
         (Typ.array Inner_curve.typ
            ~length:
              (index_commitment_length ~max_degree:Max_degree.wrap
                 Common.wrap_domains.h))
-    ; Vector.typ Boolean.typ Max_branches.Log2.n ]
+    ; Vector.typ Boolean.typ Max_num_rules.Log2.n ]
     ~var_to_hlist:Checked.to_hlist ~var_of_hlist:Checked.of_hlist
     ~value_of_hlist:(fun _ ->
       failwith "Side_loaded_verification_key: value_of_hlist" )
-    ~value_to_hlist:(fun {Poly.step_data; wrap_index; max_width; _} ->
+    ~value_to_hlist:(fun {Poly.step_data; wrap_index; num_input_proofs; _} ->
       [ At_most.extend_to_vector
           (At_most.map step_data ~f:fst)
-          dummy_domains Max_branches.n
+          dummy_domains Max_num_rules.n
       ; At_most.extend_to_vector
           (At_most.map step_data ~f:snd)
-          dummy_width Max_branches.n
-      ; max_width
+          dummy_num_input_proofs Max_num_rules.n
+      ; num_input_proofs
       ; Plonk_verification_key_evals.map ~f:Array.of_list wrap_index
       ; (let n = At_most.length step_data in
-         Vector.init Max_branches.Log2.n ~f:(fun i -> (n lsr i) land 1 = 1)) ]
-      )
+         Vector.init Max_num_rules.Log2.n ~f:(fun i -> (n lsr i) land 1 = 1))
+      ] )

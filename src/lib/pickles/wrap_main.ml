@@ -54,17 +54,17 @@ let check_wrap_domains ds =
 (* This function is kinda pointless since right now we're assuming all wrap domains
    are the same, but it will be useful when switch to the dlog-dlog system.
 
-   The input is a list of Domains.t's [ ds_1; ...; ds_branches ].
-   It pads each list with "dummy domains" to have length equal to Max_branching.n.
+   The input is a list of Domains.t's [ ds_1; ...; ds_num_rules ].
+   It pads each list with "dummy domains" to have length equal to Max_num_input_proofs.n.
    Then it transposes that matrix.
 *)
-let pad_domains (type prev_varss prev_valuess branches n)
-    (module Max_branching : Nat.Intf with type n = n)
-    (pi_branches : (prev_varss, branches) Length.t)
+let pad_domains (type prev_varss prev_valuess num_rules n)
+    (module Max_num_input_proofs : Nat.Intf with type n = n)
+    (pi_num_rules : (prev_varss, num_rules) Length.t)
     (prev_wrap_domains :
       (prev_varss, prev_valuess, _, _) H4.T(H4.T(E04(Domains))).t) =
   let module Ds = struct
-    type t = (Domains.t, Max_branching.n) Vector.t
+    type t = (Domains.t, Max_num_input_proofs.n) Vector.t
   end in
   let ds : (prev_varss, prev_valuess, _, _) H4.T(E04(Ds)).t =
     let dummy_domains =
@@ -86,7 +86,7 @@ let pad_domains (type prev_varss prev_valuess branches n)
                  fun domains ->
                   let (T (len, pi)) = H.length domains in
                   let module V = H4.To_vector (Domains) in
-                  Vector.extend_exn (V.f pi domains) Max_branching.n
+                  Vector.extend_exn (V.f pi domains) Max_num_input_proofs.n
                     dummy_domains
               end)
     in
@@ -94,19 +94,19 @@ let pad_domains (type prev_varss prev_valuess branches n)
   in
   let ds =
     let module V = H4.To_vector (Ds) in
-    V.f pi_branches ds
+    V.f pi_num_rules ds
   in
   Vector.transpose ds
 
 module Old_bulletproof_chals = struct
   type t =
     | T :
-        'max_local_max_branching Nat.t
-        * 'max_local_max_branching Challenges_vector.t
+        'prev_max_num_input_proofs Nat.t
+        * 'prev_max_num_input_proofs Challenges_vector.t
         -> t
 end
 
-let pack_statement max_branching =
+let pack_statement max_num_input_proofs =
   let pack_fq (Shifted_value.Shifted_value (x : Field.t)) =
     with_label __LOC__ (fun () ->
         let lo, hi = Util.split_last (Unsafe.unpack_unboolean x) in
@@ -117,7 +117,7 @@ let pack_statement max_branching =
         Spec.pack
           (module Impl)
           pack_fq
-          (Types.Pairing_based.Statement.spec max_branching
+          (Types.Pairing_based.Statement.spec max_num_input_proofs
              Backend.Tock.Rounds.n)
           (Types.Pairing_based.Statement.to_data t) )
 
@@ -130,19 +130,22 @@ let domain_generator ~log2_size =
 
 (* The SNARK function for wrapping any proof coming from the given set of keys *)
 let wrap_main
-    (type max_branching branches prev_varss prev_valuess env
-    max_local_max_branchings)
+    (type max_num_input_proofs num_rules prev_varss prev_valuess env
+    prev_max_num_input_proofss)
     (full_signature :
-      (max_branching, branches, max_local_max_branchings) Full_signature.t)
-    (pi_branches : (prev_varss, branches) Hlist.Length.t)
+      ( max_num_input_proofs
+      , num_rules
+      , prev_max_num_input_proofss )
+      Full_signature.t) (pi_num_rules : (prev_varss, num_rules) Hlist.Length.t)
     (step_keys :
-      (Wrap_main_inputs.Inner_curve.Constant.t index, branches) Vector.t Lazy.t)
-    (step_widths : (int, branches) Vector.t)
-    (step_domains : (Domains.t, branches) Vector.t)
+      (Wrap_main_inputs.Inner_curve.Constant.t index, num_rules) Vector.t
+      Lazy.t) (rules_num_input_proofs : (int, num_rules) Vector.t)
+    (step_domains : (Domains.t, num_rules) Vector.t)
     (prev_wrap_domains :
       (prev_varss, prev_valuess, _, _) H4.T(H4.T(E04(Domains))).t)
-    (module Max_branching : Nat.Add.Intf with type n = max_branching) :
-    (max_branching, max_local_max_branchings) Requests.Wrap.t
+    (module Max_num_input_proofs : Nat.Add.Intf
+      with type n = max_num_input_proofs) :
+    (max_num_input_proofs, prev_max_num_input_proofss) Requests.Wrap.t
     * (   ( _
           , _
           , _ Shifted_value.t
@@ -160,14 +163,16 @@ let wrap_main
     Common.wrap_domains
   in
   Timer.clock __LOC__ ;
-  let T = Max_branching.eq in
-  let branches = Hlist.Length.to_nat pi_branches in
+  let T = Max_num_input_proofs.eq in
+  let num_rules = Hlist.Length.to_nat pi_num_rules in
   Timer.clock __LOC__ ;
   let (module Req) =
-    Requests.Wrap.((create () : (max_branching, max_local_max_branchings) t))
+    Requests.Wrap.(
+      (create () : (max_num_input_proofs, prev_max_num_input_proofss) t))
   in
   Timer.clock __LOC__ ;
-  let {Full_signature.padded; maxes= (module Max_widths_by_slot)} =
+  let { Full_signature.prev_num_input_proofss_per_slot
+      ; maxes= (module Max_num_input_proofs_by_slot) } =
     full_signature
   in
   Timer.clock __LOC__ ;
@@ -178,7 +183,7 @@ let wrap_main
                ; xi
                ; combined_inner_product
                ; b
-               ; which_branch
+               ; which_rule
                ; bulletproof_challenges }
            ; sponge_digest_before_evaluations
            ; me_only= me_only_digest }
@@ -193,18 +198,21 @@ let wrap_main
         , _
         , _ )
         Types.Dlog_based.Statement.In_circuit.t) =
-    let which_branch = One_hot_vector.of_index which_branch ~length:branches in
+    let which_rule = One_hot_vector.of_index which_rule ~length:num_rules in
     let prev_proof_state =
       with_label __LOC__ (fun () ->
           let open Types.Pairing_based.Proof_state in
           let typ =
-            typ (module Impl) Max_branching.n (Shifted_value.typ Field.typ)
+            typ
+              (module Impl)
+              Max_num_input_proofs.n
+              (Shifted_value.typ Field.typ)
           in
           exists typ ~request:(fun () -> Req.Proof_state) )
     in
     let pairing_plonk_index =
       with_label __LOC__ (fun () ->
-          choose_key which_branch
+          choose_key which_rule
             (Vector.map (Lazy.force step_keys)
                ~f:
                  (Plonk_verification_key_evals.map ~f:(function
@@ -216,7 +224,7 @@ let wrap_main
     in
     let prev_step_accs =
       with_label __LOC__ (fun () ->
-          exists (Vector.typ Inner_curve.typ Max_branching.n)
+          exists (Vector.typ Inner_curve.typ Max_num_input_proofs.n)
             ~request:(fun () -> Req.Step_accs) )
     in
     let old_bp_chals =
@@ -230,7 +238,7 @@ let wrap_main
                     Vector.typ (Vector.typ Field.typ Backend.Tock.Rounds.n) n
                 end)
             in
-            T.f Max_widths_by_slot.maxes
+            T.f Max_num_input_proofs_by_slot.maxes
           in
           let module Z = H1.Zip (Nat) (Challenges_vector) in
           let module M =
@@ -244,14 +252,16 @@ let wrap_main
                  end)
           in
           let module V = H1.To_vector (Old_bulletproof_chals) in
-          Z.f Max_widths_by_slot.maxes
+          Z.f Max_num_input_proofs_by_slot.maxes
             (exists typ ~request:(fun () -> Req.Old_bulletproof_challenges))
           |> M.f
-          |> V.f Max_widths_by_slot.length )
+          |> V.f Max_num_input_proofs_by_slot.length )
     in
     let domainses =
       with_label __LOC__ (fun () ->
-          pad_domains (module Max_branching) pi_branches prev_wrap_domains )
+          pad_domains
+            (module Max_num_input_proofs)
+            pi_num_rules prev_wrap_domains )
     in
     let eval_lengths =
       with_label __LOC__ (fun () ->
@@ -271,13 +281,13 @@ let wrap_main
                      Field.typ)
                   Field.typ
               in
-              Vector.typ (Typ.tuple2 ty ty) Max_branching.n
+              Vector.typ (Typ.tuple2 ty ty) Max_num_input_proofs.n
             in
             exists ty ~request:(fun () -> Req.Evals)
           in
           let chals =
-            let (wrap_domains : (_, Max_branching.n) Vector.t), max_quot_sizes
-                =
+            let ( (wrap_domains : (_, Max_num_input_proofs.n) Vector.t)
+                , max_quot_sizes ) =
               Vector.map domainses ~f:(fun ds ->
                   let h =
                     Plonk_checks.domain
@@ -285,23 +295,23 @@ let wrap_main
                       ~shifts ~domain_generator wrap_domains.h
                   in
                   ( h
-                  , ( which_branch
+                  , ( which_rule
                     , Vector.map ds ~f:(fun d ->
                           Common.max_quot_size_int (Domain.size d.h) ) ) ) )
               |> Vector.unzip
             in
-            let actual_branchings =
-              padded
-              |> Vector.map ~f:(fun branchings_in_slot ->
+            let prev_num_input_proofss =
+              prev_num_input_proofss_per_slot
+              |> Vector.map ~f:(fun num_input_proofs_in_slot ->
                      Pseudo.choose
-                       (which_branch, branchings_in_slot)
+                       (which_rule, num_input_proofs_in_slot)
                        ~f:Field.of_int )
             in
             Vector.mapn
-              [ (* This is padded to max_branching for the benefit of wrapping with dummy unfinalized proofs *)
+              [ (* This is padded to max_num_input_proofs for the benefit of wrapping with dummy unfinalized proofs *)
                 prev_proof_state.unfinalized_proofs
               ; old_bp_chals
-              ; actual_branchings
+              ; prev_num_input_proofss
               ; evals
               ; eval_lengths
               ; wrap_domains
@@ -310,7 +320,7 @@ let wrap_main
                         ; sponge_digest_before_evaluations
                         ; should_finalize }
                       ; old_bulletproof_challenges
-                      ; actual_branching
+                      ; actual_num_input_proofs
                       ; evals
                       ; eval_lengths
                       ; domain
@@ -321,22 +331,24 @@ let wrap_main
                   Sponge.absorb s sponge_digest_before_evaluations ;
                   s
                 in
-                (* the type of the local max branching depends on
+                (* the type of the local max num rules depends on
                which kind of step proof we are wrapping. *)
-                (* For each i in [0..max_branching-1], we have 
-               Max_local_max_branching, which is the largest
-               Local_max_branching which is the i^th inner proof of a step proof.
+                (* For each i in [0..max_num_input_proofs-1], we have 
+               Prev_max_num_input_proofs, which is the largest
+               prev_num_input_proofs_per_slot which is the i^th inner proof of a
+               step proof.
             
-               Need to compute this value from the which_branch.
+               Need to compute this value from the which_rule.
             *)
-                let (T (max_local_max_branching, old_bulletproof_challenges)) =
+                let (T (prev_max_num_input_proofs, old_bulletproof_challenges))
+                    =
                   old_bulletproof_challenges
                 in
                 let finalized, chals =
                   with_label __LOC__ (fun () ->
                       finalize_other_proof
-                        (Nat.Add.create max_local_max_branching)
-                        ~max_quot_size ~actual_branching
+                        (Nat.Add.create prev_max_num_input_proofs)
+                        ~max_quot_size ~actual_num_input_proofs
                         ~domain:(domain :> _ Plonk_checks.plonk_domain)
                         ~sponge deferred_values ~old_bulletproof_challenges
                         evals )
@@ -349,12 +361,14 @@ let wrap_main
     let prev_statement =
       let prev_me_onlys =
         Vector.map2 prev_step_accs old_bp_chals
-          ~f:(fun sacc (T (max_local_max_branching, chals)) ->
+          ~f:(fun sacc (T (prev_max_num_input_proofs, chals)) ->
             (* This is a hack. Assuming that the max number of recursive verifications for
                  every rule is exactly 2 simplified the implementation. In the future we
                  will have to fix this. *)
-            let T = Nat.eq_exn max_local_max_branching Max_branching.n in
-            hash_me_only Max_branching.n
+            let T =
+              Nat.eq_exn prev_max_num_input_proofs Max_num_input_proofs.n
+            in
+            hash_me_only Max_num_input_proofs.n
               {sg= sacc; old_bulletproof_challenges= chals} )
       in
       { Types.Pairing_based.Statement.pass_through= prev_me_onlys
@@ -408,12 +422,13 @@ let wrap_main
       in
       with_label __LOC__ (fun () ->
           incrementally_verify_proof
-            (module Max_branching)
-            ~step_widths ~step_domains ~verification_key:pairing_plonk_index
-            ~xi ~sponge
-            ~public_input:(pack_statement Max_branching.n prev_statement)
+            (module Max_num_input_proofs)
+            ~rules_num_input_proofs ~step_domains
+            ~verification_key:pairing_plonk_index ~xi ~sponge
+            ~public_input:
+              (pack_statement Max_num_input_proofs.n prev_statement)
             ~sg_old:prev_step_accs ~combined_inner_product ~advice:{b}
-            ~messages ~which_branch ~openings_proof
+            ~messages ~which_rule ~openings_proof
             ~plonk:
               (with_label __LOC__ (fun () ->
                    Types.Dlog_based.Proof_state.Deferred_values.Plonk
@@ -428,7 +443,7 @@ let wrap_main
     in
     Boolean.Assert.is_true bulletproof_success ;
     Field.Assert.equal me_only_digest
-      (hash_me_only Max_branching.n
+      (hash_me_only Max_num_input_proofs.n
          { Types.Dlog_based.Proof_state.Me_only.sg= openings_proof.sg
          ; old_bulletproof_challenges= new_bulletproof_challenges }) ;
     Field.Assert.equal sponge_digest_before_evaluations
