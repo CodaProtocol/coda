@@ -41,6 +41,7 @@ locals {
   whale_block_producer_names = [for i in range(var.whale_count) : "whale-block-producer-${i + 1}"]
   fish_block_producer_names  = [for i in range(var.fish_count) : "fish-block-producer-${i + 1}"]
   seed_names                 = [for i in range(var.seed_count) : "seed-${i + 1}"]
+  default_seed_url           = var.make_reports ? "https://storage.googleapis.com/buildkite_k8s/mina/seed-lists/${var.testnet_name}_seeds.txt" : ""
 
   archive_node_configs = var.archive_configs != null ? [for item in var.archive_configs : merge(local.default_archive_node, item)] : [
     for i in range(1, var.archive_node_count + 1) : merge(local.default_archive_node, {
@@ -48,4 +49,12 @@ locals {
       postgresHost      = "archive-${i}-postgresql"
     })
   ]
+}
+
+resource "google_storage_bucket_object" "default_seed_list" {
+  count  = length(var.seed_peers_url) == 0 && var.make_reports ? 1 : 0
+
+  name   = "mina/seed-lists/${var.testnet_name}_seeds.txt"
+  content = join("\n", [for peer in values(local.static_peers) : peer.full_peer])
+  bucket = "buildkite_k8s"
 }

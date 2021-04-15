@@ -123,5 +123,5 @@ module "kubernetes_testnet" {
   make_report_every_mins          = var.make_report_every_mins
   make_report_discord_webhook_url = var.make_report_discord_webhook_url
   make_report_accounts            = var.make_report_accounts
-  seed_peers_url                  = var.seed_peers_url
+  seed_peers_url                  = length(var.seed_peers_url) > 0 ? var.seed_peers_url : local.default_seed_url
 }
