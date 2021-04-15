@@ -1,0 +1,78 @@
+{
+  "genesis": {
+    "genesis_state_timestamp": "2021-03-14T20:04:01Z"
+  },
+  "ledger": {
+    "name": "snappnet",
+    "num_accounts": 10,
+    "accounts": [
+      {
+        "pk": "B62qnLZUQyjnFRU6L5Ls6Gf3PQY7pABxFCNYxVc1vT2GqpsFeJSLcJh",
+        "balance": "66000.000000000",
+        "delegate": "B62qnLZUQyjnFRU6L5Ls6Gf3PQY7pABxFCNYxVc1vT2GqpsFeJSLcJh",
+        "sk": null,
+        "timing": {
+          "initial_minimum_balance": "60000",
+          "cliff_time": "150",
+          "cliff_amount": "12000",
+          "vesting_period": "6",
+          "vesting_increment": "150"
+        }
+      },
+      {
+        "pk": "B62qqhR2rfyBoNJEchvGsmcT58foeYvqH3HMg2Rb27vKivjnRXwWgwW",
+        "balance": "20000.000000000",
+        "delegate": "B62qqhR2rfyBoNJEchvGsmcT58foeYvqH3HMg2Rb27vKivjnRXwWgwW",
+        "sk": null
+      },
+      {
+        "pk": "B62qjP1wgNmJM3VBbZYYicV3bdvZXtxksXVgAAFJWVJGQ9xNqFDy7BG",
+        "balance": "20000.000000000",
+        "delegate": "B62qjP1wgNmJM3VBbZYYicV3bdvZXtxksXVgAAFJWVJGQ9xNqFDy7BG",
+        "sk": null
+      },
+      {
+        "pk": "B62qqbN2m2yofBZCeF26Q6Uv1QGGKnoEL7AtL6J8kfgYzQ9vhsThyyi",
+        "balance": "20000.000000000",
+        "delegate": "B62qqhR2rfyBoNJEchvGsmcT58foeYvqH3HMg2Rb27vKivjnRXwWgwW",
+        "sk": null
+      },
+      {
+        "pk": "B62qqWFhWQSnABnN7yKYjDzDd2qvmR2uDaSh3FNNDf7tjuhoNmhNTB1",
+        "balance": "20000.000000000",
+        "delegate": "B62qjP1wgNmJM3VBbZYYicV3bdvZXtxksXVgAAFJWVJGQ9xNqFDy7BG",
+        "sk": null
+      },
+      {
+        "pk": "B62qmasui91ojvgUFU8zkuxMrcFnYVAPbQipjtRti5GeCHH7Nx5NVfa",
+        "balance": "2250000.000000000",
+        "delegate": "B62qr2TAqmQRMoGVQyGx6FYqkDxryo65D7fRqahkMTNDqZy1bbcdUvi",
+        "sk": null
+      },
+      {
+        "pk": "B62qnCdS9F4coxcNi25aa5e5USFmxRvJHtSydN4bSXosPdupr5rpQa5",
+        "balance": "2250000.000000000",
+        "delegate": "B62qrMybCrtE4g1arSu7N7D3nbBHfry8t4iQFyR36oJbR5b7bBdfmay",
+        "sk": null
+      },
+      {
+        "pk": "B62qrWVHm1EA3CKzmfyci6QTZZq6zna85sSc1CaTJoVTv1GsfhyQ2wR",
+        "balance": "2250000.000000000",
+        "delegate": "B62qpsaWMGLEoBBPWzN4y8475zmUFh2cQgqNc4dP1wjCkBQQXX7UX6V",
+        "sk": null
+      },
+      {
+        "pk": "B62qs2mfvrTtcDH73k57UYMbTTxeoaCbLsL8fHuvtkvZ99rs1hFzLf4",
+        "balance": "2250000.000000000",
+        "delegate": "B62qijrBRSr2gSCS1oZgNCirtfY8gXwgMiehFy5fFHUwcwNc6psZWsU",
+        "sk": null
+      },
+      {
+        "pk": "B62qnAHKzXvgDQZgupx71py5GYAUouKnczD9syEAzmz9j7G9NKw81D1",
+        "balance": "2250000.000000000",
+        "delegate": "B62qqqdz7TZUHQNesjoJ2xaZhHNZc32AgTEMoXuPHvHskxWqttYaYqx",
+        "sk": null
+      }
+    ]
+  }
+}

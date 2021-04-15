@@ -45,8 +45,8 @@ resource "helm_release" "block_producers" {
   count    = length(local.block_producer_vars.blockProducerConfigs) > 0 ? 1 : 0
 
   name       = "${var.testnet_name}-block-producers"
-  repository = var.use_local_charts ? "" : local.mina_helm_repo
-  chart      = var.use_local_charts ? "../../../../helm/block-producer" : "block-producer"
+  repository = ""
+  chart      = "../../../../helm/block-producer"
   version    = "1.0.1"
   namespace  = kubernetes_namespace.testnet_namespace.metadata[0].name
   values = [

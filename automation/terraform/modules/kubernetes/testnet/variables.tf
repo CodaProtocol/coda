@@ -28,7 +28,7 @@ variable "expose_graphql" {
 
 variable "use_local_charts" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "healthcheck_enabled" {
