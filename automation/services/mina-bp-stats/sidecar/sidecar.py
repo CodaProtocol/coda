@@ -123,7 +123,12 @@ def send_update(block_data, block_height):
 
     assert response.getcode() == 200, "Non-200 from BP flush endpoint! [{}] - ".format(response.getcode(), response.read())
 
-if __name__ == '__main__':
+
+current_finalized_tip = None
+last_tip_time = None
+REFRESH_TIP_DELAY = 18000 # 5 hours?
+
+def start():
     logging.info("Starting Mina Block Producer Sidecar")
     # Go ensure the node is up and happy
     while True:
@@ -139,13 +144,19 @@ if __name__ == '__main__':
         time.sleep(5)
 
     # Go back FINALIZATION_THRESHOLD blocks from the tip to have a finalized block
-    current_finalized_tip = head_block_id - FINALIZATION_THRESHOLD
 
+    current_finalized_tip = head_block_id - FINALIZATION_THRESHOLD
+    last_tip_time = time.time()
+
+def fetch():
     # We're done with init to the point where we can start shipping off data
     while True:
         try:
             logging.info("Fetching block {}...".format(current_finalized_tip))
-            
+
+            if time.time() > last_tip_time + REFRESH_TIP_DELAY:
+                start() # refresh current_finalized_tip, if it's possible that it was last updated >290 blocks ago.
+
             block_data = fetch_block(current_finalized_tip)
 
             logging.info("Got block data ", block_data)
@@ -159,3 +170,7 @@ if __name__ == '__main__':
             logging.exception(e)
             logging.error("Sleeping for {}s and trying again".format(ERROR_SLEEP_INTERVAL))
             time.sleep(ERROR_SLEEP_INTERVAL)
+
+if __name__ == '__main__':
+    start()
+    fetch()
