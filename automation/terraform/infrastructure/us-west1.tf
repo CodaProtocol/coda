@@ -253,7 +253,7 @@ resource "kubernetes_cron_job" "integration-testnet-namespace-cleanup" {
           spec {
             container {
               name  = "integration-test-janitor"
-              image = "gcr.io/o1labs-192920/watchdog:0.4.6"
+              image = "gcr.io/o1labs-192920/watchdog:0.4.7-compatible"
               args = [
                 "/scripts/network-utilities.py",
                 "janitor",
@@ -304,7 +304,7 @@ resource "kubernetes_cron_job" "integration-testnet-port-mappings-cleanup" {
           spec {
             container {
               name  = "integration-test-janitor"
-              image = "gcr.io/o1labs-192920/watchdog:0.4.6"
+              image = "gcr.io/o1labs-192920/watchdog:0.4.7-compatible"
               args = [
                 "/scripts/network-utilities.py",
                 "janitor",
