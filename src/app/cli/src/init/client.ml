@@ -435,78 +435,6 @@ let get_nonce_exn ~rpc public_key port =
 
 let unwrap_user_command (`UserCommand x) = x
 
-let batch_send_payments =
-  let module Payment_info = struct
-    type t =
-      { receiver: string
-      ; amount: Currency.Amount.t
-      ; fee: Currency.Fee.t
-      ; valid_until: Mina_numbers.Global_slot.t sexp_option }
-    [@@deriving sexp]
-  end in
-  let payment_path_flag =
-    Command.Param.(anon @@ ("payments-file" %: string))
-  in
-  let get_infos payments_path =
-    match%bind
-      Reader.load_sexp payments_path [%of_sexp: Payment_info.t list]
-    with
-    | Ok x ->
-        return x
-    | Error _ ->
-        let sample_info () : Payment_info.t =
-          let keypair = Keypair.create () in
-          { Payment_info.receiver=
-              Public_key.(
-                Compressed.to_base58_check (compress keypair.public_key))
-          ; valid_until= Some (Mina_numbers.Global_slot.random ())
-          ; amount= Currency.Amount.of_int (Random.int 100)
-          ; fee= Currency.Fee.of_int (Random.int 100) }
-        in
-        eprintf "Could not read payments from %s.\n" payments_path ;
-        eprintf
-          "The file should be a sexp list of payments with optional expiry \
-           slot number \"valid_until\". Here is an example file:\n\
-           %s\n"
-          (Sexp.to_string_hum
-             ([%sexp_of: Payment_info.t list]
-                (List.init 3 ~f:(fun _ -> sample_info ())))) ;
-        exit 5
-  in
-  let main port (privkey_path, payments_path) =
-    let open Deferred.Let_syntax in
-    let%bind keypair =
-      Secrets.Keypair.Terminal_stdin.read_exn ~which:"coda keypair"
-        privkey_path
-    and infos = get_infos payments_path in
-    let ts : User_command_input.t list =
-      List.map infos ~f:(fun {receiver; valid_until; amount; fee} ->
-          let signer_pk = Public_key.compress keypair.public_key in
-          User_command_input.create ~signer:signer_pk ~fee
-            ~fee_token:Token_id.default (* TODO: Multiple tokens. *)
-            ~fee_payer_pk:signer_pk ~memo:Signed_command_memo.empty
-            ~valid_until
-            ~body:
-              (Payment
-                 { source_pk= signer_pk
-                 ; receiver_pk=
-                     Public_key.Compressed.of_base58_check_exn receiver
-                 ; token_id= Token_id.default
-                 ; amount })
-            ~sign_choice:(User_command_input.Sign_choice.Keypair keypair) () )
-    in
-    Daemon_rpcs.Client.dispatch_with_message Daemon_rpcs.Send_user_commands.rpc
-      ts port
-      ~success:(fun _ -> "Successfully enqueued payments in pool")
-      ~error:(fun e ->
-        sprintf "Failed to send payments %s" (Error.to_string_hum e) )
-      ~join_error:Or_error.join
-  in
-  Command.async ~summary:"Send multiple payments from a file"
-    (Cli_lib.Background_daemon.rpc_init
-       (Args.zip2 Cli_lib.Flag.privkey_read_path payment_path_flag)
-       ~f:main)
-
 let send_payment_graphql =
   let open Command.Param in
   let open Cli_lib.Arg_type in
@@ -2375,7 +2303,6 @@ let advanced =
     ; ("get-trust-status-all", get_trust_status_all)
     ; ("get-public-keys", get_public_keys)
     ; ("reset-trust-status", reset_trust_status)
-    ; ("batch-send-payments", batch_send_payments)
     ; ("status-clear-hist", status_clear_hist)
     ; ("wrap-key", wrap_key)
     ; ("dump-keypair", dump_keypair)
