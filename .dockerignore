@@ -9,3 +9,4 @@
 !src/app/trace-tool
 !src/app/archive/create_schema.sql
 !src/app/rosetta/start.sh
+!buildkite/

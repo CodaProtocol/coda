@@ -1,0 +1,26 @@
+FROM debian:9-slim
+
+# Networking and package management tools
+RUN apt-get update && apt-get install --yes \
+    bzip2 \
+    curl \
+    jq \
+    make \
+    wget \
+    apt-transport-https \
+    ca-certificates
+
+# Install dhall tools to local bin PATH
+RUN wget https://github.com/dhall-lang/dhall-haskell/releases/download/1.31.0/dhall-1.31.0-x86_64-linux.tar.bz2 \
+    && tar --extract --bzip2 --file dhall-1.31.0-x86_64-linux.tar.bz2 --strip-components=2 -C /usr/bin
+
+RUN wget https://github.com/dhall-lang/dhall-haskell/releases/download/1.31.0/dhall-json-1.6.3-x86_64-linux.tar.bz2 \
+    && tar --extract --bzip2 --file dhall-json-1.6.3-x86_64-linux.tar.bz2 --strip-components=2 -C /usr/bin
+
+# Prime buildkite dhall external dependency cache
+ARG cacheHome=/tmp/.cache
+
+ADD buildkite /buildkite
+WORKDIR /buildkite
+RUN mkdir -p ${cacheHome} && XDG_CACHE_HOME=${cacheHome} make check
+ENV XDG_CACHE_HOME=${cacheHome}
