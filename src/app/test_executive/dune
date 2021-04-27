@@ -2,7 +2,8 @@
  (name test_executive)
  (libraries
    core_kernel yojson cmdliner file_system currency mina_base
+   graph_algorithms
    runtime_config signature_lib secrets integration_test_lib
    integration_test_cloud_engine bash_colors)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_jane ppx_deriving_yojson ppx_coda ppx_version)))
+ (preprocess (pps ppx_coda ppx_jane ppx_deriving_yojson ppx_coda ppx_version ppx_deriving.std)))
