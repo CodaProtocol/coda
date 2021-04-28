@@ -226,8 +226,6 @@ type t = {worker: worker Ivar.t ref; logger: Logger.Stable.Latest.t}
 let plus_or_minus initial ~delta =
   initial +. (Random.float (2. *. delta) -. delta)
 
-let min_expected_lifetime = Time.Span.of_min 1.
-
 (** Call this as early as possible after the process is known, and store the
     resulting [Deferred.t] somewhere to be used later.
 *)
@@ -266,17 +264,33 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
       ~metadata:[("err", Error_json.error_to_yojson err)] ;
     Error.raise err
   in
-  let prev_start = ref (Time.of_span_since_epoch Time.Span.zero) in
   let create_worker () =
-    let now = Time.now () in
-    let prev_died_early =
-      Time.Span.( < ) (Time.diff now !prev_start) min_expected_lifetime
-    in
-    prev_start := now ;
     let%map connection, process =
-      Worker.spawn_in_foreground_exn ~connection_timeout:(Time.Span.of_min 1.)
-        ~on_failure ~shutdown_on:Disconnect ~connection_state_init_arg:()
-        {conf_dir; logger; proof_level}
+      (* This [try_with] isn't really here to catch an error that throws while
+         the process is being spawned. Indeed, the immediate [ok_exn] will
+         ensure that any errors that occur during that time are immediately
+         re-raised.
+         However, this *also* captures any exceptions raised by code scheduled
+         as a result of the inner calls, but which have not completed by the
+         time the process has been created.
+         In order to suppress errors around [wait]s coming from [Rpc_parallel]
+         -- in particular the "no child processes" WNOHANG error -- we supply a
+         [rest] handler for the 'rest' of the errors after the value is
+         determined, which logs the errors and then swallows them.
+      *)
+      Monitor.try_with ~name:"Verifier RPC worker" ~run:`Now
+        ~rest:
+          (`Call
+            (fun exn ->
+              let err = Error.of_exn ~backtrace:`Get exn in
+              [%log error] "Error from verifier worker $err"
+                ~metadata:[("err", Error_json.error_to_yojson err)] ))
+        (fun () ->
+          Worker.spawn_in_foreground_exn
+            ~connection_timeout:(Time.Span.of_min 1.) ~on_failure
+            ~shutdown_on:Disconnect ~connection_state_init_arg:()
+            {conf_dir; logger; proof_level} )
+      >>| Result.ok_exn
     in
     Child_processes.Termination.wait_for_process_log_errors ~logger process
       ~module_:__MODULE__ ~location:__LOC__ ;
@@ -288,9 +302,13 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
         ; ( "process_kind"
           , `String Child_processes.Termination.(show_process_kind Verifier) )
         ] ;
-    if prev_died_early then
-      Child_processes.Termination.register_process pids process
-        Child_processes.Termination.Verifier ;
+    Child_processes.Termination.register_process pids process
+      Child_processes.Termination.Verifier ;
+    (* Always report termination as expected, and use the restart logic here
+       instead.
+    *)
+    let pid = Process.pid process in
+    Child_processes.Termination.mark_termination_as_expected pids pid ;
     don't_wait_for
     @@ Pipe.iter
          (Process.stdout process |> Reader.pipe)
@@ -323,11 +341,19 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
     in
     upon finished (fun e ->
         let pid = Process.pid process in
+        let create_worker_trigger = Ivar.create () in
+        don't_wait_for
+          (* If we don't hear back that the process has died after 10 seconds,
+             begin creating a new process anyway.
+          *)
+          (let%map () = after (Time.Span.of_sec 10.) in
+           Ivar.fill_if_empty create_worker_trigger ()) ;
         let () =
           match e with
           | `Unexpected_termination ->
               [%log error] "verifier terminated unexpectedly"
-                ~metadata:[("verifier_pid", `Int (Pid.to_int pid))]
+                ~metadata:[("verifier_pid", `Int (Pid.to_int pid))] ;
+              Ivar.fill_if_empty create_worker_trigger ()
           | `Time_to_restart | `Wait_threw_an_exception _ -> (
               ( match e with
               | `Wait_threw_an_exception err ->
@@ -337,12 +363,12 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
                     ~metadata:[("exn", Error_json.error_to_yojson err)]
               | _ ->
                   () ) ;
-              Child_processes.Termination.mark_termination_as_expected pids pid ;
               match Signal.send Signal.kill (`Pid pid) with
               | `No_such_process ->
                   [%log info]
                     "verifier failed to get sigkill (no such process)"
-                    ~metadata:[("verifier_pid", `Int (Pid.to_int pid))]
+                    ~metadata:[("verifier_pid", `Int (Pid.to_int pid))] ;
+                  Ivar.fill_if_empty create_worker_trigger ()
               | `Ok ->
                   [%log info] "verifier successfully got sigkill"
                     ~metadata:[("verifier_pid", `Int (Pid.to_int pid))] )
@@ -350,7 +376,7 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
         let new_worker = Ivar.create () in
         worker_ref := new_worker ;
         don't_wait_for
-        @@ let%bind exit_metadata =
+          (let%map exit_metadata =
              match%map exit_or_signal with
              | Ok res ->
                  [ ( "exit_status"
@@ -364,9 +390,12 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
                ( ("verifier_pid", `Int (Process.pid process |> Pid.to_int))
                :: exit_metadata ) ;
            Child_processes.Termination.remove pids pid ;
+           Ivar.fill_if_empty create_worker_trigger ()) ;
+        don't_wait_for
+          (let%bind () = Ivar.read create_worker_trigger in
            let%map worker = create_worker () in
            on_worker worker ;
-           Ivar.fill new_worker worker )
+           Ivar.fill new_worker worker) )
   in
   on_worker worker ;
   {worker= worker_ref; logger}
@@ -430,7 +459,7 @@ let verify_transaction_snarks {worker; logger} ts =
         |> Deferred.Or_error.map ~f:(fun x -> `Continue x) )
   in
   upon res (fun x ->
-      [%log trace] "verify $n transaction_snarks (after)"
+      [%log trace] "verify $n transaction_snarks (after)!"
         ~metadata:
           ( ("result", `String (Sexp.to_string ([%sexp_of: bool Or_error.t] x)))
           :: metadata () ) ) ;
