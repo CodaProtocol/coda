@@ -41,7 +41,7 @@
             </div>
             <div class="col-12 col-md-6  Link-responcive">
                 <div class="row d-flex mb-2">
-                    <a class="Mina-Refrance-color ml-auto alignment-link" href="#">FAQ</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
+                    <a class="Mina-Refrance-color ml-auto alignment-link" href="https://forums.minaprotocol.com/t/delegation-program-faq/4246">FAQ</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
                 </div>
                 <div class="row Link-responcive">
                     <a class="Mina-Refrance-color ml-auto alignment-link" href="https://minaprotocol.com/blog/mina-foundation-delegation-policy" target="_blank">Mina Foundation Delegation Policy</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
