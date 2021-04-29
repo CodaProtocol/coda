@@ -3,14 +3,17 @@ from datetime import datetime, timedelta, timezone
 from time import time
 import json
 import numpy as np
-import pandas as pd
 from logger_util import logger
 from config import BaseConfig
 from google.cloud import storage
 from download_batch_files import download_batch_into_memory
-
+import requests
+import io
 import psycopg2
 import psycopg2.extras as extras
+import gspread
+import pandas as pd
+from oauth2client.service_account import ServiceAccountCredentials
 
 connection = psycopg2.connect(
     host=BaseConfig.POSTGRES_HOST,
@@ -22,8 +25,8 @@ connection = psycopg2.connect(
 
 start_time = time()
 
-def Download_Files(start_offset, script_start_time, ten_min_add):
 
+def Download_Files(start_offset, script_start_time, ten_min_add):
     storage_client = storage.Client.from_service_account_json(BaseConfig.CREDENTIAL_PATH)
     bucket = storage_client.get_bucket(BaseConfig.GCS_BUCKET_NAME)
     blobs = storage_client.list_blobs(bucket, start_offset=start_offset)
@@ -74,7 +77,7 @@ def execute_node_record_batch(conn, df, page_size=100):
         conn.commit()
         logger.info('insert into node record table')
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {}", format(error))
+        logger.info("Error: {0}", format(error))
         conn.rollback()
         cursor.close()
         return 1
@@ -99,7 +102,7 @@ def execute_point_record_batch(conn, df, page_size=100):
         extras.execute_batch(cursor, query, tuples, page_size)
         conn.commit()
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {} ", format(error))
+        logger.info("Error: {0} ", format(error))
         conn.rollback()
         cursor.close()
         return 1
@@ -119,7 +122,7 @@ def create_bot_log(conn, values):
         conn.commit()
         logger.info("insert into bot log record table")
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info('Error: {}', format(error))
+        logger.info('Error: {0}', format(error))
         conn.rollback()
         cursor.close()
         return -1
@@ -129,16 +132,91 @@ def create_bot_log(conn, values):
         return result[0]
 
 
+def connect_to_spreadsheet():
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+    creds = ServiceAccountCredentials.from_json_keyfile_name(BaseConfig.SPREADSHEET_JSON, BaseConfig.SPREADSHEET_SCOPE)
+    client = gspread.authorize(creds)
+    sheet = client.open(BaseConfig.SPREADSHEET_NAME)
+    sheet_instance = sheet.get_worksheet(0)
+    records_data = sheet_instance.get_all_records()
+    table_data = pd.DataFrame(records_data)
+    return table_data
+
+
+def update_email_discord_status(conn, page_size=100):
+    # 4 - block_producer_key,  3 - block_producer_email , # 2 - discord_id
+    spread_df = connect_to_spreadsheet()
+    spread_df = spread_df.iloc[:, [2, 3, 4]]
+    print(spread_df)
+    tuples = [tuple(x) for x in spread_df.to_numpy()]
+    
+    try:
+        cursor = conn.cursor()
+        sql = """update node_record_table set application_status = true, discord_id =%s, block_producer_email =%s
+             where block_producer_key= %s """
+        cursor = conn.cursor()
+        extras.execute_batch(cursor, sql, tuples, page_size)
+        conn.commit()
+        logger.info('update email discord status')
+    except (Exception, psycopg2.DatabaseError) as error:
+        logger.info('Error:{0}', format(error))
+        conn.rollback()
+        cursor.close()
+        return -1
+    finally:
+        conn.commit()
+        cursor.close()
+        return 0
+
+
+def remove_provider_accounts(master_data):
+    # read csv from url
+    data = requests.get(BaseConfig.PROVIDER_ACCOUNT_PUB_KEYS).content
+    mina_foundation_df = pd.read_csv(io.StringIO(data.decode('utf-8')))
+    mina_foundation_df.columns = ['block_producer_key']
+    # remove foundation accounts from master_df
+    master_data = master_data[~master_data['blockProducerKey'].isin(mina_foundation_df['block_producer_key'])]
+    return master_data
+
+
 def update_scoreboard(conn):
-    sql = """with score as ( select node_id,count(distinct bot_log_id) total from  point_record_table prt group by 
+    sql = """with score as ( select node_id,count(distinct bot_log_id) total from  point_record_table  prt where
+     created_at > current_date - interval '%s' day group by 
     node_id ) update node_record_table nrt set score = total from score s where nrt.id=s.node_id """
     try:
         cursor = conn.cursor()
-        cursor.execute(sql)
+        cursor.execute(sql,(BaseConfig.UPTIME_DAYS_FOR_SCORE,))
         conn.commit()
         logger.info('update score board')
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info('Error:{}', format(error))
+        logger.info('Error:{0}', format(error))
+        conn.rollback()
+        cursor.close()
+        return -1
+    finally:
+        conn.commit()
+        cursor.close()
+        return 0
+
+
+def update_score_percent(conn):
+    # to calculate percentage, first find the number of survey_intervals. 
+    # the number of rows in blot_log represent number of time survey performed.
+    count_query = """select count(1) +1  from bot_log_record_table where file_timestamps > current_date - interval 
+    '%s' day """
+
+    sql = """update node_record_table set score_percent = (score / %s ) * %s """
+    try:
+        cursor = conn.cursor()
+        cursor.execute(count_query,(BaseConfig.UPTIME_DAYS_FOR_SCORE,))
+        data_count = cursor.fetchall()
+        data_count = float(data_count[-1][-1])
+        percent = 100
+        cursor.execute(sql, (data_count, percent))
+        conn.commit()
+        logger.info('update score percent')
+    except (Exception, psycopg2.DatabaseError) as error:
+        logger.info('Error:{0}', format(error))
         conn.rollback()
         cursor.close()
         return -1
@@ -149,6 +227,7 @@ def update_scoreboard(conn):
 
 
 def GCS_main(read_file_interval):
+    update_email_discord_status(connection)
     process_loop_count = 0
     bot_cursor = connection.cursor()
     bot_cursor.execute("SELECT batch_end_epoch FROM bot_log_record_table ORDER BY id DESC limit 1")
@@ -186,6 +265,7 @@ def GCS_main(read_file_interval):
             # processing code logic
             master_df = Download_Files(script_offset, script_start_time, ten_min_add)
             all_file_count = master_df.shape[0]
+            master_df = remove_provider_accounts(master_df)
             point_record_df = master_df
 
             try:
@@ -218,7 +298,10 @@ def GCS_main(read_file_interval):
                         height_filter_df = point_record_df.drop(
                             point_record_df[
                                 (point_record_df['nodeData.blockHeight'] == min_block_height) | (point_record_df[
-                                                                                                     'nodeData.blockHeight'] == max_block_height)].index)
+                                                                                                     'nodeData'
+                                                                                                     '.blockHeight']
+                                                                                                 ==
+                                                                                                 max_block_height)].index)
 
                     most_common_state_hash = point_record_df['nodeData.block.stateHash'].value_counts().idxmax()
 
@@ -250,6 +333,7 @@ def GCS_main(read_file_interval):
                     execute_point_record_batch(connection, points_to_insert)
                     logger.info('data in point records table is inserted')
                     update_scoreboard(connection)
+                    update_score_percent(connection)
             except Exception as e:
                 logger.info(e)
             finally:
@@ -265,5 +349,5 @@ def GCS_main(read_file_interval):
 
 
 if __name__ == '__main__':
-    time_interval = BaseConfig.READ_FILE_INTERVAL
+    time_interval = BaseConfig.SURVEY_INTERVAL_MINUTES
     GCS_main(time_interval)

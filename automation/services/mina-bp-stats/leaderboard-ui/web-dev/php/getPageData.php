@@ -7,13 +7,14 @@ if (! (isset($_GET['pageNumber']))) {
     $pageNumber = $_GET['pageNumber'];
 }
 
-$perPageCount = 20;
+$perPageCount = 120;
 
-$sql = "SELECT block_producer_key , score FROM node_record_table ORDER BY score DESC";
+$sql = "SELECT COUNT(*) FROM node_record_table WHERE application_status = true";
 
 
 if ($result = pg_query($conn, $sql)) {
-    $rowCount = pg_num_rows($result);
+    $row = pg_fetch_row($result);
+    $rowCount = $row[0];
     pg_free_result($result);
 }
 
@@ -21,7 +22,7 @@ $pagesCount = ceil($rowCount / $perPageCount);
 
 $lowerLimit = ($pageNumber - 1) * $perPageCount;
 
-$sqlQuery = "SELECT block_producer_key , score FROM node_record_table ORDER BY score DESC OFFSET ". ($lowerLimit) . " LIMIT " . ($perPageCount);
+$sqlQuery = "SELECT block_producer_key , score ,score_percent FROM node_record_table WHERE application_status = true ORDER BY score DESC OFFSET ". ($lowerLimit) . " LIMIT " . ($perPageCount);
 
 $results = pg_query($conn, $sqlQuery);
 $row = pg_fetch_all($results);
@@ -47,7 +48,7 @@ $row = pg_fetch_all($results);
                     <tr>
                         <td scope="row"><?php echo $counter ?></td>
                         <td><?php echo $data['block_producer_key'] ?></td>
-                        <td><?php echo $data['score'] ?></td>
+                        <td><?php echo $data['score_percent'] ?> %</td>
                     </tr>
                     <?php
                      $counter++;
@@ -65,18 +66,15 @@ $row = pg_fetch_all($results);
 <nav aria-label="Page navigation example">
   <ul class="pagination justify-content-center">
     <li class="<?php if($pageNumber <= 1) {echo 'page-item disabled';} else {echo 'page-item';}?>">
-      <a class="page-link" href="avascript:void(0);" tabindex="-1" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php  echo 1;  ?>');">First</a>
+      <a class="page-link" href="javascript:void(0);" tabindex="-1" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php  echo 1;  ?>');">First</a>
     </li>
     <li class="<?php if($pageNumber <= 1) {echo 'page-item disabled';} else {echo 'page-item';}?>">
-        <a class="page-link" href="avascript:void(0);" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php if($pageNumber <= 1){ echo $pageNumber; } else { echo ($pageNumber - 1); } ?>');">Prev</a></li>
+        <a class="page-link" href="javascript:void(0);" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php if($pageNumber <= 1){ echo $pageNumber; } else { echo ($pageNumber - 1); } ?>');">Prev</a></li>
     <li class="<?php if($pageNumber == $pagesCount) {echo 'page-item disabled';} else {echo 'page-item';}?>">
-        <a class="page-link" href="avascript:void(0);" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php if($pageNumber >= $pagesCount){ echo $pageNumber; } else { echo ($pageNumber + 1); } ?>');">Next</a></li>
+        <a class="page-link" href="javascript:void(0);" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php if($pageNumber >= $pagesCount){ echo $pageNumber; } else { echo ($pageNumber + 1); } ?>');">Next</a></li>
     <li class="<?php if($pageNumber == $pagesCount) {echo 'page-item disabled';} else {echo 'page-item';}?>">
-      <a class="page-link" href="avascript:void(0);" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php  echo $pagesCount;  ?>');">Last</a>
+      <a class="page-link" href="javascript:void(0);" onclick="showRecords('<?php echo $perPageCount;  ?>', '<?php  echo $pagesCount;  ?>');">Last</a>
     </li>
     <li class = "ml-5 p-2">Page <?php echo $pageNumber; ?> of <?php echo $pagesCount; ?></li>
   </ul>
 </nav>
-
-
-

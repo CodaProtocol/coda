@@ -180,11 +180,11 @@ a:hover {
     text-align: left;
 }
 
-.table td+td+td {
+/* .table td+td+td {
     text-align: center;
     margin-left: 10px;
     padding-left: 201px;
-}
+} */
 
 th {
     font-family: Monument Grotesk;

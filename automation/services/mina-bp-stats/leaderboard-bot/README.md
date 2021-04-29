@@ -25,9 +25,9 @@ Initial config for Leaderboard Bot
 	  
 ## Email Credentials Config:	  
 	Update below in config.py
-	`SENDGRID_API_KEY`	**Required** JSON file generated for GCS credentials.  
-    `FROM_EMAIL`		**Required** GCS Bucket name 
-	`TO_EMAILS`			**Required** GCS Bucket name 
+	`SENDGRID_API_KEY`	**Required** Sendgrid API secret key.  
+    `FROM_EMAIL`		**Required** From email to be used.
+	`TO_EMAILS`			**Required** list of comma separeted email id's to send email to.
 	
 
 ***

@@ -34,17 +34,18 @@
         <div class="row mb-5">
             <div class="uptime-lederboard-topButton"></div>
             <div class="col-12 col-md-6 mx-0 px-0 topButton">
-                <button type="button" class="delegationButton btn btn-dark btn-primary">APPLY FOR DELEGATION <i class="bi bi-arrow-right "></i>
+                <button type="button" class="delegationButton btn btn-dark btn-primary" onclick="window.open('https://docs.google.com/forms/d/e/1FAIpQLSduM5EIpwZtf5ohkVepKzs3q0v0--FDEaDfbP2VD4V6GcBepA/viewform')">APPLY FOR DELEGATION <i class="bi bi-arrow-right "></i>
                 </button>
                 <div class="bottomPlate for-normal" id="leaderBoardbtn">
                 </div>
             </div>
             <div class="col-12 col-md-6  Link-responcive">
-                <div class="row d-flex">
-                    <a class="Mina-Refrance-color ml-auto alignment-link" href="#">How is Performance Calculated?</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
+                <div class="row d-flex mb-2">
+                    <a class="Mina-Refrance-color ml-auto alignment-link" href="#">FAQ</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
                 </div>
                 <div class="row Link-responcive">
-                    <a class="Mina-Refrance-color ml-auto alignment-link" href="#">Mina Foundation & o(1) Labs Delegation Policy</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
+                    <a class="Mina-Refrance-color ml-auto alignment-link" href="https://minaprotocol.com/blog/mina-foundation-delegation-policy" target="_blank">Mina Foundation Delegation Policy</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
+                    <a class="Mina-Refrance-color ml-auto alignment-link" href="https://medium.com/o1labs/o-1-labs-delegation-policy-786bf96f9fdd" target="_blank">O(1) Labs Delegation Policy</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
                 </div>
             </div>
         </div>
