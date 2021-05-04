@@ -1,5 +1,8 @@
 <?php
 require_once ("connection.php");
+$myarray = include 'config.php';
+
+$ShowScoreColumn = $myarray[0];
 
 if (! (isset($_GET['pageNumber']))) {
     $pageNumber = 1;
@@ -22,6 +25,7 @@ $pagesCount = ceil($rowCount / $perPageCount);
 
 $lowerLimit = ($pageNumber - 1) * $perPageCount;
 
+
 $sqlQuery = "SELECT block_producer_key , score ,score_percent FROM node_record_table WHERE application_status = true ORDER BY score DESC OFFSET ". ($lowerLimit) . " LIMIT " . ($perPageCount);
 
 $results = pg_query($conn, $sqlQuery);
@@ -36,6 +40,11 @@ $row = pg_fetch_all($results);
                     <tr class="border-top-0">
                         <th scope="col">RANK</th>
                         <th scope="col" class="text-left">PUBLIC KEY</th>
+                        <?php 
+                        if($ShowScoreColumn == true){
+                        ?>
+                        <th scope="col">SCORE</th>
+                        <?php }?>
                         <th scope="col">60 Day Uptime Performance SCORE</th>
                     </tr>
                 </thead>
@@ -48,6 +57,11 @@ $row = pg_fetch_all($results);
                     <tr>
                         <td scope="row"><?php echo $counter ?></td>
                         <td><?php echo $data['block_producer_key'] ?></td>
+                        <?php 
+                        if($ShowScoreColumn == true){
+                        ?>
+                        <td><?php echo $data['score'] ?></td>
+                        <?php }?>
                         <td><?php echo $data['score_percent'] ?> %</td>
                     </tr>
                     <?php

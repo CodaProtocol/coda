@@ -21,11 +21,11 @@
 
         <!-- Logo And Header Section Start -->
         <div class="row mb-3">
-            <img src="assets/images/Mina_Wordmark.png" alt="Mina" class="mina-main-logo">
+            <img src="assets/images/MinaWordmark.png" alt="Mina" class="mina-main-logo">
         </div>
         <div class="row mb-5">
             <div class="subheader">
-                <p class="mina-subheader-text-font">Block Producer Delegation Performance Tracker </p>
+                <p class="mina-subheader-text-font">Block Producers Uptime Tracker </p>
             </div>
         </div>
         <!-- Logo And Header Section End -->
@@ -45,7 +45,7 @@
                 </div>
                 <div class="row Link-responcive">
                     <a class="Mina-Refrance-color ml-auto alignment-link" href="https://minaprotocol.com/blog/mina-foundation-delegation-policy" target="_blank">Mina Foundation Delegation Policy</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
-                    <a class="Mina-Refrance-color ml-auto alignment-link" href="https://medium.com/o1labs/o-1-labs-delegation-policy-786bf96f9fdd" target="_blank">O(1) Labs Delegation Policy</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i>
+                    <!-- <a class="Mina-Refrance-color ml-auto alignment-link" href="https://medium.com/o1labs/o-1-labs-delegation-policy-786bf96f9fdd" target="_blank">O(1) Labs Delegation Policy</a><i class="ml-2 bi bi-box-arrow-up-right Mina-Refrance-color"></i> -->
                 </div>
             </div>
         </div>
