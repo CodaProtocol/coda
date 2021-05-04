@@ -147,9 +147,8 @@ def update_email_discord_status(conn, page_size=100):
     # 4 - block_producer_key,  3 - block_producer_email , # 2 - discord_id
     spread_df = connect_to_spreadsheet()
     spread_df = spread_df.iloc[:, [2, 3, 4]]
-    print(spread_df)
     tuples = [tuple(x) for x in spread_df.to_numpy()]
-    
+
     try:
         cursor = conn.cursor()
         sql = """update node_record_table set application_status = true, discord_id =%s, block_producer_email =%s
@@ -169,14 +168,11 @@ def update_email_discord_status(conn, page_size=100):
         return 0
 
 
-def remove_provider_accounts(master_data):
-    # read csv from url
-    data = requests.get(BaseConfig.PROVIDER_ACCOUNT_PUB_KEYS).content
-    mina_foundation_df = pd.read_csv(io.StringIO(data.decode('utf-8')))
+def get_provider_accounts():
+    # read csv
+    mina_foundation_df = pd.read_csv(BaseConfig.PROVIDER_ACCOUNT_PUB_KEYS_FILE)
     mina_foundation_df.columns = ['block_producer_key']
-    # remove foundation accounts from master_df
-    master_data = master_data[~master_data['blockProducerKey'].isin(mina_foundation_df['block_producer_key'])]
-    return master_data
+    return mina_foundation_df
 
 
 def update_scoreboard(conn):
@@ -185,7 +181,7 @@ def update_scoreboard(conn):
     node_id ) update node_record_table nrt set score = total from score s where nrt.id=s.node_id """
     try:
         cursor = conn.cursor()
-        cursor.execute(sql,(BaseConfig.UPTIME_DAYS_FOR_SCORE,))
+        cursor.execute(sql, (BaseConfig.UPTIME_DAYS_FOR_SCORE,))
         conn.commit()
         logger.info('update score board')
     except (Exception, psycopg2.DatabaseError) as error:
@@ -200,7 +196,7 @@ def update_scoreboard(conn):
 
 
 def update_score_percent(conn):
-    # to calculate percentage, first find the number of survey_intervals. 
+    # to calculate percentage, first find the number of survey_intervals.
     # the number of rows in blot_log represent number of time survey performed.
     count_query = """select count(1) +1  from bot_log_record_table where file_timestamps > current_date - interval 
     '%s' day """
@@ -208,7 +204,7 @@ def update_score_percent(conn):
     sql = """update node_record_table set score_percent = (score / %s ) * %s """
     try:
         cursor = conn.cursor()
-        cursor.execute(count_query,(BaseConfig.UPTIME_DAYS_FOR_SCORE,))
+        cursor.execute(count_query, (BaseConfig.UPTIME_DAYS_FOR_SCORE,))
         data_count = cursor.fetchall()
         data_count = float(data_count[-1][-1])
         percent = 100
@@ -237,6 +233,8 @@ def GCS_main(read_file_interval):
     script_end_time = datetime.now(timezone.utc)
     logger.info('script start time {0}'.format(script_start_time))
     logger.info('script end time {0}'.format(script_end_time))
+    # read the mina foundation accounts
+    foundation_df = get_provider_accounts()
     while script_start_time != script_end_time:
         # get 10 min time for fetching the files
         script_start_epoch = str(script_start_time.timestamp())
@@ -265,7 +263,10 @@ def GCS_main(read_file_interval):
             # processing code logic
             master_df = Download_Files(script_offset, script_start_time, ten_min_add)
             all_file_count = master_df.shape[0]
-            master_df = remove_provider_accounts(master_df)
+            # remove the Mina foundation account from the master_df
+
+            master_df = master_df[~master_df['blockProducerKey'].isin(foundation_df['block_producer_key'])]
+
             point_record_df = master_df
 
             try:

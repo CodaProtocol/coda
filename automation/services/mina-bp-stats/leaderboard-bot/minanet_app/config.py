@@ -16,7 +16,7 @@ class BaseConfig(object):
     SQLALCHEMY_DATABASE_URI = f'postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
     CREDENTIAL_PATH = 'leaderboard-bot\minanet_app\mina-mainnet-303900-45050a0ba37b.json'
     GCS_BUCKET_NAME = 'block-producer-stats'
-    PROVIDER_ACCOUNT_PUB_KEYS = 'https://docs.minaprotocol.com/static/Mina_Foundation_Addresses.csv'
+    PROVIDER_ACCOUNT_PUB_KEYS_FILE = 'Mina_Foundation_Addresses.csv'
     SURVEY_INTERVAL_MINUTES = 10 
     UPTIME_DAYS_FOR_SCORE = 60
     FROM_EMAIL = ''
