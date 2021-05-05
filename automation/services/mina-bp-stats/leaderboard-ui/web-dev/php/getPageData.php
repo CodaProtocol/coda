@@ -35,7 +35,7 @@ $row = pg_fetch_all($results);
 
 <div class="container pr-0 pl-0 mt-0 mb-5" id="results">
         <div class="table-responsive table-responsive-sm table-responsive-md table-responsive-lg table-responsive-xl">
-            <table class="table table-striped text-center w-auto">
+            <table class="table table-striped text-center">
                 <thead>
                     <tr class="border-top-0">
                         <th scope="col">RANK</th>
