@@ -12,6 +12,18 @@ Initial config for Payout process
     `POSTGRES_PASSWORD`		The postgres password  
     `POSTGRES_DB`			 The postgres  database name  
 	
+
+    `POSTGRES_PAYOUT_HOST` 
+    `POSTGRES_PAYOUT_PORT` 
+    `POSTGRES_PAYOUT_USER` 
+    `POSTGRES_PAYOUT_PASSWORD`  
+    `POSTGRES_PAYOUT_DB` 
+
+    `POSTGRES_LEADERBOARD_HOST` 
+    `POSTGRES_LEADERBOARD_PORT` 
+    `POSTGRES_LEADERBOARD_USER`  
+    `POSTGRES_LEADERBOARD_PASSWORD`  
+    `POSTGRES_LEADERBOARD_DB` 
 	**Note**  If postgres is hosted on different machine, make sure to update "postgresql.conf" 
 		and set  "listen_addresses" to appropriate value.  
 	  
