@@ -39,3 +39,4 @@ sqlparse==0.4.1
 typing-extensions==3.7.4.3
 uritemplate==3.0.1
 urllib3==1.26.4
+sendgrid==6.7.0

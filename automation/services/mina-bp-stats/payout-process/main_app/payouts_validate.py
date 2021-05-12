@@ -6,6 +6,8 @@ import json
 from payouts_config import BaseConfig
 from datetime import datetime, timezone
 import math
+from validate_email import second_mail
+from logger_util import logger
 
 connection_archive = psycopg2.connect(
     host=BaseConfig.POSTGRES_ARCHIVE_HOST,
@@ -32,16 +34,19 @@ def read_delegation_record_table(epoch_no):
                                         columns=['provider_pub_key', 'winner_pub_key', 'blocks', 'payout_amount',
                                                  'payout_balance', 'last_delegation_epoch'])
     curser.close()
-    #print(delegation_record_df.head().to_string())
+    # logger.info(delegation_record_df.head().to_string())
     return delegation_record_df
 
 
-def read_staking_json(epoch_no):
-    credential_path = "mina-mainnet-303900-45050a0ba37b.json"
+def get_gcs_client():
+    credential_path = BaseConfig.CREDENTIAL_PATH
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
     os.environ['GCS_API_KEY'] = BaseConfig.API_KEY
-    # create storage client
-    storage_client = storage.Client()
+    return storage.Client()
+
+
+def read_staking_json(epoch_no):
+    storage_client = get_gcs_client()
     # get bucket with name
     bucket = storage_client.get_bucket(BaseConfig.GCS_BUCKET_NAME)
     # get bucket data as blob')
@@ -49,20 +54,21 @@ def read_staking_json(epoch_no):
     blobs = storage_client.list_blobs(bucket, prefix=staking_file_prefix)
     # convert to string
     for blob in blobs:
-        print(blob.name)
+        logger.info(blob.name)
         json_data_string = blob.download_as_string()
         json_data_dict = json.loads(json_data_string)
-        # print(json_data_dict)
+        # logger.info(json_data_dict)
         staking_df = pd.json_normalize(json_data_dict)
-        
-        #staking_df.drop(staking_df.columns[[4, 5, 6, 7, 8, 9]], axis=1, inplace=True)
+
+        # staking_df.drop(staking_df.columns[[4, 5, 6, 7, 8, 9]], axis=1, inplace=True)
         modified_staking_df = staking_df[['pk', 'balance', 'delegate']]
         modified_staking_df['pk'] = modified_staking_df['pk'].astype(str)
         modified_staking_df['balance'] = modified_staking_df['balance'].astype(float)
         modified_staking_df['delegate'] = modified_staking_df['delegate'].astype(str)
-        print(modified_staking_df.head() )
-        #print(modified_staking_df.head().to_string())
+        logger.info(modified_staking_df.head())
+        # logger.info(modified_staking_df.head().to_string())
     return modified_staking_df
+
 
 def determine_slot_range_for_validation(epoch_no, last_delegation_epoch):
     # find entry from summary table for matching winner+provider pub key
@@ -73,14 +79,15 @@ def determine_slot_range_for_validation(epoch_no, last_delegation_epoch):
 
     # then fetch the payout transactions for above period for each winner+provider pub key combination
     start_slot = 0
-    end_slot = ((epoch_no)*7140) + 3500 -1
+    end_slot = (epoch_no * 7140) + 3500 - 1
     if last_delegation_epoch is None:
-        start_slot = (epoch_no-1) * 7140
-    elif last_delegation_epoch<= (epoch_no-1):
-        start_slot = (last_delegation_epoch * 7140)+3500
-    else: 
-        start_slot =  epoch_no * 7140  
+        start_slot = (epoch_no - 1) * 7140
+    elif last_delegation_epoch <= (epoch_no - 1):
+        start_slot = (last_delegation_epoch * 7140) + 3500
+    else:
+        start_slot = epoch_no * 7140
     return start_slot, end_slot
+
 
 def get_record_for_validation(epoch_no):
     cursor = connection_archive.cursor()
@@ -105,7 +112,7 @@ def get_record_for_validation(epoch_no):
     validation_record_df = pd.DataFrame(validation_record_list,
                                         columns=['total_pay', 'provider_pub_key', 'epoch'])
     cursor.close()
-    #print(validation_record_df.head().to_string())
+    # print(validation_record_df.head().to_string())
     return validation_record_df
 
 
@@ -128,12 +135,12 @@ def get_record_for_validation_for_single_acc(provider_key, start_slot, end_slot)
     where global_slot_since_genesis BETWEEN %s and %s and pk.value = %s
     GROUP BY pk.value'''
 
-    cursor.execute(query, (start_slot, end_slot,provider_key))
+    cursor.execute(query, (start_slot, end_slot, provider_key))
     validation_record_list = cursor.fetchall()
     validation_record_df = pd.DataFrame(validation_record_list,
                                         columns=['total_pay', 'provider_pub_key'])
     cursor.close()
-    #print(validation_record_df.head().to_string())
+    # logger.info(validation_record_df.head().to_string())
     return validation_record_df
 
 
@@ -147,7 +154,7 @@ def insert_into_audit_table(epoch_no):
         cursor.execute(insert_audit_sql, values)
         connection_payout.commit()
     except (Exception, psycopg2.DatabaseError) as error:
-        print("Error: {0} ", format(error))
+        logger.info("Error: {0} ", format(error))
         connection_payout.rollback()
         cursor.close()
     finally:
@@ -159,34 +166,39 @@ def truncate(number, digits=5) -> float:
     stepper = 10.0 ** digits
     return math.trunc(stepper * number) / stepper
 
+
 def main(epoch_no):
-    print("###### in main for epoch: ", epoch_no)
+    logger.info("###### in main for epoch: {0}".format(epoch_no))
     delegation_record_df = read_delegation_record_table(epoch_no=epoch_no)
     validation_record_df = get_record_for_validation(epoch_no=epoch_no)
     staking_df = read_staking_json(epoch_no=epoch_no)
-    
+
     for row in delegation_record_df.itertuples():
         pub_key = getattr(row, "provider_pub_key")
         payout_amount = getattr(row, "payout_amount")
         payout_balance = getattr(row, "payout_balance")
         last_delegation_epoch = getattr(row, 'last_delegation_epoch')
-        deleate_pub_key = getattr(row, 'winner_pub_key')
+        delegate_pub_key = getattr(row, 'winner_pub_key')
         filter_validation_record_df = validation_record_df.loc[validation_record_df['provider_pub_key'] == pub_key]
-        
+
         if not filter_validation_record_df.empty:
             start_slot, end_slot = determine_slot_range_for_validation(epoch_no, last_delegation_epoch)
             payout_recieved = get_record_for_validation_for_single_acc(pub_key, start_slot, end_slot)
             total_pay_received = 0
             if not payout_recieved.empty:
-               total_pay_received = payout_recieved.iloc[0]['total_pay']
-            new_payout_balance = truncate((payout_amount+payout_balance)-total_pay_received)
+                total_pay_received = payout_recieved.iloc[0]['total_pay']
+            new_payout_balance = truncate((payout_amount + payout_balance) - total_pay_received)
             filter_staking_df = staking_df.loc[staking_df['pk'] == pub_key, 'delegate']
             winner_pub_key = filter_staking_df.iloc[0]
             winner_match = False
-            if deleate_pub_key == winner_pub_key:
+            if delegate_pub_key == winner_pub_key:
                 winner_match = True
-            print(winner_match, pub_key, deleate_pub_key, winner_pub_key, start_slot, end_slot, total_pay_received, new_payout_balance)
-           
+            logger.info(
+                '{0} {1} {2} {3} {4} {5} {6} {7}'.format(winner_match, pub_key, delegate_pub_key, winner_pub_key,
+                                                         start_slot, end_slot,
+                                                         total_pay_received,
+                                                         new_payout_balance))
+
             # update record in payout summary
             query = ''' UPDATE payout_summary SET payout_amount = 0, payout_balance = %s,
                 last_delegation_epoch = %s
@@ -196,21 +208,23 @@ def main(epoch_no):
                 cursor = connection_payout.cursor()
                 cursor.execute(query, (new_payout_balance, epoch_no, pub_key, winner_pub_key))
             except (Exception, psycopg2.DatabaseError) as error:
-                print("Error: {0} ", format(error))
+                logger.info("Error: {0} ", format(error))
                 connection_payout.rollback()
                 cursor.close()
                 result = -1
             finally:
                 connection_payout.commit()
-                cursor.close()    
-        
+                cursor.close()
+
     insert_into_audit_table(epoch_no)
+    # sending second mail 24 hours left for making payments back to foundations account
+    second_mail()
 
 
 def get_last_processed_epoch_from_audit(job_type):
     audit_query = '''select epoch_id from payout_audit_log where job_type=%s 
                     order by id desc limit 1'''
-    last_epoch=0
+    last_epoch = 0
     values = job_type,
     try:
         cursor = connection_payout.cursor()
@@ -219,31 +233,32 @@ def get_last_processed_epoch_from_audit(job_type):
             data_count = cursor.fetchall()
             last_epoch = float(data_count[-1][-1])
     except (Exception, psycopg2.DatabaseError) as error:
-        print("Error: {0} ", format(error))
+        logger.info("Error: {0} ", format(error))
         cursor.close()
         return -1
     finally:
         cursor.close()
     return last_epoch
 
+
 # this will check audit log table, and will determine last processed epoch
 # if no entries found, default to first epoch
 def initialize():
     last_epoch = get_last_processed_epoch_from_audit('validation')
-    print(last_epoch)
+    logger.info(last_epoch)
     if last_epoch > 0:
-        print(" validation Audit found for")
-        main(last_epoch+1)
+        logger.info(" validation Audit found for")
+        main(last_epoch + 1)
     else:
         last_epoch = get_last_processed_epoch_from_audit('calculation')
-        print(" calculation Audit found for", last_epoch)
-        count =1
+        logger.info(" calculation Audit found for {0}".format(last_epoch))
+        count = 1
         while count <= last_epoch:
-            print(count)
+            logger.info(count)
             main(count)
-            count = count+1
-    print("initialize complete ")
+            count = count + 1
+    logger.info("initialize complete ")
 
 
 if __name__ == "__main__":
-   initialize()
+    initialize()
