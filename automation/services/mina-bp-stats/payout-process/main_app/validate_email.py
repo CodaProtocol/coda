@@ -18,24 +18,6 @@ connection_leaderboard = psycopg2.connect(
 logger.info('validate email send to accounts ')
 
 
-def postgresql_to_dataframe(conn):
-    select_query = "select provider_pub_key, winner_pub_key, payout_amount from payout_summary"
-    cursor = conn.cursor()
-    try:
-        cursor.execute(select_query)
-    except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
-        cursor.close()
-        return 1
-
-    tuples = cursor.fetchall()
-    cursor.close()
-    column_names = ['provider_pub_key', 'winner_pub_key', 'payout_amount']
-    # We just need to turn it into a pandas dataframe
-    df = pd.DataFrame(tuples, columns=column_names)
-    return df
-
-
 def get_block_producer_mail(winner_bpk, conn=connection_leaderboard):
     mail_id_sql = """select block_producer_email from node_record_table where block_producer_key = %s"""
     cursor = conn.cursor()
@@ -46,17 +28,19 @@ def get_block_producer_mail(winner_bpk, conn=connection_leaderboard):
         cursor.close()
         return 1
     data = cursor.fetchall()
-    email = data[-1][-1]
+    #email = data[-1][-1]
+    email = "umesh.bihani@bnt-soft.com"
     return email
 
 
-def second_mail():
+def second_mail(email_df):
     # read the data from delegation_record_table
-    payouts_df = postgresql_to_dataframe(connection_leaderboard)
+    payouts_df = email_df
     deadline_date = datetime.datetime.now(timezone.utc) + datetime.timedelta(days=1)
     deadline_date = deadline_date.strftime("%d-%m-%Y %H:%M:%S")
-
+    count = 1
     for i in range(payouts_df.shape[0]):
+        count = count + 1
         # 0- provider_pub_key, 1- winner_pub_key, 2- payout_amount
         html_content2 = """<!DOCTYPE html>
         <html lang="en">
@@ -239,3 +223,5 @@ def second_mail():
             logger.info(response.headers)
         except Exception as e:
             logger.info(e)
+    print("emails sent: ", count)
+

@@ -8,6 +8,14 @@ from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileT
 from logger_util import logger
 
 logger.info('calculate payout email')
+connection_payout = psycopg2.connect(
+    host=BaseConfig.POSTGRES_PAYOUT_HOST,
+    port=BaseConfig.POSTGRES_PAYOUT_PORT,
+    database=BaseConfig.POSTGRES_PAYOUT_DB,
+    user=BaseConfig.POSTGRES_PAYOUT_USER,
+    password=BaseConfig.POSTGRES_PAYOUT_PASSWORD
+)
+
 connection_leaderboard = psycopg2.connect(
     host=BaseConfig.POSTGRES_LEADERBOARD_HOST,
     port=BaseConfig.POSTGRES_LEADERBOARD_PORT,
@@ -17,9 +25,9 @@ connection_leaderboard = psycopg2.connect(
 )
 
 
-def postgresql_to_dataframe(conn):
+def postgresql_to_dataframe():
     select_query = "select provider_pub_key, winner_pub_key, payout_amount from payout_summary"
-    cursor = conn.cursor()
+    cursor = connection_payout.cursor()
     try:
         cursor.execute(select_query)
     except (Exception, psycopg2.DatabaseError) as error:
@@ -35,9 +43,9 @@ def postgresql_to_dataframe(conn):
     return df
 
 
-def get_block_producer_mail(winner_bpk, conn=connection_leaderboard):
+def get_block_producer_mail(winner_bpk):
     mail_id_sql = """select block_producer_email from node_record_table where block_producer_key = %s"""
-    cursor = conn.cursor()
+    cursor = connection_leaderboard.cursor()
     try:
         cursor.execute(mail_id_sql, (winner_bpk,))
     except (Exception, psycopg2.DatabaseError) as error:
@@ -45,17 +53,19 @@ def get_block_producer_mail(winner_bpk, conn=connection_leaderboard):
         cursor.close()
         return 1
     data = cursor.fetchall()
-    email = data[-1][-1]
+    #email = data[-1][-1]
+    email = "umesh.bihani@bnt-soft.com"
     return email
 
 
-def send_mail(epoch_id):
+def send_mail(epoch_id, delegate_record_df):
     # read the data from delegation_record_table
-    payouts_df = postgresql_to_dataframe(connection_leaderboard)
+    payouts_df = delegate_record_df
     deadline_date = datetime.datetime.now(timezone.utc) + datetime.timedelta(days=4)
     deadline_date = deadline_date.strftime("%d-%m-%Y %H:%M:%S")
-
+    count = 1
     for i in range(payouts_df.shape[0]):
+        count = count + 1
         # 0- provider_pub_key, 1- winner_pub_key, 2- payout_amount
         html_content = """
         <!DOCTYPE html>
@@ -223,3 +233,4 @@ def send_mail(epoch_id):
             logger.info(response.headers)
         except Exception as e:
             logger.info(e)
+    print("emails sent: ", count)

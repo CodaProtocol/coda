@@ -67,14 +67,15 @@ def get_last_processed_epoch_from_audit():
 # this will check audit log table, and will determine last processed epoch
 # if no entries found, default to first epoch
 def initialize():
+    result = 0
     last_epoch = get_last_processed_epoch_from_audit()
     if last_epoch > 0:
-        main(last_epoch + 1)
+        result = main(last_epoch + 1, True)
     else:
         staking_ledger_available = read_staking_json_list()
         for ledger in staking_ledger_available:
-            main(ledger.split('-')[1])
-    return last_epoch
+            result = main(ledger.split('-')[1], True)
+    return result
 
 
 def read_staking_json_for_epoch(epoch_id):
@@ -207,29 +208,38 @@ def insert_into_audit_table(file_name):
         connection_payout.commit()
 
 
-def main(epoch_no):
+def main(epoch_no, do_send_email):
     logger.info("in main")
+    result = 0
     # get staking json
     modified_staking_df, ledger_name = read_staking_json_for_epoch(epoch_no)
     # TODO : add condition if no file/dataframe found
     # get foundation account details
-    foundation_accounts_df = read_foundation_accounts()
-    foundation_accounts_list = foundation_accounts_df['pk'].to_list()
-    logger.info('foundation accounts list {0}'.format(len(foundation_accounts_list)))
-    i = 0
-    delegate_record_df = pd.DataFrame()
-    for accounts in foundation_accounts_list:
-        final_json_list = calculate_payout(modified_staking_df, accounts, epoch_no)
-        delegate_record_df = pd.DataFrame(final_json_list)
-        i = i + 1
-    result = insert_data(delegate_record_df)
-    if result == 0:
-        insert_into_audit_table(ledger_name)
-    logger.info('complete records for {0}'.format(i))
-    # sending emails after payouts calculation completed
-    send_mail(epoch_no)
-    # sending second mail 24 hours left for making payments back to foundations account
-    mail_to_foundation_accounts()
+    if not modified_staking_df.empty:
+        foundation_accounts_df = read_foundation_accounts()
+        foundation_accounts_list = foundation_accounts_df['pk'].to_list()
+        logger.info('foundation accounts list {0}'.format(len(foundation_accounts_list)))
+        i = 0
+        delegate_record_df = pd.DataFrame()
+        delegate_record_df = delegate_record_df[0:0]
+        for accounts in foundation_accounts_list:
+            final_json_list = calculate_payout(modified_staking_df, accounts, epoch_no)
+            delegate_record_df = pd.DataFrame(final_json_list)
+            i = i + 1
+        result = insert_data(delegate_record_df)
+        if result == 0:
+            insert_into_audit_table(ledger_name)
+        logger.info('complete records for {0}'.format(i))
+        # sending emails after payouts calculation completed
+        result = epoch_no
+        print("### emails to send: ", len(delegate_record_df))
+        if do_send_email :
+            send_mail(epoch_no, delegate_record_df)
+            # send email to provider with list of 0 block producers
+            zero_block_producers = delegate_record_df[delegate_record_df['blocks'] == 0]
+            zero_block_producers = zero_block_producers[['winner_pub_key']]
+            mail_to_foundation_accounts(zero_block_producers, epoch_no)
+    return result
 
 
 if __name__ == "__main__":

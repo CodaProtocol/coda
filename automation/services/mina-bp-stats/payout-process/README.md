@@ -1,24 +1,31 @@
 ## Payout process  
 Initial config for Payout process
-  
-  
+The application relies on three databases:
+     - Mainnet Archive : Uses this to get number of blocks produced and payout transaction details
+     - Leaderboard     : Uses this to get Validator/Block producers email addresses
+     - Payout          : Uses this to keep track of Payout processing
+Use payout_schema.sql to create Payout database
+
 ## DB Config:   
 	Install postgres   
-	Execute SQL statement from database\tables.sql. This will create tables and initial config data needed by bot.  
-	In config.py update below properties (All properties are required):  
-	`POSTGRES_HOST`			The postgres hostname  
-    `POSTGRES_PORT`			The postgres port  
-    `POSTGRES_USER`			The postgres username  
-    `POSTGRES_PASSWORD`		The postgres password  
-    `POSTGRES_DB`			 The postgres  database name  
-	
+	Execute SQL statement from payout_schema.sql. This will create tables and initial config data.  
 
+	In payouts_config.py update below properties (All properties are required):  
+    Mainnet Archive DB configurations:
+	`POSTGRES_ARCHIVE_HOST`			The postgres hostname  
+    `POSTGRES_ARCHIVE_PORT`			The postgres port  
+    `POSTGRES_ARCHIVE_USER`			The postgres username  
+    `POSTGRES_ARCHIVE_PASSWORD`		The postgres password  
+    `POSTGRES_ARCHIVE_DB`			The postgres  database name  
+	
+    Similarly, for Payout DB configurations:
     `POSTGRES_PAYOUT_HOST` 
     `POSTGRES_PAYOUT_PORT` 
     `POSTGRES_PAYOUT_USER` 
     `POSTGRES_PAYOUT_PASSWORD`  
     `POSTGRES_PAYOUT_DB` 
 
+    And lastly, Leaderboard DB configurations:
     `POSTGRES_LEADERBOARD_HOST` 
     `POSTGRES_LEADERBOARD_PORT` 
     `POSTGRES_LEADERBOARD_USER`  

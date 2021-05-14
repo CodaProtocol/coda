@@ -167,12 +167,15 @@ def truncate(number, digits=5) -> float:
     return math.trunc(stepper * number) / stepper
 
 
-def main(epoch_no):
+def main(epoch_no, do_send_email):
+    result = 0
     logger.info("###### in main for epoch: {0}".format(epoch_no))
     delegation_record_df = read_delegation_record_table(epoch_no=epoch_no)
     validation_record_df = get_record_for_validation(epoch_no=epoch_no)
     staking_df = read_staking_json(epoch_no=epoch_no)
 
+   
+    email_rows = []
     for row in delegation_record_df.itertuples():
         pub_key = getattr(row, "provider_pub_key")
         payout_amount = getattr(row, "payout_amount")
@@ -190,6 +193,7 @@ def main(epoch_no):
             new_payout_balance = truncate((payout_amount + payout_balance) - total_pay_received)
             filter_staking_df = staking_df.loc[staking_df['pk'] == pub_key, 'delegate']
             winner_pub_key = filter_staking_df.iloc[0]
+            email_rows.append([pub_key, winner_pub_key, new_payout_balance])
             winner_match = False
             if delegate_pub_key == winner_pub_key:
                 winner_match = True
@@ -218,8 +222,12 @@ def main(epoch_no):
 
     insert_into_audit_table(epoch_no)
     # sending second mail 24 hours left for making payments back to foundations account
-    second_mail()
-
+    result = epoch_no
+    if do_send_email :
+        email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
+        print("### emails to send: ", len(email_df))
+        second_mail(email_df)
+    return result
 
 def get_last_processed_epoch_from_audit(job_type):
     audit_query = '''select epoch_id from payout_audit_log where job_type=%s 
@@ -244,21 +252,26 @@ def get_last_processed_epoch_from_audit(job_type):
 # this will check audit log table, and will determine last processed epoch
 # if no entries found, default to first epoch
 def initialize():
+    result = 0
     last_epoch = get_last_processed_epoch_from_audit('validation')
     logger.info(last_epoch)
     if last_epoch > 0:
         logger.info(" validation Audit found for")
-        main(last_epoch + 1)
+        result = main(last_epoch + 1, True)
     else:
         last_epoch = get_last_processed_epoch_from_audit('calculation')
         logger.info(" calculation Audit found for {0}".format(last_epoch))
         count = 1
         while count <= last_epoch:
-            logger.info(count)
-            main(count)
+            result = main(count, True)
             count = count + 1
+    return result
     logger.info("initialize complete ")
 
 
 if __name__ == "__main__":
-    initialize()
+    epoch_no = initialize()
+    if epoch_no is not None:
+        print(epoch_no)
+    else:
+        print(-1)

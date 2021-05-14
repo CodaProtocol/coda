@@ -36,14 +36,14 @@ def postgresql_to_dataframe(conn):
     return df
 
 
-def mail_to_foundation_accounts():
-    blocks_df = postgresql_to_dataframe(connection_leaderboard)
+def mail_to_foundation_accounts(zero_block_producers, epoch_no):
+    blocks_df = zero_block_producers
     blocks_df.to_csv('blocks_won.csv')
 
     message = Mail(from_email=BaseConfig.FROM_EMAIL,
                    to_emails=BaseConfig.PROVIDER_EMAIL,
-                   subject='Winner account with 0 blocks Won ',
-                   plain_text_content='Hi, please find the attachment Below',
+                   subject='Zero block producers for epoch '+epoch_no,
+                   plain_text_content='Please see the attached list of zero block producers',
                    html_content='<p> Hi, please find the attachment Below </p>')
 
     with open('blocks_won.csv', 'rb') as fd:
