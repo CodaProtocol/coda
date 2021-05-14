@@ -31,10 +31,11 @@ class BaseConfig(object):
     API_KEY = 'AIzaSyA3z01DZpfHFDq5Ln1nnebOeJ2aXElvd1Y'
     GCS_BUCKET_NAME = 'mina-staking-ledgers'
     FROM_EMAIL = 'ruchika.jain@bnt-soft.com'
-    PROVIDER_EMAIL = ['umesh.bihani@bnt-soft.com' ]
-    TO_EMAILS = ['umesh.bihani@bnt-soft.com' ]
+    PROVIDER_EMAIL = ['umesh.bihani@bnt-soft.com']
+    TO_EMAILS = ['umesh.bihani@bnt-soft.com']
     SUBJECT = 'LeaderBoard Stats As of{0}'.format(datetime.datetime.utcnow())
     PLAIN_TEXT = 'Report for Leaderboard as of {0}'.format(datetime.datetime.utcnow())
     SENDGRID_API_KEY = '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'
     SPREADSHEET_SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     SPREADSHEET_NAME = 'Mina Foundation Delegation Application (Responses)'
+    GENESIS_DATE = datetime.datetime(2021, 3, 17)

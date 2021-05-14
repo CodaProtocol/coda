@@ -6,6 +6,7 @@ import json
 from payouts_config import BaseConfig
 from datetime import datetime, timezone
 import math
+import sys
 from validate_email import second_mail
 from logger_util import logger
 
@@ -34,7 +35,6 @@ def read_delegation_record_table(epoch_no):
                                         columns=['provider_pub_key', 'winner_pub_key', 'blocks', 'payout_amount',
                                                  'payout_balance', 'last_delegation_epoch'])
     curser.close()
-    # logger.info(delegation_record_df.head().to_string())
     return delegation_record_df
 
 
@@ -46,6 +46,7 @@ def get_gcs_client():
 
 
 def read_staking_json(epoch_no):
+    modified_staking_df = pd.DataFrame()
     storage_client = get_gcs_client()
     # get bucket with name
     bucket = storage_client.get_bucket(BaseConfig.GCS_BUCKET_NAME)
@@ -57,16 +58,11 @@ def read_staking_json(epoch_no):
         logger.info(blob.name)
         json_data_string = blob.download_as_string()
         json_data_dict = json.loads(json_data_string)
-        # logger.info(json_data_dict)
         staking_df = pd.json_normalize(json_data_dict)
-
-        # staking_df.drop(staking_df.columns[[4, 5, 6, 7, 8, 9]], axis=1, inplace=True)
         modified_staking_df = staking_df[['pk', 'balance', 'delegate']]
         modified_staking_df['pk'] = modified_staking_df['pk'].astype(str)
         modified_staking_df['balance'] = modified_staking_df['balance'].astype(float)
         modified_staking_df['delegate'] = modified_staking_df['delegate'].astype(str)
-        logger.info(modified_staking_df.head())
-        # logger.info(modified_staking_df.head().to_string())
     return modified_staking_df
 
 
@@ -112,7 +108,6 @@ def get_record_for_validation(epoch_no):
     validation_record_df = pd.DataFrame(validation_record_list,
                                         columns=['total_pay', 'provider_pub_key', 'epoch'])
     cursor.close()
-    # print(validation_record_df.head().to_string())
     return validation_record_df
 
 
@@ -140,7 +135,6 @@ def get_record_for_validation_for_single_acc(provider_key, start_slot, end_slot)
     validation_record_df = pd.DataFrame(validation_record_list,
                                         columns=['total_pay', 'provider_pub_key'])
     cursor.close()
-    # logger.info(validation_record_df.head().to_string())
     return validation_record_df
 
 
@@ -173,61 +167,63 @@ def main(epoch_no, do_send_email):
     delegation_record_df = read_delegation_record_table(epoch_no=epoch_no)
     validation_record_df = get_record_for_validation(epoch_no=epoch_no)
     staking_df = read_staking_json(epoch_no=epoch_no)
+    if not staking_df.empty:
+        email_rows = []
+        for row in delegation_record_df.itertuples():
+            pub_key = getattr(row, "provider_pub_key")
+            payout_amount = getattr(row, "payout_amount")
+            payout_balance = getattr(row, "payout_balance")
+            last_delegation_epoch = getattr(row, 'last_delegation_epoch')
+            delegate_pub_key = getattr(row, 'winner_pub_key')
+            filter_validation_record_df = validation_record_df.loc[validation_record_df['provider_pub_key'] == pub_key]
 
-   
-    email_rows = []
-    for row in delegation_record_df.itertuples():
-        pub_key = getattr(row, "provider_pub_key")
-        payout_amount = getattr(row, "payout_amount")
-        payout_balance = getattr(row, "payout_balance")
-        last_delegation_epoch = getattr(row, 'last_delegation_epoch')
-        delegate_pub_key = getattr(row, 'winner_pub_key')
-        filter_validation_record_df = validation_record_df.loc[validation_record_df['provider_pub_key'] == pub_key]
+            if not filter_validation_record_df.empty:
+                start_slot, end_slot = determine_slot_range_for_validation(epoch_no, last_delegation_epoch)
+                payout_recieved = get_record_for_validation_for_single_acc(pub_key, start_slot, end_slot)
+                total_pay_received = 0
+                if not payout_recieved.empty:
+                    total_pay_received = payout_recieved.iloc[0]['total_pay']
+                new_payout_balance = truncate((payout_amount + payout_balance) - total_pay_received)
+                filter_staking_df = staking_df.loc[staking_df['pk'] == pub_key, 'delegate']
+                winner_pub_key = filter_staking_df.iloc[0]
+                email_rows.append([pub_key, winner_pub_key, new_payout_balance])
+                winner_match = False
+                if delegate_pub_key == winner_pub_key:
+                    winner_match = True
+                logger.info(
+                    '{0} {1} {2} {3} {4} {5} {6} {7}'.format(winner_match, pub_key, delegate_pub_key, winner_pub_key,
+                                                             start_slot, end_slot,
+                                                             total_pay_received,
+                                                             new_payout_balance))
 
-        if not filter_validation_record_df.empty:
-            start_slot, end_slot = determine_slot_range_for_validation(epoch_no, last_delegation_epoch)
-            payout_recieved = get_record_for_validation_for_single_acc(pub_key, start_slot, end_slot)
-            total_pay_received = 0
-            if not payout_recieved.empty:
-                total_pay_received = payout_recieved.iloc[0]['total_pay']
-            new_payout_balance = truncate((payout_amount + payout_balance) - total_pay_received)
-            filter_staking_df = staking_df.loc[staking_df['pk'] == pub_key, 'delegate']
-            winner_pub_key = filter_staking_df.iloc[0]
-            email_rows.append([pub_key, winner_pub_key, new_payout_balance])
-            winner_match = False
-            if delegate_pub_key == winner_pub_key:
-                winner_match = True
-            logger.info(
-                '{0} {1} {2} {3} {4} {5} {6} {7}'.format(winner_match, pub_key, delegate_pub_key, winner_pub_key,
-                                                         start_slot, end_slot,
-                                                         total_pay_received,
-                                                         new_payout_balance))
-
-            # update record in payout summary
-            query = ''' UPDATE payout_summary SET payout_amount = 0, payout_balance = %s,
+                # update record in payout summary
+                query = ''' UPDATE payout_summary SET payout_amount = 0, payout_balance = %s,
                 last_delegation_epoch = %s
                 WHERE provider_pub_key = %s and winner_pub_key = %s
                 '''
-            try:
-                cursor = connection_payout.cursor()
-                cursor.execute(query, (new_payout_balance, epoch_no, pub_key, winner_pub_key))
-            except (Exception, psycopg2.DatabaseError) as error:
-                logger.info("Error: {0} ", format(error))
-                connection_payout.rollback()
-                cursor.close()
-                result = -1
-            finally:
-                connection_payout.commit()
-                cursor.close()
+                try:
+                    cursor = connection_payout.cursor()
+                    cursor.execute(query, (new_payout_balance, epoch_no, pub_key, winner_pub_key))
+                except (Exception, psycopg2.DatabaseError) as error:
+                    logger.info("Error: {0} ", format(error))
+                    connection_payout.rollback()
+                    cursor.close()
+                    result = -1
+                finally:
+                    connection_payout.commit()
+                    cursor.close()
 
-    insert_into_audit_table(epoch_no)
-    # sending second mail 24 hours left for making payments back to foundations account
-    result = epoch_no
-    if do_send_email :
-        email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
-        print("### emails to send: ", len(email_df))
-        second_mail(email_df)
+        insert_into_audit_table(epoch_no)
+        # sending second mail 24 hours left for making payments back to foundations account
+        result = epoch_no
+        if do_send_email:
+            email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
+            second_mail(email_df, epoch_no)
+    else:
+        print(-1)
+        sys.exit()
     return result
+
 
 def get_last_processed_epoch_from_audit(job_type):
     audit_query = '''select epoch_id from payout_audit_log where job_type=%s 
@@ -266,7 +262,6 @@ def initialize():
             result = main(count, True)
             count = count + 1
     return result
-    logger.info("initialize complete ")
 
 
 if __name__ == "__main__":
