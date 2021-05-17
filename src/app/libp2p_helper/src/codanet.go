@@ -13,6 +13,9 @@ import (
 	"sync"
 	"time"
 
+	lmdbbs "github.com/filecoin-project/go-bs-lmdb"
+	"github.com/ipfs/go-bitswap"
+	bitnet "github.com/ipfs/go-bitswap/network"
 	dsb "github.com/ipfs/go-ds-badger"
 	logging "github.com/ipfs/go-log"
 	p2p "github.com/libp2p/go-libp2p"
@@ -73,6 +76,7 @@ var (
 
 	pxProtocolID         = protocol.ID("/mina/peer-exchange")
 	NodeStatusProtocolID = protocol.ID("/mina/node-status")
+	BitSwapExchange      = protocol.ID("/mina/bitswap-exchange")
 
 	privateIpFilter *ma.Filters = nil
 )
@@ -228,6 +232,7 @@ func (cm *CodaConnectionManager) GetInfo() p2pconnmgr.CMInfo {
 // Helper contains all the daemon state
 type Helper struct {
 	Host              host.Host
+	Bitswap           *bitswap.Bitswap
 	Mdns              *mdns.Service
 	Dht               *dual.DHT
 	Ctx               context.Context
@@ -683,9 +688,19 @@ func MakeHelper(ctx context.Context, listenOn []ma.Multiaddr, externalAddr ma.Mu
 		return nil, err
 	}
 
+	opt := lmdbbs.Options{Path: path.Join(statedir, "libp2p-lmdb-store"), InitialMmapSize: 64 << 20} // 64MiB, a large enough mmap size.
+	bstore, err := lmdbbs.Open(&opt)
+	if err != nil {
+		return nil, err
+	}
+
+	bitswapNetwork := bitnet.NewFromIpfsHost(host, kad, bitnet.Prefix(BitSwapExchange))
+	bs := bitswap.New(context.Background(), bitswapNetwork, bstore).(*bitswap.Bitswap)
+
 	// nil fields are initialized by beginAdvertising
 	h := &Helper{
 		Host:              host,
+		Bitswap:           bs,
 		Ctx:               ctx,
 		Mdns:              nil,
 		Dht:               kad,

@@ -20,6 +20,8 @@ import (
 
 	"codanet"
 
+	"github.com/ipfs/go-cid"
+
 	"github.com/go-errors/errors"
 	logging "github.com/ipfs/go-log/v2"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
@@ -98,6 +100,7 @@ const (
 	setGatingConfig
 	setNodeStatus
 	getPeerNodeStatus
+	bitswapMsg
 )
 
 const validationTimeout = 5 * time.Minute
@@ -1515,6 +1518,54 @@ func (gc *setGatingConfigMsg) run(app *app) (interface{}, error) {
 	return "ok", nil
 }
 
+// bitswapRequestMsg begins a bitswap exchange for the given cids.
+type bitswapRequestMsg struct {
+	CIDs [][]byte `json:"cids"`
+}
+
+// receivedBlockUpcall is sent to the daemon when data for a block is received
+// from a peer.
+type receivedBlockUpcall struct {
+	Upcall    string `json:"upcall"`
+	BlockData []byte `json:"block_data"`
+}
+
+func (bm *bitswapRequestMsg) run(app *app) (interface{}, error) {
+	cIDs, err := getCIDs(app, bm.CIDs)
+	if err != nil || len(cIDs) == 0 {
+		app.P2p.Logger.Errorf("failed to get CIDs for peer %s", app.P2p.Me)
+		return nil, err
+	}
+
+	blockChan, err := app.P2p.Bitswap.GetBlocks(app.Ctx, cIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	for block := range blockChan {
+		app.writeMsg(receivedBlockUpcall{
+			Upcall:    "receivedBlock",
+			BlockData: block.RawData(),
+		})
+	}
+
+	return "bitswapRequestMsg success", nil
+}
+
+func getCIDs(app *app, ids [][]byte) ([]cid.Cid, error) {
+	var cIDs []cid.Cid
+	for _, id := range ids {
+		cid, err := cid.Parse(id)
+		if err != nil {
+			app.P2p.Logger.Infof("%s peer has incorrect CID %s", app.P2p.Me, cid.String())
+			continue
+		}
+		cIDs = append(cIDs, cid)
+	}
+
+	return cIDs, nil
+}
+
 var msgHandlers = map[methodIdx]func() action{
 	configure:           func() action { return &configureMsg{} },
 	listen:              func() action { return &listenMsg{} },
@@ -1537,6 +1588,7 @@ var msgHandlers = map[methodIdx]func() action{
 	setGatingConfig:     func() action { return &setGatingConfigMsg{} },
 	setNodeStatus:       func() action { return &setNodeStatusMsg{} },
 	getPeerNodeStatus:   func() action { return &getPeerNodeStatusMsg{} },
+	bitswapMsg:          func() action { return &bitswapRequestMsg{} },
 }
 
 type errorResult struct {

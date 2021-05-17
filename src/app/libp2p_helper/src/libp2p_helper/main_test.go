@@ -2,20 +2,25 @@ package main
 
 import (
 	"bufio"
-	"context"
+    "bytes"
+    "context"
 	crand "crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
+    "sort"
+    "strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"codanet"
+
+	blocksutil "github.com/ipfs/go-ipfs-blocksutil"
+
 	logging "github.com/ipfs/go-log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -25,8 +30,8 @@ import (
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	peerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	protocol "github.com/libp2p/go-libp2p-core/protocol"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 
-	"github.com/libp2p/go-libp2p-pubsub"
 	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/stretchr/testify/require"
@@ -339,7 +344,7 @@ func TestConfigurationMsg(t *testing.T) {
 }
 
 func TestListenMsg(t *testing.T) {
-	addrStr := "/ip4/127.0.0.2/tcp/8000"
+	addrStr := "/ip4/127.0.0.1/tcp/8000"
 
 	addr, err := ma.NewMultiaddr(addrStr)
 	require.NoError(t, err)
@@ -996,6 +1001,8 @@ func waitForMessages(t *testing.T, app *app, numExpectedMessages int) [][]byte {
 				msgStates[msg.StreamIdx] = append(msgStates[msg.StreamIdx], decodedData...)
 			case streamReadCompleteUpcall:
 				receivedMsgs = append(receivedMsgs, msgStates[msg.StreamIdx])
+			case receivedBlockUpcall:
+				receivedMsgs = append(receivedMsgs, msg.BlockData)
 
 				awaiting -= 1
 				if awaiting <= 0 {
@@ -1080,9 +1087,8 @@ func TestLibp2pMetrics(t *testing.T) {
 	server.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(":9001", server)
 
-	go appA.checkPeerCount(appA.P2p.Me)
-	go appA.checkMessageExchanged(appA.P2p.Me)
-	go appB.checkMessageStats(appB.P2p.Me)
+	go appA.checkPeerCount()
+	go appB.checkMessageStats()
 
 	// Send multiple messages from A to B
 	sendStreamMessage(t, appA, appB, createMessage(maxStatsMsg))
@@ -1131,4 +1137,61 @@ func getMetricsValue(t *testing.T, str string, pattern string) string {
 	require.Len(t, metricsData, 2)
 
 	return metricsData[1]
+}
+
+func TestBitSwapRequestMessage(t *testing.T) {
+	appA := newTestApp(t, nil, false)
+	appA.NoDHT = true
+	defer appA.P2p.Host.Close()
+
+	appB := newTestApp(t, nil, false)
+	appB.NoDHT = true
+	defer appB.P2p.Host.Close()
+
+	// connect the two nodes
+	appBInfos, err := addrInfos(appB.P2p.Host)
+	require.NoError(t, err)
+
+	err = appA.P2p.Host.Connect(appA.Ctx, appBInfos[0])
+	require.NoError(t, err)
+
+	blockGenerator := blocksutil.NewBlockGenerator()
+	// generate basic blocks
+	alpha := blockGenerator.Next()
+	beta := blockGenerator.Next()
+	gamma := blockGenerator.Next()
+
+	// appB announces to the network that it has block alpha
+	err = appB.P2p.Bitswap.HasBlock(alpha)
+	require.NoError(t, err)
+	err = appB.P2p.Bitswap.HasBlock(beta)
+	require.NoError(t, err)
+	err = appB.P2p.Bitswap.HasBlock(gamma)
+	require.NoError(t, err)
+
+	expectedBlockData := [][]byte{alpha.RawData(), beta.RawData(), gamma.RawData()}
+
+	cIDs := [][]byte{
+		alpha.Cid().Bytes(),
+		beta.Cid().Bytes(),
+		gamma.Cid().Bytes(),
+	}
+	msg := &bitswapRequestMsg{
+		CIDs: cIDs,
+	}
+
+	go func() {
+		ret, err := msg.run(appA)
+		require.NoError(t, err)
+		require.Equal(t, "bitswapRequestMsg success", ret)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Assert all messages were received intact
+	receivedMsgs := waitForMessages(t, appA, len(expectedBlockData))
+	sort.Slice(receivedMsgs, func(i, j int) bool {
+        return bytes.Compare(receivedMsgs[i], receivedMsgs[j]) < 0
+    })
+	require.Equal(t, expectedBlockData, receivedMsgs)
 }
