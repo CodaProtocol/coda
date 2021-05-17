@@ -98,6 +98,8 @@ const (
 	setGatingConfig
 	setNodeStatus
 	getPeerNodeStatus
+	setConsensusNode
+	getConsensusNode
 )
 
 const validationTimeout = 5 * time.Minute
@@ -253,21 +255,22 @@ var (
 )
 
 type configureMsg struct {
-	Statedir            string             `json:"statedir"`
-	Privk               string             `json:"privk"`
-	NetworkID           string             `json:"network_id"`
-	ListenOn            []string           `json:"ifaces"`
-	MetricsPort         string             `json:"metrics_port"`
-	External            string             `json:"external_maddr"`
-	UnsafeNoTrustIP     bool               `json:"unsafe_no_trust_ip"`
-	Flood               bool               `json:"flood"`
-	PeerExchange        bool               `json:"peer_exchange"`
-	DirectPeers         []string           `json:"direct_peers"`
-	SeedPeers           []string           `json:"seed_peers"`
-	GatingConfig        setGatingConfigMsg `json:"gating_config"`
-	MaxConnections      int                `json:"max_connections"`
-	ValidationQueueSize int                `json:"validation_queue_size"`
-	MinaPeerExchange    bool               `json:"mina_peer_exchange"`
+	Statedir              string             `json:"statedir"`
+	Privk                 string             `json:"privk"`
+	NetworkID             string             `json:"network_id"`
+	ListenOn              []string           `json:"ifaces"`
+	MetricsPort           string             `json:"metrics_port"`
+	External              string             `json:"external_maddr"`
+	UnsafeNoTrustIP       bool               `json:"unsafe_no_trust_ip"`
+	Flood                 bool               `json:"flood"`
+	PeerExchange          bool               `json:"peer_exchange"`
+	DirectPeers           []string           `json:"direct_peers"`
+	SeedPeers             []string           `json:"seed_peers"`
+	GatingConfig          setGatingConfigMsg `json:"gating_config"`
+	MaxConnections        int                `json:"max_connections"`
+	ValidationQueueSize   int                `json:"validation_queue_size"`
+	MinaPeerExchange      bool               `json:"mina_peer_exchange"`
+	MinConsensusNodeCount int64              `json:"min_consensus_node_count"`
 }
 
 type peerConnectionUpcall struct {
@@ -330,7 +333,7 @@ func (m *configureMsg) run(app *app) (interface{}, error) {
 		return nil, badRPC(err)
 	}
 
-	helper, err := codanet.MakeHelper(app.Ctx, maddrs, externalMaddr, m.Statedir, privk, m.NetworkID, seeds, gatingConfig, m.MaxConnections, m.MinaPeerExchange)
+	helper, err := codanet.MakeHelper(app.Ctx, maddrs, externalMaddr, m.Statedir, privk, m.NetworkID, seeds, gatingConfig, m.MaxConnections, m.MinaPeerExchange, m.MinConsensusNodeCount)
 	if err != nil {
 		return nil, badHelper(err)
 	}
@@ -1339,6 +1342,44 @@ func (ap *findPeerMsg) run(app *app) (interface{}, error) {
 	return *maybePeer, nil
 }
 
+type setConsensusNodeMsg struct {
+	IsConsensusNode bool `json:"IsConsensusNode"`
+}
+
+func (cn *setConsensusNodeMsg) run(app *app) (interface{}, error) {
+	if app == nil {
+		return nil, needsConfigure()
+	}
+	app.P2p.IsConsensusNode = cn.IsConsensusNode
+	return "consensusNodeMsg set successfully", nil
+}
+
+type getConsensusNodeMsg struct {
+	PeerMultiaddr string `json:"peer_multiaddr"`
+}
+
+func (gcn *getConsensusNodeMsg) run(app *app) (interface{}, error) {
+	var isConsensusNode bool
+	addrInfo, err := addrInfoOfString(gcn.PeerMultiaddr)
+	if err != nil {
+		return nil, err
+	}
+	data, err := protocolStream(app, addrInfo, codanet.HandshakeProtocolID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(data, &isConsensusNode)
+	if err != nil {
+		return nil, err
+	}
+
+	if isConsensusNode {
+		app.P2p.ConnectionManager.Protect(addrInfo.ID, codanet.ConsensusNodeTag)
+	}
+	return isConsensusNode, nil
+}
+
 type setNodeStatusMsg struct {
 	Data string `json:"data"`
 }
@@ -1353,18 +1394,23 @@ type getPeerNodeStatusMsg struct {
 }
 
 func (m *getPeerNodeStatusMsg) run(app *app) (interface{}, error) {
-	ctx, _ := context.WithTimeout(app.Ctx, codanet.NodeStatusTimeout)
-
 	addrInfo, err := addrInfoOfString(m.PeerMultiaddr)
 	if err != nil {
 		return nil, err
 	}
 
+	data, err := protocolStream(app, addrInfo, codanet.NodeStatusProtocolID)
+	return string(data), err
+}
+
+func protocolStream(app *app, addrInfo *peer.AddrInfo, pid protocol.ID) ([]byte, error) {
+	ctx, _ := context.WithTimeout(app.Ctx, codanet.NodeStatusTimeout)
+
 	app.P2p.Host.Peerstore().AddAddrs(addrInfo.ID, addrInfo.Addrs, peerstore.ConnectedAddrTTL)
 
-	// Open a "get node status" stream on m.PeerID,
+	// Open a "get protocol Stream " stream on addrInfo.PeerID,
 	// block until you can read the response, return that.
-	s, err := app.P2p.Host.NewStream(ctx, addrInfo.ID, codanet.NodeStatusProtocolID)
+	s, err := app.P2p.Host.NewStream(ctx, addrInfo.ID, pid)
 	if err != nil {
 		app.P2p.Logger.Error("failed to open stream: ", err)
 		return nil, err
@@ -1375,7 +1421,7 @@ func (m *getPeerNodeStatusMsg) run(app *app) (interface{}, error) {
 	}()
 
 	errCh := make(chan error)
-	responseCh := make(chan string)
+	responseCh := make(chan []byte)
 
 	go func() {
 		// 1 megabyte
@@ -1384,17 +1430,17 @@ func (m *getPeerNodeStatusMsg) run(app *app) (interface{}, error) {
 		data := make([]byte, size)
 		n, err := s.Read(data)
 		if err != nil && err != io.EOF {
-			app.P2p.Logger.Errorf("failed to decode node status data: err=%s", err)
+			app.P2p.Logger.Errorf("failed to decode node data: err=%s", err)
 			errCh <- err
 			return
 		}
 
 		if n == size && err == nil {
-			errCh <- fmt.Errorf("node status data was greater than %d bytes", size)
+			errCh <- fmt.Errorf("data was greater than %d bytes", size)
 			return
 		}
 
-		responseCh <- string(data[:n])
+		responseCh <- data[:n]
 	}()
 
 	select {
@@ -1537,6 +1583,8 @@ var msgHandlers = map[methodIdx]func() action{
 	setGatingConfig:     func() action { return &setGatingConfigMsg{} },
 	setNodeStatus:       func() action { return &setNodeStatusMsg{} },
 	getPeerNodeStatus:   func() action { return &getPeerNodeStatusMsg{} },
+	setConsensusNode:    func() action { return &setConsensusNodeMsg{} },
+	getConsensusNode:    func() action { return &getConsensusNodeMsg{} },
 }
 
 type errorResult struct {
