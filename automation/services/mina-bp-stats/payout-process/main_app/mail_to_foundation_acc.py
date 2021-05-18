@@ -42,7 +42,7 @@ def mail_to_foundation_accounts(zero_block_producers, epoch_no):
 
     message = Mail(from_email=BaseConfig.FROM_EMAIL,
                    to_emails=BaseConfig.PROVIDER_EMAIL,
-                   subject='Zero block producers for epoch '+epoch_no,
+                   subject='Zero block producers for epoch '+str(epoch_no),
                    plain_text_content='Please see the attached list of zero block producers',
                    html_content='<p> Hi, please find the attachment Below </p>')
 

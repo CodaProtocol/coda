@@ -54,7 +54,7 @@ def get_last_processed_epoch_from_audit():
         cursor.execute(audit_query)
         if cursor.rowcount > 0:
             data_count = cursor.fetchall()
-            last_epoch = float(data_count[-1][-1])
+            last_epoch = int(data_count[-1][-1])
     except (Exception, psycopg2.DatabaseError) as error:
         logger.info("Error: {0} ", format(error))
         cursor.close()
