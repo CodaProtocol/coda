@@ -1,24 +1,14 @@
 FROM python:3
 WORKDIR /opt/minanet/payout_process
 
-COPY main_app/* ./
 COPY requirements.txt .
-
-#COPY main_app/mina_cron /etc/cron.d/mina_cron
-
-RUN apt-get update && apt-get -qq -y install cron && apt-get -qq -y install at
+RUN apt-get update && apt-get -qq -y install less at cron
 RUN pip3 install -r requirements.txt
+
+COPY main_app/* ./
+COPY main_app/entrypoint ./entrypoint
 RUN chmod +x ./entrypoint
 RUN chmod +x ./*.sh
 
+RUN touch /var/run/atd.pid
 ENTRYPOINT ["/opt/minanet/payout_process/entrypoint"]
-RUN sh /opt/minanet/payout_process/calculation_scheduler.sh
-RUN sh /opt/minanet/payout_process/validation_scheduler.sh
-
-
-
-
-
-
-
-

@@ -1,7 +1,7 @@
 #!/bin/sh
 
-## Do whatever you need with env vars here ...
-service cron start
-
-# Hand off to the CMD
+# start at daemon
+service atd start
+# schedule scripts initially to run after container starts
+echo "sh /opt/minanet/payout_process/start.sh" | at now + 2 minutes
 exec "$@"

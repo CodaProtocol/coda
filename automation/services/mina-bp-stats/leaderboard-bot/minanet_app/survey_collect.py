@@ -93,10 +93,13 @@ def execute_point_record_batch(conn, df, page_size=100):
     Make sure datafram has exact following columns in sequence
     file_name,blockchain_epoch, block_producer_key, state_hash,blockchain_height,amount,bot_log_id, created_at
     """
+
     tuples = [tuple(x) for x in df.to_numpy()]
+    
     logger.info('Tuples {0}'.format(tuples[0]))
-    query = """INSERT INTO point_record_table ( file_name,blockchain_epoch, node_id, state_hash,blockchain_height,amount,created_at,bot_log_id) 
-            VALUES ( %s,  %s, (SELECT id FROM node_record_table WHERE block_producer_key= %s), %s, %s, %s,  %s, %s )"""
+    query = """INSERT INTO point_record_table ( file_name,file_timestamps,blockchain_epoch, node_id, state_hash,blockchain_height,
+                amount,created_at,bot_log_id) 
+            VALUES ( %s, %s,  %s, (SELECT id FROM node_record_table WHERE block_producer_key= %s), %s, %s, %s,  %s, %s )"""
     try:
         cursor = conn.cursor()
         extras.execute_batch(cursor, query, tuples, page_size)
@@ -158,7 +161,7 @@ def update_email_discord_status(conn, page_size=100):
         conn.commit()
         logger.info('update email discord status')
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info('Error:{0}', format(error))
+        logger.info('Error:{0}'. format(error))
         conn.rollback()
         cursor.close()
         return -1
@@ -177,7 +180,7 @@ def get_provider_accounts():
 
 def update_scoreboard(conn):
     sql = """with score as ( select node_id,count(distinct bot_log_id) total from  point_record_table  prt where
-     created_at > current_date - interval '%s' day group by 
+     file_timestamps > current_date - interval '%s' day group by 
     node_id ) update node_record_table nrt set score = total from score s where nrt.id=s.node_id """
     try:
         cursor = conn.cursor()
@@ -322,6 +325,7 @@ def GCS_main(read_file_interval):
                     node_to_insert['updated_at'] = datetime.now(timezone.utc)
 
                     execute_node_record_batch(connection, node_to_insert, 100)
+                    
 
                     points_to_insert = final_point_record_df0
                     points_to_insert = points_to_insert.rename(
@@ -330,7 +334,8 @@ def GCS_main(read_file_interval):
                                  'nodeData.block.stateHash': 'state_hash'})
                     points_to_insert['created_at'] = datetime.now(timezone.utc)
                     points_to_insert['bot_log_id'] = bot_log_id
-                    points_to_insert.drop('file_timestamps', inplace=True, axis=1)
+                    print(points_to_insert)
+                    #points_to_insert.drop('file_timestamps', inplace=True, axis=1)
                     execute_point_record_batch(connection, points_to_insert)
                     logger.info('data in point records table is inserted')
                     update_scoreboard(connection)

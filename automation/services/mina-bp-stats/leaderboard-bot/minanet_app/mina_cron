@@ -1,4 +1,3 @@
 */10 * * * * flock -x /opt/minanet/mina_cron.lock -c '/opt/minanet/mina_cron.sh >> /opt/minanet/mina_cron.log  2>&1'
-0 0 */15 * * flock -x /opt/minanet/email_cron.lock -c '/opt/minanet/email_cron.sh >> /opt/minanet/email_cron.log  2>&1'
 
 
