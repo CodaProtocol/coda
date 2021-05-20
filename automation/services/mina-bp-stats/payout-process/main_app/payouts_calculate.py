@@ -39,9 +39,11 @@ def read_staking_json_list():
     staking_file_prefix = "staking-"
     blobs = storage_client.list_blobs(bucket, start_offset=staking_file_prefix)
     # convert to string
-    file_name_list_for_memory = list()
+    file_dict_for_memory = dict()
     for blob in blobs:
-        file_name_list_for_memory.append(blob.name)
+        file_dict_for_memory[blob.name] = blob.updated
+    sorted_list = [k for k, v in sorted(file_dict_for_memory.items(), key=lambda p: p[1], reverse=True)]
+    file_name_list_for_memory = [file for file in sorted_list if not file.endswith(".txt")]
     return file_name_list_for_memory
 
 
