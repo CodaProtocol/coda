@@ -1,0 +1,26 @@
+opam-version: "2"
+name: "snapp_runner"
+maintainer: "opensource@o1labs.org"
+authors: ["O(1) Labs, LLC <opensource@o1labs.org>"]
+homepage: "https://github.com/CodaProtocol/coda"
+bug-reports: "https://github.com/CodaProtocol/coda/issues"
+dev-repo: "https://github.com/CodaProtocol/coda.git"
+license: "Apache"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+]
+depends: [
+  "async"
+  "core"
+  "dune"
+  "pickles"
+  "base64"
+  "ppx_deriving_yojson"
+  "ppx_sexp_conv"
+  "ppx_let"
+]
+synopsis: "Runner for coda snapp transactions"
+description: "
+Helper libraries for building and executing coda snapp transactions
+"
+

@@ -95,6 +95,20 @@ type pipes =
       , Strict_pipe.synchronous
       , unit Deferred.t )
       Strict_pipe.Writer.t
+  ; snapp_command_input_writer:
+      ( Snapp_command_input.t list
+        * (   ( Network_pool.Transaction_pool.Resource_pool.Diff.t
+              * Network_pool.Transaction_pool.Resource_pool.Diff.Rejected.t )
+              Or_error.t
+           -> unit)
+        * (   Account_id.t
+           -> ( [`Min of Mina_base.Account.Nonce.t] * Mina_base.Account.Nonce.t
+              , string )
+              Result.t)
+        * (Account_id.t -> Account.t option Participating_state.T.t)
+      , Strict_pipe.synchronous
+      , unit Deferred.t )
+      Strict_pipe.Writer.t
   ; local_snark_work_writer:
       ( Network_pool.Snark_pool.Resource_pool.Diff.t
         * (   ( Network_pool.Snark_pool.Resource_pool.Diff.t
@@ -854,6 +868,13 @@ let add_transactions t (uc_inputs : User_command_input.t list) =
   |> Deferred.don't_wait_for ;
   Ivar.read result_ivar
 
+let add_snapp_transactions t (snapp_inputs : Snapp_command_input.t list) =
+  let result_ivar = Ivar.create () in
+  Strict_pipe.Writer.write t.pipes.snapp_command_input_writer
+    (snapp_inputs, Ivar.fill result_ivar, get_current_nonce t, get_account t)
+  |> Deferred.don't_wait_for ;
+  Ivar.read result_ivar
+
 let add_full_transactions t user_command =
   let result_ivar = Ivar.create () in
   Strict_pipe.Writer.write t.pipes.user_command_writer
@@ -1446,6 +1467,9 @@ let create ?wallets (config : Config.t) =
           let user_command_input_reader, user_command_input_writer =
             Strict_pipe.(create ~name:"local transactions" Synchronous)
           in
+          let snapp_command_input_reader, snapp_command_input_writer =
+            Strict_pipe.(create ~name:"local snapp transactions" Synchronous)
+          in
           let local_txns_reader, local_txns_writer =
             Strict_pipe.(create ~name:"local transactions" Synchronous)
           in
@@ -1466,31 +1490,54 @@ let create ?wallets (config : Config.t) =
               ~local_diffs:local_txns_reader
               ~frontier_broadcast_pipe:frontier_broadcast_pipe_r
           in
-          (*Read from user_command_input_reader that has the user command inputs from client, infer nonce, create user command, and write it to the pipe consumed by the network pool*)
-          Strict_pipe.Reader.iter user_command_input_reader
-            ~f:(fun (input_list, result_cb, get_current_nonce, get_account) ->
-              match%bind
-                User_command_input.to_user_commands ~get_current_nonce
-                  ~get_account ~constraint_constants ~logger:config.logger
-                  input_list
-              with
-              | Ok user_commands ->
-                  if List.is_empty user_commands then (
-                    result_cb
-                      (Error (Error.of_string "No user commands to send")) ;
+          let command_to_network_pool input_pipe ~from_input ~to_transaction =
+            (* Read from a command input pipe, convert it to a full
+               transaction, and write to the pipe consumed by the network pool.
+            *)
+            Strict_pipe.Reader.iter input_pipe
+              ~f:(fun (input_list, result_cb, get_current_nonce, get_account)
+                 ->
+                match%bind
+                  from_input ~get_current_nonce ~get_account input_list
+                with
+                | Ok user_commands ->
+                    if List.is_empty user_commands then (
+                      result_cb
+                        (Error (Error.of_string "No user commands to send")) ;
+                      Deferred.unit )
+                    else
+                      Strict_pipe.Writer.write local_txns_writer
+                        (List.map ~f:to_transaction user_commands, result_cb)
+                | Error e ->
+                    [%log' error config.logger]
+                      "Failed to submit commands: $error"
+                      ~metadata:[("error", `String (Error.to_string_hum e))] ;
+                    result_cb (Error e) ;
                     Deferred.unit )
-                  else
-                    (*callback for the result from transaction_pool.apply_diff*)
-                    Strict_pipe.Writer.write local_txns_writer
-                      ( List.map user_commands ~f:(fun c ->
-                            User_command.Signed_command c )
-                      , result_cb )
-              | Error e ->
-                  [%log' error config.logger]
-                    "Failed to submit user commands: $error"
-                    ~metadata:[("error", Error_json.error_to_yojson e)] ;
-                  result_cb (Error e) ;
-                  Deferred.unit )
+          in
+          let%bind wallets =
+            match wallets with
+            | Some wallets ->
+                return wallets
+            | None ->
+                Secrets.Wallets.load ~logger:config.logger
+                  ~disk_location:config.wallets_disk_location
+          in
+          (* Redirect user command and snapp command inputs to the network
+             pool.
+          *)
+          command_to_network_pool user_command_input_reader
+            ~from_input:
+              (User_command_input.to_user_commands ?nonce_map:None
+                 ~constraint_constants ~logger:config.logger)
+            ~to_transaction:(fun c -> User_command.Signed_command c)
+          |> Deferred.don't_wait_for ;
+          command_to_network_pool snapp_command_input_reader
+            ~from_input:(fun ~get_current_nonce ~get_account:_ input_list ->
+              Snapp_command_input.to_snapp_commands ~get_current_nonce
+                ?nonce_map:None input_list
+                ~find_identity:(Secrets.Wallets.find_identity wallets) )
+            ~to_transaction:(fun c -> User_command.Snapp_command c)
           |> Deferred.don't_wait_for ;
           let ((most_recent_valid_block_reader, _) as most_recent_valid_block)
               =
@@ -1684,14 +1731,6 @@ let create ?wallets (config : Config.t) =
               ~frontier_broadcast_pipe:frontier_broadcast_pipe_r
               ~logger:config.logger
           in
-          let%bind wallets =
-            match wallets with
-            | Some wallets ->
-                return wallets
-            | None ->
-                Secrets.Wallets.load ~logger:config.logger
-                  ~disk_location:config.wallets_disk_location
-          in
           trace_task "snark pool broadcast loop" (fun () ->
               Linear_pipe.iter (Network_pool.Snark_pool.broadcasts snark_pool)
                 ~f:(fun x ->
@@ -1773,6 +1812,7 @@ let create ?wallets (config : Config.t) =
                     Strict_pipe.Writer.to_linear_pipe
                       external_transitions_writer
                 ; user_command_input_writer
+                ; snapp_command_input_writer
                 ; user_command_writer= local_txns_writer
                 ; local_snark_work_writer }
             ; wallets

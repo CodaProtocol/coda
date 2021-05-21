@@ -126,9 +126,17 @@ module Verifiable = struct
       let to_latest = Fn.id
     end
   end]
+
+  let forget (t : t) : (Signed_command.t, Snapp_command.t) Poly.t =
+    match t with
+    | Signed_command x ->
+        Signed_command x
+    | Snapp_command (x, _) ->
+        Snapp_command x
 end
 
-let to_verifiable_exn (t : t) ~ledger ~get ~location_of_account =
+let to_verifiable_exn (t : t) ~ledger ~get ~location_of_account : Verifiable.t
+    =
   let find_vk c pk =
     let ( ! ) x = Option.value_exn x in
     let id = Account_id.create pk (Snapp_command.token_id c) in

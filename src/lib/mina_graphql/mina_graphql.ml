@@ -54,6 +54,24 @@ let result_field2 ~resolve =
   Schema.io_field ~resolve:(fun resolve_info src input1 input2 ->
       Deferred.return @@ resolve resolve_info src input1 input2 )
 
+let rec graphql_const_to_yojson : Graphql_parser.const_value -> Yojson.Safe.t =
+  function
+  | `Assoc l ->
+      `Assoc
+        (List.map l ~f:(fun (s, json) -> (s, graphql_const_to_yojson json)))
+  | `Bool b ->
+      `Bool b
+  | `Enum s | `String s ->
+      `String s
+  | `Float f ->
+      `Float f
+  | `Int i ->
+      `Int i
+  | `List l ->
+      `List (List.map ~f:graphql_const_to_yojson l)
+  | `Null ->
+      `Null
+
 module Doc = struct
   let date ?(extra = "") s =
     sprintf
@@ -149,7 +167,11 @@ module Types = struct
 
   let public_key = public_key ()
 
+  let raw_signature = raw_signature ()
+
   let uint64 = uint64 ()
+
+  let int64 = int64 ()
 
   let uint32 = uint32 ()
 
@@ -383,6 +405,658 @@ module Types = struct
                  (id ~typ:(non_null consensus_configuration))
                ~highest_block_length_received:nn_int
                ~highest_unvalidated_block_length_received:nn_int )
+  end
+
+  module SnappCommand = struct
+    module Types = struct
+      let authRequired =
+        scalar "AuthRequired"
+          ~doc:
+            "The kind of authorization required to make a change to a snapp \
+             account property. One of None, Proof, Signature, Either, Both"
+          ~coerce:(function
+          | Permissions.Auth_required.Both ->
+              `String "Both"
+          | Permissions.Auth_required.Either ->
+              `String "Either"
+          | Permissions.Auth_required.Proof ->
+              `String "Proof"
+          | Permissions.Auth_required.None ->
+              `String "None"
+          | Permissions.Auth_required.Signature ->
+              `String "Signature"
+          | Permissions.Auth_required.Impossible ->
+              `String "Impossible" )
+
+      let permissions : (_, Permissions.t option) typ =
+        obj "SnappAccountPermissions" ~fields:(fun _ ->
+            [ field "stake" ~doc:"Whether the snapp account can stake" ~args:[]
+                ~typ:bool ~resolve:(fun _ {Permissions.Poly.stake; _} ->
+                  Some stake )
+            ; field "edit_state"
+                ~doc:"Required permissions for editing the snapp state"
+                ~args:[] ~typ:authRequired
+                ~resolve:(fun _ {Permissions.Poly.edit_state; _} ->
+                  Some edit_state )
+            ; field "send"
+                ~doc:"Required permissions for sending a snapp command"
+                ~args:[] ~typ:authRequired
+                ~resolve:(fun _ {Permissions.Poly.send; _} -> Some send)
+            ; field "receive"
+                ~doc:"Required permissions for receiving a snapp command"
+                ~args:[] ~typ:authRequired
+                ~resolve:(fun _ {Permissions.Poly.receive; _} -> Some receive)
+            ; field "set_delegate"
+                ~doc:"Required permissions for modifying the delegate" ~args:[]
+                ~typ:authRequired
+                ~resolve:(fun _ {Permissions.Poly.set_delegate; _} ->
+                  Some set_delegate )
+            ; field "set_permissions"
+                ~doc:
+                  "Required permissions for modifying the account permissions"
+                ~args:[] ~typ:authRequired
+                ~resolve:(fun _ {Permissions.Poly.set_permissions; _} ->
+                  Some set_permissions )
+            ; field "set_verification_key"
+                ~doc:
+                  "Required permissions for modifying the snapp verification \
+                   key"
+                ~args:[] ~typ:authRequired
+                ~resolve:(fun _ {Permissions.Poly.set_verification_key; _} ->
+                  Some set_verification_key ) ] )
+
+      let verificationKey =
+        scalar "VerificationKey" ~doc:"A base64-encoded snark verification key"
+          ~coerce:(fun vk ->
+            `String
+              (Base64.encode_exn ~alphabet:Base64.uri_safe_alphabet
+                 (Binable.to_string
+                    (module Pickles.Side_loaded.Verification_key.Stable.Latest)
+                    vk)) )
+
+      let snarkProof =
+        scalar "SnarkProof" ~doc:"A base64-encoded snark proof"
+          ~coerce:(fun proof ->
+            `String
+              (Base64.encode_exn ~alphabet:Base64.uri_safe_alphabet
+                 (Binable.to_string
+                    (module Pickles.Side_loaded.Proof.Stable.Latest)
+                    proof)) )
+
+      let fieldElement =
+        scalar "FieldElement" ~doc:"A string-encoded field element"
+          ~coerce:(fun field ->
+            `String (Snark_params.Tick.Field.to_string field) )
+
+      let signature : (_, Signature.t option) typ =
+        obj "Signature" ~doc:"A cryptographic signature" ~fields:(fun _ ->
+            [ field "rawSignature" ~typ:(non_null raw_signature)
+                ~doc:"Raw encoded signature" ~args:[]
+                ~resolve:(fun _ signature -> signature) ] )
+
+      let snappState_vector ?doc ~typ name :
+          (_, (_, Pickles_types.Nat.N8.n) Pickles_types.Vector.t option) typ =
+        obj name ?doc ~fields:(fun _ ->
+            [ field "x_0" ~typ ~args:[] ~resolve:(fun _ v ->
+                  List.nth_exn (Pickles_types.Vector.to_list v) 0 )
+            ; field "x_1" ~typ ~args:[] ~resolve:(fun _ v ->
+                  List.nth_exn (Pickles_types.Vector.to_list v) 1 )
+            ; field "x_2" ~typ ~args:[] ~resolve:(fun _ v ->
+                  List.nth_exn (Pickles_types.Vector.to_list v) 2 )
+            ; field "x_3" ~typ ~args:[] ~resolve:(fun _ v ->
+                  List.nth_exn (Pickles_types.Vector.to_list v) 3 )
+            ; field "x_4" ~typ ~args:[] ~resolve:(fun _ v ->
+                  List.nth_exn (Pickles_types.Vector.to_list v) 4 )
+            ; field "x_5" ~typ ~args:[] ~resolve:(fun _ v ->
+                  List.nth_exn (Pickles_types.Vector.to_list v) 5 )
+            ; field "x_6" ~typ ~args:[] ~resolve:(fun _ v ->
+                  List.nth_exn (Pickles_types.Vector.to_list v) 6 )
+            ; field "x_7" ~typ ~args:[] ~resolve:(fun _ v ->
+                  List.nth_exn (Pickles_types.Vector.to_list v) 7 ) ] )
+
+      let snappState :
+          ( _
+          , (Snark_params.Tick.Field.t option, _) Pickles_types.Vector.t option
+          )
+          typ =
+        snappState_vector "SnappState" ~doc:"The state for the snapp account"
+          ~typ:fieldElement
+
+      let changes : (_, Snapp_command.Party.Update.t option) typ =
+        obj "SnappAccountChanges" ~fields:(fun _ ->
+            [ field "snappState" ~doc:"The new state of the snapp account"
+                ~args:[] ~typ:snappState
+                ~resolve:(fun _
+                         {Snapp_command.Party.Update.Poly.app_state; _}
+                         ->
+                  Some
+                    (Pickles_types.Vector.map
+                       ~f:Snapp_basic.Set_or_keep.to_option app_state) )
+            ; field "delegate" ~doc:"The public key to delegate to" ~args:[]
+                ~typ:public_key
+                ~resolve:(fun _
+                         {Snapp_command.Party.Update.Poly.delegate; _}
+                         -> Snapp_basic.Set_or_keep.to_option delegate )
+            ; field "verificationKey"
+                ~doc:
+                  "The new verification key to associate with the snapp account"
+                ~args:[] ~typ:verificationKey
+                ~resolve:(fun _
+                         {Snapp_command.Party.Update.Poly.verification_key; _}
+                         ->
+                  verification_key |> Snapp_basic.Set_or_keep.to_option
+                  |> Option.map ~f:With_hash.data )
+            ; field "permissions"
+                ~doc:"The new permissions to associate with the snapp account"
+                ~args:[] ~typ:permissions
+                ~resolve:(fun _
+                         {Snapp_command.Party.Update.Poly.permissions; _}
+                         -> Snapp_basic.Set_or_keep.to_option permissions ) ]
+        )
+
+      module Predicate = struct
+        let eq ~desc arg_type : ('a, 'b Snapp_basic.Or_ignore.t option) typ =
+          obj "PredicateEquals"
+            ~doc:"A predicate to check equality against the given value"
+            ~fields:(fun _ ->
+              [ field "equals" ~args:[]
+                  ~resolve:(fun _ x -> Snapp_basic.Or_ignore.to_option x)
+                  ~doc:
+                    (sprintf
+                       "The %s to be compared against. If not given, this \
+                        predicate is not active"
+                       desc)
+                  ~typ:arg_type ] )
+
+        let closed_interval arg_type :
+            ( 'a
+            , 'b Snapp_predicate.Closed_interval.t Snapp_basic.Or_ignore.t
+              option )
+            typ =
+          obj "PredicateClosedInterval"
+            ~doc:
+              "A predicate to check that the value is within the given bounds \
+               (inclusive)" ~fields:(fun _ ->
+              [ field "lower" ~doc:"The lower bound of the comparison" ~args:[]
+                  ~typ:arg_type ~resolve:(fun _ -> function
+                  | Snapp_basic.Or_ignore.Check
+                      {Snapp_predicate.Closed_interval.lower; _} ->
+                      Some lower
+                  | _ ->
+                      None )
+              ; field "upper" ~doc:"The upper bound of the comparison" ~args:[]
+                  ~typ:arg_type ~resolve:(fun _ -> function
+                  | Snapp_basic.Or_ignore.Check
+                      {Snapp_predicate.Closed_interval.upper; _} ->
+                      Some upper
+                  | _ ->
+                      None ) ] )
+
+        let map_closed_interval x ~f =
+          Snapp_basic.Or_ignore.map
+            ~f:(Snapp_predicate.Closed_interval.map ~f)
+            x
+      end
+
+      let snappStatePredicate :
+          ( _
+          , ( Snark_params.Tick.Field.t Snapp_basic.Or_ignore.t
+            , Snapp_state.Max_state_size.n )
+            Pickles_types.Vector.t
+            option )
+          typ =
+        snappState_vector "SnappStatePredicate"
+          ~doc:"Predicates to be evaluated on the snapp state vector"
+          ~typ:(non_null (Predicate.eq ~desc:"field element" fieldElement))
+
+      let accountPredicate : (_, Snapp_predicate.Account.t option) typ =
+        obj "AccountPredicate" ~doc:"Predicates to be evaluated on an account"
+          ~fields:(fun _ ->
+            [ field "balance"
+                ~doc:"The predicate to be evaluated on the balance" ~args:[]
+                ~typ:(Predicate.closed_interval uint64)
+                ~resolve:(fun _ {Snapp_predicate.Account.Poly.balance; _} ->
+                  Some
+                    (Predicate.map_closed_interval ~f:Balance.to_uint64 balance)
+              )
+            ; field "nonce" ~doc:"The predicate to be evaluated on the nonce"
+                ~args:[] ~typ:(Predicate.closed_interval uint32)
+                ~resolve:(fun _ {Snapp_predicate.Account.Poly.nonce; _} ->
+                  Some nonce )
+            ; field "receiptChainHash"
+                ~doc:"The predicate to be evaluated on the receipt chain hash"
+                ~args:[]
+                ~typ:(Predicate.eq ~desc:"receipt chain hash" fieldElement)
+                ~resolve:(fun _
+                         {Snapp_predicate.Account.Poly.receipt_chain_hash; _}
+                         -> Some receipt_chain_hash )
+            ; field "publicKey"
+                ~doc:"The predicate to be evaluated on the public key" ~args:[]
+                ~typ:(Predicate.eq ~desc:"public key" public_key)
+                ~resolve:(fun _ {Snapp_predicate.Account.Poly.public_key; _} ->
+                  Some public_key )
+            ; field "delegate"
+                ~doc:"The predicate to be evaluated on the delegate" ~args:[]
+                ~typ:(Predicate.eq ~desc:"public key" public_key)
+                ~resolve:(fun _ {Snapp_predicate.Account.Poly.delegate; _} ->
+                  Some delegate )
+            ; field "state" ~doc:"The predicate to be evaluated on the state"
+                ~args:[] ~typ:snappStatePredicate
+                ~resolve:(fun _ {Snapp_predicate.Account.Poly.state; _} ->
+                  Some state ) ] )
+
+      let accountStatePredicate : (_, Snapp_basic.Account_state.t option) typ =
+        scalar "accountStatePredicate"
+          ~doc:
+            "A predicate on the state of an account. One of Empty, Non_empty, \
+             Any" ~coerce:(function
+          | Snapp_basic.Account_state.Empty ->
+              `String "Empty"
+          | Snapp_basic.Account_state.Non_empty ->
+              `String "Non_empty"
+          | Snapp_basic.Account_state.Any ->
+              `String "Any" )
+
+      let accountTransitionPredicate :
+          (_, Snapp_basic.Account_state.t Snapp_basic.Transition.t option) typ
+          =
+        obj "AccountTransitionPredicate"
+          ~doc:"Predicates to be evaluated on an account state transition"
+          ~fields:(fun _ ->
+            [ field "prev"
+                ~doc:
+                  "The predicate to be evaluated on the previous account state"
+                ~args:[] ~typ:accountStatePredicate
+                ~resolve:(fun _ {Snapp_basic.Transition.prev; _} -> Some prev)
+            ; field "next"
+                ~doc:"The predicate to be evaluated on the next account state"
+                ~args:[] ~typ:accountStatePredicate
+                ~resolve:(fun _ {Snapp_basic.Transition.next; _} -> Some next)
+            ] )
+
+      let otherAccountPredicate : (_, Snapp_predicate.Other.t option) typ =
+        obj "OtherAccountPredicate"
+          ~doc:"Predicates to be evaluated on the other account"
+          ~fields:(fun _ ->
+            [ field "accountPredicate"
+                ~doc:"The predicates to be evaluated on the account"
+                ~typ:accountPredicate ~args:[]
+                ~resolve:(fun _ {Snapp_predicate.Other.Poly.predicate; _} ->
+                  Some predicate )
+            ; field "accountTransition"
+                ~doc:
+                  "The predicates to be evaluated on the account state \
+                   transition"
+                ~typ:accountTransitionPredicate ~args:[]
+                ~resolve:(fun _
+                         {Snapp_predicate.Other.Poly.account_transition; _}
+                         -> Some account_transition )
+            ; field "accountVerificationKey"
+                ~doc:
+                  "The predicate to be evaluated on the account's \
+                   verification key"
+                ~typ:(Predicate.eq ~desc:"verification key hash" fieldElement)
+                ~args:[]
+                ~resolve:(fun _ {Snapp_predicate.Other.Poly.account_vk; _} ->
+                  Some account_vk ) ] )
+
+      let epochDataPredicate :
+          (_, Snapp_predicate.Protocol_state.Epoch_data.t option) typ =
+        obj "EpochDataPredicate"
+          ~doc:"Predicates to be evaluated on the epoch data" ~fields:(fun _ ->
+            [ field "ledgerHash"
+                ~doc:"The predicate to be evaluated on the ledger hash"
+                ~typ:(Predicate.eq ~desc:"ledger hash" fieldElement) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Epoch_data.Poly.ledger=
+                             {Epoch_ledger.Poly.hash; _}
+                         ; _ }
+                         -> Some hash )
+            ; field "totalCurrency"
+                ~doc:"The predicate to be evaluated on the total currency"
+                ~typ:(Predicate.closed_interval uint64) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Epoch_data.Poly.ledger=
+                             {Epoch_ledger.Poly.total_currency; _}
+                         ; _ }
+                         ->
+                  Some
+                    (Predicate.map_closed_interval ~f:Amount.to_uint64
+                       total_currency) )
+            ; field "epochSeed"
+                ~doc:"The predicate to be evaluated on the epoch seed"
+                ~typ:(Predicate.eq ~desc:"epoch seed" fieldElement) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Epoch_data.Poly.seed
+                         ; _ }
+                         -> Some seed )
+            ; field "startCheckpoint"
+                ~doc:
+                  "The predicate to be evaluated on the epoch start checkpoint"
+                ~typ:(Predicate.eq ~desc:"epoch start checkpoint" fieldElement)
+                ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Epoch_data.Poly
+                           .start_checkpoint
+                         ; _ }
+                         -> Some start_checkpoint )
+            ; field "lockCheckpoint"
+                ~doc:
+                  "The predicate to be evaluated on the epoch lock checkpoint"
+                ~typ:(Predicate.eq ~desc:"epoch lock checkpoint" fieldElement)
+                ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Epoch_data.Poly
+                           .lock_checkpoint
+                         ; _ }
+                         -> Some lock_checkpoint )
+            ; field "epochLength"
+                ~doc:"The predicate to be evaluated on the epoch length"
+                ~typ:(Predicate.closed_interval uint32) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Epoch_data.Poly
+                           .epoch_length
+                         ; _ }
+                         -> Some epoch_length ) ] )
+
+      let protocolStatePredicate :
+          (_, Snapp_predicate.Protocol_state.t option) typ =
+        obj "ProtocolStatePredicate"
+          ~doc:"Predicates to be evaluated on the protocol state"
+          ~fields:(fun _ ->
+            [ field "snarkedLedgerHash"
+                ~doc:"The predicate to be evaluated on the snarked ledger hash"
+                ~typ:(Predicate.eq ~desc:"ledger hash" fieldElement) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Poly
+                           .snarked_ledger_hash
+                         ; _ }
+                         -> Some snarked_ledger_hash )
+            ; field "nextAvailableToken"
+                ~doc:
+                  "The predicate to be evaluated on the next available token"
+                ~typ:(Predicate.closed_interval token_id) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Poly
+                           .snarked_next_available_token
+                         ; _ }
+                         -> Some snarked_next_available_token )
+            ; field "timestamp"
+                ~doc:"The predicate to be evaluated on the timestamp"
+                ~typ:(Predicate.closed_interval int64) ~args:[]
+                ~resolve:(fun _
+                         {Snapp_predicate.Protocol_state.Poly.timestamp; _}
+                         ->
+                  Some
+                    (Predicate.map_closed_interval ~f:Block_time.to_int64
+                       timestamp) )
+            ; field "blockchainLength"
+                ~doc:"The predicate to be evaluated on the blockchain length"
+                ~typ:(Predicate.closed_interval uint32) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Poly.blockchain_length
+                         ; _ }
+                         -> Some blockchain_length )
+            ; field "minWindowDensity"
+                ~doc:
+                  "The predicate to be evaluated on the minimum window density"
+                ~typ:(Predicate.closed_interval uint32) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Poly
+                           .min_window_density
+                         ; _ }
+                         -> Some min_window_density )
+            ; field "totalCurrency"
+                ~doc:"The predicate to be evaluated on the total currency"
+                ~typ:(Predicate.closed_interval uint64) ~args:[]
+                ~resolve:(fun _
+                         {Snapp_predicate.Protocol_state.Poly.total_currency; _}
+                         ->
+                  Some
+                    (Predicate.map_closed_interval ~f:Amount.to_uint64
+                       total_currency) )
+            ; field "currentGlobalSlot"
+                ~doc:"The predicate to be evaluated on the current global slot"
+                ~typ:(Predicate.closed_interval uint32) ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Poly.curr_global_slot
+                         ; _ }
+                         -> Some curr_global_slot )
+            ; field "globalSlotSinceGenesis"
+                ~doc:
+                  "The predicate to be evaluated on the current global slot \
+                   since genesis" ~typ:(Predicate.closed_interval uint32)
+                ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Poly
+                           .global_slot_since_genesis
+                         ; _ }
+                         -> Some global_slot_since_genesis )
+            ; field "stakingEpochData"
+                ~doc:"The predicates to be evaluated on the staking epoch data"
+                ~typ:epochDataPredicate ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Poly
+                           .staking_epoch_data
+                         ; _ }
+                         -> Some staking_epoch_data )
+            ; field "nextEpochData"
+                ~doc:"The predicates to be evaluated on the next epoch data"
+                ~typ:epochDataPredicate ~args:[]
+                ~resolve:(fun _
+                         { Snapp_predicate.Protocol_state.Poly.next_epoch_data
+                         ; _ }
+                         -> Some next_epoch_data ) ] )
+
+      let snappPredicate : (_, Snapp_predicate.t option) typ =
+        obj "SnappPredicate"
+          ~doc:"The predicates associated with the snapp proof"
+          ~fields:(fun _ ->
+            [ field "accountPredicate"
+                ~doc:"The predicates to be evaluated on this account"
+                ~typ:accountPredicate ~args:[]
+                ~resolve:(fun _ {Snapp_predicate.Poly.self_predicate; _} ->
+                  Some self_predicate )
+            ; field "otherAccountPredicate"
+                ~doc:
+                  "The predicates to be evaluated on the other snapp account"
+                ~typ:otherAccountPredicate ~args:[]
+                ~resolve:(fun _ {Snapp_predicate.Poly.other; _} -> Some other)
+            ; field "protocolStatePredicate"
+                ~doc:"The predicates to be evaluated on the protocol state"
+                ~typ:protocolStatePredicate ~args:[]
+                ~resolve:(fun _
+                         {Snapp_predicate.Poly.protocol_state_predicate; _}
+                         -> Some protocol_state_predicate )
+            ; field "feePayerPredicate"
+                ~doc:"The predicate to be evaluated on the fee-payer"
+                ~typ:(Predicate.eq ~desc:"public key" public_key) ~args:[]
+                ~resolve:(fun _ {Snapp_predicate.Poly.fee_payer; _} ->
+                  Some fee_payer ) ] )
+
+      let party ?doc name :
+          ( _
+          , [< `Proved of Snapp_command.Party.Authorized.Proved.t
+            | `Signed of Snapp_command.Party.Authorized.Signed.t
+            | `Empty of Snapp_command.Party.Authorized.Empty.t ]
+            option )
+          typ =
+        obj name ?doc ~fields:(fun _ ->
+            [ field "publicKey" ~doc:"Public key of the snapp account"
+                ~typ:public_key ~args:[] ~resolve:(fun _ -> function
+                | `Proved
+                    ({data= {body= {pk; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Proved.t)
+                | `Signed
+                    ({data= {body= {pk; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Signed.t)
+                | `Empty
+                    ({data= {body= {pk; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Empty.t) ->
+                    Some pk )
+            ; field "changes" ~doc:"Changes to make to the snapp account"
+                ~typ:changes ~args:[] ~resolve:(fun _ -> function
+                | `Proved
+                    ({data= {body= {update; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Proved.t)
+                | `Signed
+                    ({data= {body= {update; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Signed.t)
+                | `Empty
+                    ({data= {body= {update; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Empty.t) ->
+                    Some update )
+            ; field "balanceChange" ~doc:"Amount to change the balance by"
+                ~typ:int64 ~args:[] ~resolve:(fun _ -> function
+                | `Proved
+                    ({data= {body= {delta; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Proved.t)
+                | `Signed
+                    ({data= {body= {delta; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Signed.t)
+                | `Empty
+                    ({data= {body= {delta; _}; _}; _} :
+                      Snapp_command.Party.Authorized.Empty.t) -> (
+                    let magnitude =
+                      Unsigned.UInt64.to_int64
+                        (Amount.to_uint64 delta.magnitude)
+                    in
+                    match delta.sgn with
+                    | Sgn.Pos ->
+                        Some magnitude
+                    | Sgn.Neg ->
+                        Some (Int64.neg magnitude) ) )
+            ; field "proof" ~doc:"A proof to authorize the snapp command"
+                ~typ:snarkProof ~args:[] ~resolve:(fun _ -> function
+                | `Proved
+                    ({authorization= Proof proof | Both {proof; _}; _} :
+                      Snapp_command.Party.Authorized.Proved.t) ->
+                    Some proof
+                | _ ->
+                    None )
+            ; field "signature"
+                ~doc:"A signature to authorize the snapp command"
+                ~typ:signature ~args:[] ~resolve:(fun _ -> function
+                | `Proved
+                    ({authorization= Signature sign; _} :
+                      Snapp_command.Party.Authorized.Proved.t)
+                | `Signed
+                    ({authorization= sign; _} :
+                      Snapp_command.Party.Authorized.Signed.t) ->
+                    Some sign
+                | _ ->
+                    None )
+            ; field "predicate"
+                ~doc:"The predicate that applies to the snapp command"
+                ~typ:snappPredicate ~args:[] ~resolve:(fun _ -> function
+                | `Proved
+                    ({data= {predicate; _}; _} :
+                      Snapp_command.Party.Authorized.Proved.t) ->
+                    Some predicate
+                | `Signed _ | `Empty _ ->
+                    None ) ] )
+
+      let authorizedParty :
+          ( _
+          , [ `Proved of Snapp_command.Party.Authorized.Proved.t
+            | `Signed of Snapp_command.Party.Authorized.Signed.t ]
+            option )
+          typ =
+        party "AuthorizedParty"
+          ~doc:"A snapp account with an associated authorization"
+
+      let secondParty :
+          ( _
+          , [ `Proved of Snapp_command.Party.Authorized.Proved.t
+            | `Signed of Snapp_command.Party.Authorized.Signed.t
+            | `Empty of Snapp_command.Party.Authorized.Empty.t ]
+            option )
+          typ =
+        party "SecondParty"
+          ~doc:"The secondary account involved in a snapp transaction"
+
+      let feePayment : (_, Other_fee_payer.t option) typ =
+        obj "SnappFeePayment" ~doc:"Fee payment details for snapp commands"
+          ~fields:(fun _ ->
+            [ field "publicKey"
+                ~doc:"Public key of the account to pay fees from"
+                ~typ:public_key ~args:[]
+                ~resolve:(fun _
+                         { Other_fee_payer.payload=
+                             {Other_fee_payer.Payload.Poly.pk; _}
+                         ; _ }
+                         -> Some pk )
+            ; field "nonce" ~doc:"The nonce of the fee payer's account"
+                ~typ:uint32 ~args:[]
+                ~resolve:(fun _
+                         { Other_fee_payer.payload=
+                             {Other_fee_payer.Payload.Poly.nonce; _}
+                         ; _ }
+                         -> Some nonce )
+            ; field "fee" ~doc:"The fee to pay" ~typ:uint64 ~args:[]
+                ~resolve:(fun _
+                         { Other_fee_payer.payload=
+                             {Other_fee_payer.Payload.Poly.fee; _}
+                         ; _ }
+                         -> Some (Fee.to_uint64 fee) )
+            ; field "signature" ~doc:"The signature to authorize the payment"
+                ~typ:signature ~args:[]
+                ~resolve:(fun _ {Other_fee_payer.signature; _} ->
+                  Some signature ) ] )
+    end
+
+    let typ : (_, Snapp_command.t option) typ =
+      obj "SnappCommand" ~fields:(fun _ ->
+          [ field "id" ~typ:(non_null guid) ~args:[]
+              ~resolve:(fun _ snapp_command ->
+                Snapp_command.to_base58_check snapp_command )
+          ; field "hash" ~typ:(non_null string) ~args:[]
+              ~resolve:(fun _ snapp_command ->
+                Transaction_hash.to_base58_check
+                  (Transaction_hash.hash_command (Snapp_command snapp_command))
+            )
+          ; field "token" ~doc:"Token associated with the snapp account(s)"
+              ~typ:token_id ~args:[] ~resolve:(fun _ -> function
+              | Snapp_command.Proved_empty {token_id; _}
+              | Snapp_command.Proved_signed {token_id; _}
+              | Snapp_command.Proved_proved {token_id; _}
+              | Snapp_command.Signed_signed {token_id; _}
+              | Snapp_command.Signed_empty {token_id; _} ->
+                  Some token_id )
+          ; field "snappAccount"
+              ~doc:"The account to send the snapp command to"
+              ~typ:Types.authorizedParty ~args:[] ~resolve:(fun _ -> function
+              | Snapp_command.Proved_empty {one; _}
+              | Snapp_command.Proved_signed {one; _}
+              | Snapp_command.Proved_proved {one; _} ->
+                  Some (`Proved one)
+              | Snapp_command.Signed_signed {one; _}
+              | Snapp_command.Signed_empty {one; _} ->
+                  Some (`Signed one) )
+          ; field "otherAccount"
+              ~doc:
+                "The optional second account to participate in the snapp \
+                 command"
+              ~typ:Types.secondParty ~args:[] ~resolve:(fun _ -> function
+              | Snapp_command.Proved_proved {two; _} ->
+                  Some (`Proved two)
+              | Snapp_command.Proved_signed {two; _}
+              | Snapp_command.Signed_signed {two; _} ->
+                  Some (`Signed two)
+              | Snapp_command.Proved_empty {two; _}
+              | Snapp_command.Signed_empty {two; _} ->
+                  Option.map two ~f:(fun two -> `Empty two) )
+          ; field "feePayment"
+              ~doc:
+                "The fee payment details, for use when the fees will not be \
+                 paid as part of the snapp command"
+              ~typ:Types.feePayment ~args:[] ~resolve:(fun _ -> function
+              | Snapp_command.Proved_proved {fee_payment; _}
+              | Snapp_command.Proved_signed {fee_payment; _}
+              | Snapp_command.Signed_signed {fee_payment; _}
+              | Snapp_command.Proved_empty {fee_payment; _}
+              | Snapp_command.Signed_empty {fee_payment; _} ->
+                  fee_payment ) ] )
   end
 
   let fee_transfer =
@@ -1464,8 +2138,18 @@ module Types = struct
                         (UserCommand.mk_user_command
                            {status; data= {t.data with data= c}})
                   | Snapp_command _ ->
-                      (* TODO: This should be supported in some graph QL query *)
                       None ) )
+        ; field "snappCommands"
+            ~doc:"List of snapp commands included in this block"
+            ~typ:(non_null @@ list @@ non_null SnappCommand.typ)
+            ~args:Arg.[]
+            ~resolve:(fun _ {commands; _} ->
+              List.filter_map commands ~f:(fun t ->
+                  match t.data.data with
+                  | Signed_command _ ->
+                      None
+                  | Snapp_command snapp ->
+                      Some snapp ) )
         ; field "feeTransfer"
             ~doc:"List of fee transfers included in this block"
             ~typ:(non_null @@ list @@ non_null fee_transfer)
@@ -1882,7 +2566,7 @@ module Types = struct
     end
 
     (** Converts a type into a graphql argument type. Expect name to start with uppercase    *)
-    let make_numeric_arg (type t) ~name
+    let make_numeric_arg (type t) ~is_signed ~name
         (module Numeric : Numeric_type with type t = t) =
       let lower_name = String.lowercase name in
       scalar name
@@ -1925,7 +2609,7 @@ module Types = struct
               Ok n
             with _ -> Error (sprintf "Could not decode %s." lower_name) )
           | `Int n ->
-              if n < 0 then
+              if (not is_signed) && n < 0 then
                 Error
                   (sprintf "Could not convert negative number to %s."
                      lower_name)
@@ -1933,9 +2617,14 @@ module Types = struct
           | _ ->
               Error (sprintf "Invalid format for %s type." lower_name) )
 
-    let uint64_arg = make_numeric_arg ~name:"UInt64" (module Unsigned.UInt64)
+    let uint64_arg =
+      make_numeric_arg ~name:"UInt64" ~is_signed:false (module Unsigned.UInt64)
 
-    let uint32_arg = make_numeric_arg ~name:"UInt32" (module Unsigned.UInt32)
+    let uint32_arg =
+      make_numeric_arg ~name:"UInt32" ~is_signed:false (module Unsigned.UInt32)
+
+    let int64_arg =
+      make_numeric_arg ~name:"Int64" ~is_signed:true (module Int64)
 
     let signature_arg =
       obj "SignatureInput"
@@ -2208,6 +2897,655 @@ module Types = struct
                   (Doc.date
                      "Time that a payment gets added to another clients \
                       transaction database") ]
+    end
+
+    module SendSnappCommand = struct
+      module Types = struct
+        let authRequired =
+          scalar "InputAuthRequired"
+            ~doc:
+              "The kind of authorization required to make a change to a snapp \
+               account property. One of None, Proof, Signature, Either, Both"
+            ~coerce:(function
+            | `String s | `Enum s -> (
+              match
+                List.Assoc.find ~equal:String.Caseless.equal
+                  [ ("both", Permissions.Auth_required.Both)
+                  ; ("either", Either)
+                  ; ("proof", Proof)
+                  ; ("none", None)
+                  ; ("signature", Signature) ]
+                  s
+              with
+              | Some auth ->
+                  Ok auth
+              | None ->
+                  Error
+                    "Authorization must be one of None, Proof, Signature, \
+                     Either, Both" )
+            | _ ->
+                Error
+                  "Authorization must be one of None, Proof, Signature, \
+                   Either, Both" )
+
+        let permissions =
+          obj "InputSnappAccountPermissions"
+            ~coerce:
+              (fun stake edit_state send receive set_delegate set_permissions
+                   set_verification_key ->
+              { Permissions.Poly.stake
+              ; edit_state
+              ; send
+              ; receive
+              ; set_delegate
+              ; set_permissions
+              ; set_verification_key } )
+            ~fields:
+              (* TODO: Make these nullable. *)
+              [ arg "stake" ~doc:"Whether the snapp account can stake"
+                  ~typ:(non_null bool)
+              ; arg "edit_state"
+                  ~doc:"Required permissions for editing the snapp state"
+                  ~typ:(non_null authRequired)
+              ; arg "send"
+                  ~doc:"Required permissions for sending a snapp command"
+                  ~typ:(non_null authRequired)
+              ; arg "receive"
+                  ~doc:"Required permissions for receiving a snapp command"
+                  ~typ:(non_null authRequired)
+              ; arg "set_delegate"
+                  ~doc:"Required permissions for modifying the delegate"
+                  ~typ:(non_null authRequired)
+              ; arg "set_permissions"
+                  ~doc:
+                    "Required permissions for modifying the account permissions"
+                  ~typ:(non_null authRequired)
+              ; arg "set_verification_key"
+                  ~doc:
+                    "Required permissions for modifying the snapp \
+                     verification key"
+                  ~typ:(non_null authRequired) ]
+
+        let verificationKey =
+          scalar "InputVerificationKey"
+            ~doc:"A base64-encoded snark verification key" ~coerce:(function
+            | `String s ->
+                (* Use a URI-safe alphabet to make life easier for GraphQL clients.
+                   We prefer this to base58-check here because users should not
+                   be manually entering verification keys.
+                *)
+                Base64.decode ~alphabet:Base64.uri_safe_alphabet s
+                |> Result.map_error ~f:(function `Msg s ->
+                       sprintf "Could not parse verification key: %s" s )
+                |> Result.map
+                     ~f:
+                       (Binable.of_string
+                          ( module Pickles.Side_loaded.Verification_key.Stable
+                                   .Latest ))
+            | json ->
+                (* Verification key json parses an object *)
+                graphql_const_to_yojson json
+                |> Pickles.Side_loaded.Verification_key.of_yojson )
+
+        let snarkProof =
+          scalar "InputSnarkProof" ~doc:"A base64-encoded snark proof"
+            ~coerce:(function
+            | `String s ->
+                (* Use a URI-safe alphabet to make life easier for GraphQL clients.
+                   We prefer this to base58-check here because users should not
+                   be manually entering verification keys.
+                *)
+                Base64.decode ~alphabet:Base64.uri_safe_alphabet s
+                |> Result.map_error ~f:(function `Msg s ->
+                       sprintf "Could not parse snark proof: %s" s )
+                |> Result.map
+                     ~f:
+                       (Binable.of_string
+                          (module Pickles.Side_loaded.Proof.Stable.Latest))
+            | json ->
+                (* Snark proof json parses an object *)
+                graphql_const_to_yojson json
+                |> Pickles.Side_loaded.Proof.of_yojson )
+
+        let fieldElement =
+          scalar "InputFieldElement" ~doc:"A string-encoded field element"
+            ~coerce:(function
+            | `String s ->
+                Or_error.try_with (fun () ->
+                    Snark_params.Tick.Field.of_string s )
+                |> Result.map_error ~f:(fun err ->
+                       sprintf "Could not decode field element: %s"
+                         (Error.to_string_hum err) )
+            | _ ->
+                Error "Field elements must be encoded as a string" )
+
+        let snappState_vector name ?doc ~coerce ~typ ~default =
+          obj name ?doc
+            ~coerce:(fun x0 x1 x2 x3 x4 x5 x6 x7 ->
+              Pickles_types.Vector.map
+                ~f:(Option.value_map ~f:coerce ~default)
+                [x0; x1; x2; x3; x4; x5; x6; x7] )
+            ~fields:
+              [ arg "x_0" ~typ
+              ; arg "x_1" ~typ
+              ; arg "x_2" ~typ
+              ; arg "x_3" ~typ
+              ; arg "x_4" ~typ
+              ; arg "x_5" ~typ
+              ; arg "x_6" ~typ
+              ; arg "x_7" ~typ ]
+
+        let snappState =
+          snappState_vector "InputSnappState"
+            ~doc:"The state for the snapp account"
+            ~coerce:(fun x -> Snapp_basic.Set_or_keep.Set x)
+            ~typ:fieldElement ~default:Snapp_basic.Set_or_keep.Keep
+
+        let changes =
+          obj "InputSnappAccountChanges"
+            ~coerce:(fun app_state delegate verification_key permissions ->
+              { Snapp_command.Party.Update.Poly.app_state
+              ; delegate= Snapp_basic.Set_or_keep.of_option delegate
+              ; verification_key=
+                  verification_key
+                  |> Option.map
+                       ~f:
+                         (With_hash.of_data ~hash_data:Snapp_account.digest_vk)
+                  |> Snapp_basic.Set_or_keep.of_option
+              ; permissions= Snapp_basic.Set_or_keep.of_option permissions } )
+            ~fields:
+              [ arg' "snappState" ~doc:"The new state of the snapp account"
+                  ~typ:snappState
+                  ~default:Snapp_command.Party.Update.dummy.app_state
+              ; arg "delegate" ~doc:"The public key to delegate to"
+                  ~typ:public_key_arg
+              ; arg "verificationKey"
+                  ~doc:
+                    "The new verification key to associate with the snapp \
+                     account"
+                  ~typ:verificationKey
+              ; arg "permissions"
+                  ~doc:
+                    "The new permissions to associate with the snapp account"
+                  ~typ:permissions ]
+
+        module Predicate = struct
+          let eq ~desc arg_type =
+            obj "InputPredicateEquals"
+              ~doc:"A predicate to check equality against the given value"
+              ~coerce:Snapp_basic.Or_ignore.of_option
+              ~fields:
+                [ arg "equals"
+                    ~doc:
+                      (sprintf
+                         "The %s to be compared against. If not given, this \
+                          predicate is not active"
+                         desc)
+                    ~typ:arg_type ]
+
+          let closed_interval arg_type =
+            obj "InputPredicateClosedInterval"
+              ~doc:
+                "A predicate to check that the value is within the given \
+                 bounds (inclusive)"
+              ~coerce:(fun lower upper ->
+                match (lower, upper) with
+                | Some lower, Some upper ->
+                    Snapp_basic.Or_ignore.Check
+                      {Snapp_predicate.Closed_interval.lower; upper}
+                | _ ->
+                    Snapp_basic.Or_ignore.Ignore )
+              ~fields:
+                [ arg "lower" ~doc:"The lower bound of the comparison"
+                    ~typ:arg_type
+                ; arg "upper" ~doc:"The upper bound of the comparison"
+                    ~typ:arg_type ]
+
+          let map_closed_interval x ~f =
+            Snapp_basic.Or_ignore.map
+              ~f:(Snapp_predicate.Closed_interval.map ~f)
+              x
+        end
+
+        let snappStatePredicate =
+          snappState_vector "InputSnappStatePredicate"
+            ~doc:"Predicates to be evaluated on the snapp state vector"
+            ~coerce:Fn.id
+            ~typ:(Predicate.eq ~desc:"field element" fieldElement)
+            ~default:Snapp_basic.Or_ignore.Ignore
+
+        let accountPredicate =
+          obj "InputAccountPredicate"
+            ~doc:"Predicates to be evaluated on an account"
+            ~coerce:
+              (fun balance nonce receipt_chain_hash public_key delegate state ->
+              ( { balance=
+                    Predicate.map_closed_interval ~f:Balance.of_uint64 balance
+                ; nonce
+                ; receipt_chain_hash
+                ; public_key
+                ; delegate
+                ; state=
+                    ( match state with
+                    | Some state ->
+                        state
+                    | None ->
+                        Pickles_types.Vector.map
+                          ~f:(fun _ -> Snapp_basic.Or_ignore.Ignore)
+                          Snapp_command.Party.Update.dummy.app_state ) }
+                : Snapp_predicate.Account.t ) )
+            ~fields:
+              [ arg' "balance"
+                  ~doc:"The predicate to be evaluated on the balance"
+                  ~typ:(Predicate.closed_interval uint64_arg)
+                  ~default:Ignore
+              ; arg' "nonce" ~doc:"The predicate to be evaluated on the nonce"
+                  ~typ:(Predicate.closed_interval uint32_arg)
+                  ~default:Ignore
+              ; arg' "receiptChainHash"
+                  ~doc:
+                    "The predicate to be evaluated on the receipt chain hash"
+                  ~typ:(Predicate.eq ~desc:"receipt chain hash" fieldElement)
+                  ~default:Ignore
+              ; arg' "publicKey"
+                  ~doc:"The predicate to be evaluated on the public key"
+                  ~typ:(Predicate.eq ~desc:"public key" public_key_arg)
+                  ~default:Ignore
+              ; arg' "delegate"
+                  ~doc:"The predicate to be evaluated on the delegate"
+                  ~typ:(Predicate.eq ~desc:"public key" public_key_arg)
+                  ~default:Ignore
+              ; arg "state" ~doc:"The predicate to be evaluated on the state"
+                  ~typ:snappStatePredicate ]
+
+        let accountStatePredicate =
+          scalar "InputAccountStatePredicate"
+            ~doc:
+              "A predicate on the state of an account. One of Empty, \
+               Non_empty, Any" ~coerce:(function
+            | `String s | `Enum s -> (
+              match
+                List.Assoc.find ~equal:String.Caseless.equal
+                  [ ("empty", Snapp_basic.Account_state.Empty)
+                  ; ("non_empty", Snapp_basic.Account_state.Non_empty)
+                  ; ("any", Any) ]
+                  s
+              with
+              | Some auth ->
+                  Ok auth
+              | None ->
+                  Error
+                    "Account state predicate must be one of Empty, Non_empty, \
+                     Any" )
+            | _ ->
+                Error
+                  "Account state predicate must be one of Empty, Non_empty, Any" )
+
+        let accountTransitionPredicate =
+          obj "InputAccountTransitionPredicate"
+            ~doc:"Predicates to be evaluated on an account state transition"
+            ~coerce:(fun prev next -> {Snapp_basic.Transition.prev; next})
+            ~fields:
+              [ arg' "prev"
+                  ~doc:
+                    "The predicate to be evaluated on the previous account \
+                     state"
+                  ~typ:accountStatePredicate ~default:Any
+              ; arg' "next"
+                  ~doc:
+                    "The predicate to be evaluated on the next account state"
+                  ~typ:accountStatePredicate ~default:Any ]
+
+        let otherAccountPredicate =
+          obj "InputOtherAccountPredicate"
+            ~doc:"Predicates to be evaluated on the other account"
+            ~coerce:(fun predicate account_transition account_vk ->
+              ( {predicate; account_transition; account_vk}
+                : Snapp_predicate.Other.t ) )
+            ~fields:
+              [ arg' "accountPredicate"
+                  ~doc:"The predicates to be evaluated on the account"
+                  ~typ:accountPredicate ~default:Snapp_predicate.Account.accept
+              ; arg' "accountTransition"
+                  ~doc:
+                    "The predicates to be evaluated on the account state \
+                     transition"
+                  ~typ:accountTransitionPredicate
+                  ~default:Snapp_predicate.Other.accept.account_transition
+              ; arg' "accountVerificationKey"
+                  ~doc:
+                    "The predicate to be evaluated on the account's \
+                     verification key"
+                  ~typ:
+                    (Predicate.eq ~desc:"verification key hash" fieldElement)
+                  ~default:Snapp_predicate.Other.accept.account_vk ]
+
+        let epochDataPredicate =
+          obj "InputEpochDataPredicate"
+            ~doc:"Predicates to be evaluated on the epoch data"
+            ~coerce:
+              (fun ledger_hash total_currency seed start_checkpoint
+                   lock_checkpoint epoch_length ->
+              ( { ledger=
+                    { hash= ledger_hash
+                    ; total_currency=
+                        Predicate.map_closed_interval ~f:Amount.of_uint64
+                          total_currency }
+                ; seed
+                ; start_checkpoint
+                ; lock_checkpoint
+                ; epoch_length }
+                : Snapp_predicate.Protocol_state.Epoch_data.t ) )
+            ~fields:
+              [ arg' "ledgerHash"
+                  ~doc:"The predicate to be evaluated on the ledger hash"
+                  ~typ:(Predicate.eq ~desc:"ledger hash" fieldElement)
+                  ~default:Ignore
+              ; arg' "totalCurrency"
+                  ~doc:"The predicate to be evaluated on the total currency"
+                  ~typ:(Predicate.closed_interval uint64_arg)
+                  ~default:Ignore
+              ; arg' "epochSeed"
+                  ~doc:"The predicate to be evaluated on the epoch seed"
+                  ~typ:(Predicate.eq ~desc:"epoch seed" fieldElement)
+                  ~default:Ignore
+              ; arg' "startCheckpoint"
+                  ~doc:
+                    "The predicate to be evaluated on the epoch start \
+                     checkpoint"
+                  ~typ:
+                    (Predicate.eq ~desc:"epoch start checkpoint" fieldElement)
+                  ~default:Ignore
+              ; arg' "lockCheckpoint"
+                  ~doc:
+                    "The predicate to be evaluated on the epoch lock checkpoint"
+                  ~typ:
+                    (Predicate.eq ~desc:"epoch lock checkpoint" fieldElement)
+                  ~default:Ignore
+              ; arg' "epochLength"
+                  ~doc:"The predicate to be evaluated on the epoch length"
+                  ~typ:(Predicate.closed_interval uint32_arg)
+                  ~default:Ignore ]
+
+        let protocolStatePredicate =
+          obj "InputProtocolStatePredicate"
+            ~doc:"Predicates to be evaluated on the protocol state"
+            ~coerce:
+              (fun snarked_ledger_hash snarked_next_available_token timestamp
+                   blockchain_length min_window_density total_currency
+                   curr_global_slot global_slot_since_genesis
+                   staking_epoch_data next_epoch_data ->
+              ( { snarked_ledger_hash
+                ; snarked_next_available_token
+                ; timestamp=
+                    Predicate.map_closed_interval ~f:Block_time.of_int64
+                      timestamp
+                ; blockchain_length
+                ; min_window_density
+                ; last_vrf_output= ()
+                ; total_currency=
+                    Predicate.map_closed_interval ~f:Amount.of_uint64
+                      total_currency
+                ; curr_global_slot
+                ; global_slot_since_genesis
+                ; staking_epoch_data
+                ; next_epoch_data }
+                : Snapp_predicate.Protocol_state.t ) )
+            ~fields:
+              [ arg' "snarkedLedgerHash"
+                  ~doc:
+                    "The predicate to be evaluated on the snarked ledger hash"
+                  ~typ:(Predicate.eq ~desc:"ledger hash" fieldElement)
+                  ~default:Ignore
+              ; arg' "nextAvailableToken"
+                  ~doc:
+                    "The predicate to be evaluated on the next available token"
+                  ~typ:(Predicate.closed_interval token_id_arg)
+                  ~default:Ignore
+              ; arg' "timestamp"
+                  ~doc:"The predicate to be evaluated on the timestamp"
+                  ~typ:(Predicate.closed_interval int64_arg)
+                  ~default:Ignore
+              ; arg' "blockchainLength"
+                  ~doc:"The predicate to be evaluated on the blockchain length"
+                  ~typ:(Predicate.closed_interval uint32_arg)
+                  ~default:Ignore
+              ; arg' "minWindowDensity"
+                  ~doc:
+                    "The predicate to be evaluated on the minimum window \
+                     density"
+                  ~typ:(Predicate.closed_interval uint32_arg)
+                  ~default:Ignore
+              ; arg' "totalCurrency"
+                  ~doc:"The predicate to be evaluated on the total currency"
+                  ~typ:(Predicate.closed_interval uint64_arg)
+                  ~default:Ignore
+              ; arg' "currentGlobalSlot"
+                  ~doc:
+                    "The predicate to be evaluated on the current global slot"
+                  ~typ:(Predicate.closed_interval uint32_arg)
+                  ~default:Ignore
+              ; arg' "globalSlotSinceGenesis"
+                  ~doc:
+                    "The predicate to be evaluated on the current global slot \
+                     since genesis"
+                  ~typ:(Predicate.closed_interval uint32_arg)
+                  ~default:Ignore
+              ; arg' "stakingEpochData"
+                  ~doc:
+                    "The predicates to be evaluated on the staking epoch data"
+                  ~typ:epochDataPredicate
+                  ~default:
+                    Snapp_predicate.Protocol_state.accept.staking_epoch_data
+              ; arg' "nextEpochData"
+                  ~doc:"The predicates to be evaluated on the next epoch data"
+                  ~typ:epochDataPredicate
+                  ~default:
+                    Snapp_predicate.Protocol_state.accept.next_epoch_data ]
+
+        let snappPredicate =
+          obj "InputSnappPredicate"
+            ~doc:"The predicates associated with the snapp proof"
+            ~coerce:
+              (fun self_predicate other protocol_state_predicate fee_payer ->
+              ( {self_predicate; other; protocol_state_predicate; fee_payer}
+                : Snapp_predicate.t ) )
+            ~fields:
+              [ arg' "accountPredicate"
+                  ~doc:"The predicates to be evaluated on this account"
+                  ~typ:accountPredicate
+                  ~default:Snapp_predicate.accept.self_predicate
+              ; arg' "otherAccountPredicate"
+                  ~doc:
+                    "The predicates to be evaluated on the other snapp account"
+                  ~typ:otherAccountPredicate
+                  ~default:Snapp_predicate.accept.other
+              ; arg' "protocolStatePredicate"
+                  ~doc:"The predicates to be evaluated on the protocol state"
+                  ~typ:protocolStatePredicate
+                  ~default:Snapp_predicate.accept.protocol_state_predicate
+              ; arg' "feePayerPredicate"
+                  ~doc:"The predicate to be evaluated on the fee-payer"
+                  ~typ:(Predicate.eq ~desc:"public key" public_key_arg)
+                  ~default:Snapp_predicate.accept.fee_payer ]
+
+        let authorizedParty =
+          obj "InputAuthorizedParty"
+            ~doc:"A snapp account with an associated authorization"
+            ~coerce:(fun pk update delta proof signature snapp_predicate ->
+              let predicate =
+                let signature = Option.bind ~f:Result.ok signature in
+                match snapp_predicate with
+                | Some snapp_predicate ->
+                    let control : Control.t =
+                      match (proof, signature) with
+                      | None, None ->
+                          None_given
+                      | Some proof, None ->
+                          Proof proof
+                      | None, Some signature ->
+                          Signature signature
+                      | Some proof, Some signature ->
+                          Both {proof; signature}
+                    in
+                    Snapp_command_input.Authorization.Proved
+                      (snapp_predicate, control)
+                | None ->
+                    Snapp_command_input.Authorization.Signed
+                      (Option.value_map
+                         ~default:Snapp_command_input.Sign_choice.Other
+                         ~f:(fun s -> Signature s)
+                         signature)
+              in
+              let delta =
+                let magnitude =
+                  Int64.abs delta |> Unsigned.UInt64.of_int64
+                  |> Amount.of_uint64
+                in
+                let sgn = if Int64.(delta >= 0L) then Sgn.Pos else Neg in
+                Amount.Signed.create ~magnitude ~sgn
+              in
+              ( {body= {pk; update; delta}; predicate}
+                : Snapp_command_input.Party.t ) )
+            ~fields:
+              [ arg "publicKey" ~doc:"Public key of the snapp account"
+                  ~typ:(non_null public_key_arg)
+              ; arg' "changes" ~doc:"Changes to make to the snapp account"
+                  ~typ:changes ~default:Snapp_command.Party.Update.dummy
+              ; arg "balanceChange" ~doc:"Amount to change the balance by"
+                  ~typ:(non_null int64_arg)
+              ; arg "proof" ~doc:"A proof to authorize the snapp command"
+                  ~typ:snarkProof
+              ; arg "signature"
+                  ~doc:"A signature to authorize the snapp command"
+                  ~typ:signature_arg
+              ; arg "predicate"
+                  ~doc:"The predicate that applies to the snapp command"
+                  ~typ:snappPredicate ]
+
+        let secondParty =
+          obj "InputSecondParty"
+            ~doc:"The secondary account involved in a snapp transaction"
+            ~coerce:
+              (fun pk update delta proof signature generate_signature
+                   snapp_predicate ->
+              match pk with
+              | None ->
+                  Snapp_command_input.Second_party.Not_given
+              | Some pk -> (
+                  let predicate =
+                    let signature = Option.bind ~f:Result.ok signature in
+                    match snapp_predicate with
+                    | Some snapp_predicate ->
+                        let control : Control.t =
+                          match (proof, signature) with
+                          | None, None ->
+                              None_given
+                          | Some proof, None ->
+                              Proof proof
+                          | None, Some signature ->
+                              Signature signature
+                          | Some proof, Some signature ->
+                              Both {proof; signature}
+                        in
+                        Some
+                          (Snapp_command_input.Authorization.Proved
+                             (snapp_predicate, control))
+                    | None -> (
+                      match (signature, generate_signature) with
+                      | Some signature, _ ->
+                          Some (Signed (Signature signature))
+                      | None, Some true ->
+                          Some (Signed Other)
+                      | None, (None | Some false) ->
+                          None )
+                  in
+                  let delta =
+                    let magnitude =
+                      Int64.abs delta |> Unsigned.UInt64.of_int64
+                      |> Amount.of_uint64
+                    in
+                    let sgn = if Int64.(delta >= 0L) then Sgn.Pos else Neg in
+                    Amount.Signed.create ~magnitude ~sgn
+                  in
+                  match predicate with
+                  | Some predicate ->
+                      Existing {body= {pk; update; delta}; predicate}
+                  | None ->
+                      New {pk; update; delta} ) )
+            ~fields:
+              [ arg "publicKey" ~doc:"Public key of the account"
+                  ~typ:public_key_arg
+              ; arg' "changes" ~doc:"Changes to make to the account"
+                  ~typ:changes ~default:Snapp_command.Party.Update.dummy
+              ; arg' "balanceChange" ~doc:"Amount to change the balance by"
+                  ~typ:int64_arg ~default:0L
+              ; arg "proof" ~doc:"A proof to authorize the account update"
+                  ~typ:snarkProof
+              ; arg "signature"
+                  ~doc:"A signature to authorize the account update"
+                  ~typ:signature_arg
+              ; arg "generateSignature"
+                  ~doc:
+                    "Whether to generate a signature in the daemon (default \
+                     false)"
+                  ~typ:bool
+              ; arg "predicate"
+                  ~doc:"The predicate that applies to the account update"
+                  ~typ:snappPredicate ]
+
+        let feePayment =
+          obj "InputSnappFeePayment"
+            ~doc:"Fee payment details for snapp commands"
+            ~coerce:(fun pk nonce fee signature ->
+              ( { payload=
+                    { pk
+                    ; token_id= Token_id.default
+                    ; nonce
+                    ; fee= Fee.of_uint64 fee }
+                ; sign_choice=
+                    ( match signature with
+                    | None ->
+                        Other
+                    | Some (Ok signature) ->
+                        Signature signature
+                    | Some (Error _) ->
+                        (* TODO: Propagate this error, handle it at the command
+                           level.
+                        *)
+                        Other ) }
+                : Snapp_command_input.Other_fee_payer.t ) )
+            ~fields:
+              [ arg "publicKey"
+                  ~doc:"Public key of the account to pay fees from"
+                  ~typ:(non_null public_key_arg)
+              ; (* TODO: Make this nullable *)
+                arg "nonce" ~doc:"The nonce of the fee payer's account"
+                  ~typ:uint32_arg
+              ; arg "fee" ~doc:"The fee to pay" ~typ:(non_null uint64_arg)
+              ; arg "signature" ~doc:"The signature to authorize the payment"
+                  ~typ:signature_arg ]
+      end
+
+      let typ =
+        obj "InputSendSnappCommand"
+          ~coerce:(fun token_id one two fee_payment ->
+            ({token_id; one; two; fee_payment} : Snapp_command_input.t) )
+          ~fields:
+            [ Fields.token ~doc:"Token associated with the snapp account(s)"
+            ; arg "snappAccount"
+                ~doc:"The account to send the snapp command to"
+                ~typ:(non_null Types.authorizedParty)
+            ; arg' "otherAccount"
+                ~doc:
+                  "The optional second account to participate in the snapp \
+                   command"
+                ~typ:Types.secondParty ~default:Not_given
+            ; arg "feePayment"
+                ~doc:
+                  "The fee payment details, for use when the fees will not be \
+                   paid as part of the snapp command"
+                ~typ:Types.feePayment ]
     end
 
     let set_connection_gating_config =
@@ -2712,6 +4050,24 @@ module Mutations = struct
               ~fee ~fee_token ~fee_payer_pk:token_owner ~valid_until ~body
               ~signature )
 
+  let send_snapp_command =
+    io_field "sendSnappCommand" ~doc:"Send a snapp command"
+      ~typ:(non_null Types.SnappCommand.typ)
+      ~args:Arg.[arg "input" ~typ:(non_null Types.Input.SendSnappCommand.typ)]
+      ~resolve:(fun {ctx= coda; _} () snapp_command_input ->
+        match
+          Mina_commands.setup_and_submit_snapp_command coda snapp_command_input
+        with
+        | `Active f -> (
+            match%map f with
+            | Ok snapp_command ->
+                Ok snapp_command
+            | Error e ->
+                Error ("Couldn't send snapp command: " ^ Error.to_string_hum e)
+            )
+        | `Bootstrapping ->
+            return (Error "Daemon is bootstrapping") )
+
   let send_rosetta_transaction =
     io_field "sendRosettaTransaction"
       ~doc:"Send a transaction in rosetta format"
@@ -2960,6 +4316,7 @@ module Mutations = struct
     ; create_token
     ; create_token_account
     ; mint_tokens
+    ; send_snapp_command
     ; export_logs
     ; set_staking
     ; set_coinbase_receiver
@@ -3064,6 +4421,95 @@ module Queries = struct
                      (Types.UserCommand.mk_user_command
                         {status= Unknown; data= {x with data}})
                | Snapp_command _ ->
+                   None ) )
+
+  let pooled_snapp_commands =
+    field "pooledSnappCommands"
+      ~doc:
+        "Retrieve all the scheduled snapp commands for a specified sender \
+         that the current daemon sees in their transaction pool. All \
+         scheduled commands are queried if no sender is specified"
+      ~typ:(non_null @@ list @@ non_null Types.SnappCommand.typ)
+      ~args:
+        Arg.
+          [ arg "publicKey" ~doc:"Public key of sender of pooled user commands"
+              ~typ:Types.Input.public_key_arg
+          ; arg "hashes" ~doc:"Hashes of the commands to find in the pool"
+              ~typ:(list (non_null string))
+          ; arg "ids" ~typ:(list (non_null guid)) ~doc:"Ids of UserCommands" ]
+      ~resolve:(fun {ctx= coda; _} () opt_pk opt_hashes opt_txns ->
+        let transaction_pool = Mina_lib.transaction_pool coda in
+        let resource_pool =
+          Network_pool.Transaction_pool.resource_pool transaction_pool
+        in
+        ( match (opt_pk, opt_hashes, opt_txns) with
+        | None, None, None ->
+            Network_pool.Transaction_pool.Resource_pool.get_all resource_pool
+        | Some pk, None, None ->
+            let account_id = Account_id.create pk Token_id.default in
+            Network_pool.Transaction_pool.Resource_pool.all_from_account
+              resource_pool account_id
+        | _ -> (
+            let hashes_txns =
+              (* Transactions identified by hashes. *)
+              match opt_hashes with
+              | Some hashes ->
+                  List.filter_map hashes ~f:(fun hash ->
+                      hash |> Transaction_hash.of_base58_check |> Result.ok
+                      |> Option.bind
+                           ~f:
+                             (Network_pool.Transaction_pool.Resource_pool
+                              .find_by_hash resource_pool) )
+              | None ->
+                  []
+            in
+            let txns =
+              (* Transactions as identified by IDs.
+                 This is a little redundant, but it makes our API more
+                 consistent.
+              *)
+              match opt_txns with
+              | Some txns ->
+                  List.filter_map txns ~f:(fun serialized_txn ->
+                      Snapp_command.of_base58_check serialized_txn
+                      |> Result.map ~f:(fun signed_command ->
+                             (* These commands get piped through [forget_check]
+                                below; this is just to make the types work
+                                without extra unnecessary mapping in the other
+                                branches above.
+                             *)
+                             let (`If_this_is_used_it_should_have_a_comment_justifying_it
+                                   cmd) =
+                               User_command.to_valid_unsafe
+                                 (Snapp_command signed_command)
+                             in
+                             Transaction_hash.User_command_with_valid_signature
+                             .create cmd )
+                      |> Result.ok )
+              | None ->
+                  []
+            in
+            let all_txns = hashes_txns @ txns in
+            match opt_pk with
+            | None ->
+                all_txns
+            | Some pk ->
+                (* Only return commands paid for by the given public key. *)
+                List.filter all_txns ~f:(fun txn ->
+                    txn
+                    |> Transaction_hash.User_command_with_valid_signature
+                       .command |> User_command.fee_payer
+                    |> Account_id.public_key
+                    |> Public_key.Compressed.equal pk ) ) )
+        |> List.filter_map ~f:(fun x ->
+               let x =
+                 Transaction_hash.User_command_with_valid_signature
+                 .forget_check x
+               in
+               match x.data with
+               | Snapp_command data ->
+                   Some data
+               | Signed_command _ ->
                    None ) )
 
   let sync_status =
@@ -3234,6 +4680,29 @@ module Queries = struct
         Result.map_error
           (Transaction_inclusion_status.get_status ~frontier_broadcast_pipe
              ~transaction_pool payment.data)
+          ~f:Error.to_string_hum )
+
+  let snapp_status =
+    result_field "snappStatus" ~doc:"Get the status of a snapp command"
+      ~typ:(non_null Types.transaction_status)
+      ~args:
+        Arg.[arg "command" ~typ:(non_null guid) ~doc:"Id of a SnappCommand"]
+      ~resolve:(fun {ctx= coda; _} () serialized_snapp ->
+        let open Result.Let_syntax in
+        let deserialize_snapp serialized_snapp =
+          result_of_or_error
+            (Snapp_command.of_base58_check serialized_snapp)
+            ~error:"Invalid payment provided"
+          |> Result.map ~f:(fun cmd ->
+                 { With_hash.data= cmd
+                 ; hash= Transaction_hash.hash_command (Snapp_command cmd) } )
+        in
+        let%bind snapp_cmd = deserialize_snapp serialized_snapp in
+        let frontier_broadcast_pipe = Mina_lib.transition_frontier coda in
+        let transaction_pool = Mina_lib.transaction_pool coda in
+        Result.map_error
+          (Transaction_inclusion_status.get_snapp_status
+             ~frontier_broadcast_pipe ~transaction_pool snapp_cmd.data)
           ~f:Error.to_string_hum )
 
   let current_snark_worker =
@@ -3566,7 +5035,9 @@ module Queries = struct
     ; initial_peers
     ; get_peers
     ; pooled_user_commands
+    ; pooled_snapp_commands
     ; transaction_status
+    ; snapp_status
     ; trust_status
     ; trust_status_all
     ; snark_pool

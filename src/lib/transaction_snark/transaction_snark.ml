@@ -452,6 +452,19 @@ let chain if_ b ~then_ ~else_ =
   let%bind then_ = then_ and else_ = else_ in
   if_ b ~then_ ~else_
 
+(* Currently, a circuit must have at least 1 of every type of constraint. *)
+let dummy_constraints () =
+  Impl.(
+    let b = exists Boolean.typ_unchecked ~compute:(fun _ -> true) in
+    let g = exists Inner_curve.typ ~compute:(fun _ -> Inner_curve.one) in
+    let _ =
+      Pickles.Step_main_inputs.Ops.scale_fast g (`Plus_two_to_len [|b; b|])
+    in
+    let _ =
+      Pickles.Pairing_main.Scalar_challenge.endo g (Scalar_challenge [b])
+    in
+    ())
+
 module Base = struct
   module User_command_failure = struct
     (** The various ways that a user command may fail. These should be computed
@@ -949,22 +962,6 @@ module Base = struct
               ~receiver_account txn)
   end
 
-  (* Currently, a circuit must have at least 1 of every type of constraint. *)
-  let dummy_constraints () =
-    make_checked
-      Impl.(
-        fun () ->
-          let b = exists Boolean.typ_unchecked ~compute:(fun _ -> true) in
-          let g = exists Inner_curve.typ ~compute:(fun _ -> Inner_curve.one) in
-          let _ =
-            Pickles.Step_main_inputs.Ops.scale_fast g
-              (`Plus_two_to_len [|b; b|])
-          in
-          let _ =
-            Pickles.Pairing_main.Scalar_challenge.endo g (Scalar_challenge [b])
-          in
-          ())
-
   let%snarkydef check_signature shifted ~payload ~is_user_command ~signer
       ~signature =
     let%bind input = Transaction_union_payload.Checked.to_input payload in
@@ -1333,12 +1330,15 @@ module Base = struct
       let%bind signature =
         exists Schnorr.Signature.typ ~request:(As_prover.return req)
       in
-      let%bind pk =
-        Public_key.decompress_var pk
+      let%bind pk, decompressed =
+        Public_key.decompress_var' pk
         (*           (Account_id.Checked.public_key fee_payer_id) *)
       in
-      Schnorr.Checked.verifies shifted signature pk
-        (Random_oracle.Input.field payload_digest)
+      let%bind v =
+        Schnorr.Checked.verifies shifted signature pk
+          (Random_oracle.Input.field payload_digest)
+      in
+      Boolean.all [decompressed; v]
 
     let pay_fee
         ~(constraint_constants : Genesis_constants.Constraint_constants.t)
@@ -1858,14 +1858,18 @@ module Base = struct
                 s.next_available_token_before ]) ;
         proof1_must_verify ()
 
-      let _rule ~constraint_constants : _ Pickles.Inductive_rule.t =
+      let rule ~constraint_constants : _ Pickles.Inductive_rule.t =
         { identifier= "snapp-one-proved"
-        ; prevs= [snapp1_tag]
+        ; prevs= [ (*snapp1_tag*) ]
         ; main=
-            (fun [t1] x ->
-              let s1 = main t1 ~constraint_constants x in
-              [s1] )
-        ; main_value= (fun _ _ -> [true]) }
+            (fun [ (*t1*) ] x ->
+              dummy_constraints () ;
+              (*
+              let s1 = main t1 ~constraint_constants x in *)
+              ignore x ;
+              ignore constraint_constants ;
+              [] )
+        ; main_value= (fun _ _ -> []) }
     end
 
     module Zero_proved = struct
@@ -1873,6 +1877,7 @@ module Base = struct
           ~(constraint_constants : Genesis_constants.Constraint_constants.t)
           (s : Statement.With_sok.Checked.t) =
         let open Impl in
+        let () = dummy_constraints () in
         let ( ! ) = run_checked in
         let payload =
           exists Snapp_command.Payload.Zero_proved.typ ~request:(fun () ->
@@ -1998,12 +2003,15 @@ module Base = struct
         !(Token_id.Checked.Assert.equal s.next_available_token_after
             s.next_available_token_before)
 
-      let _rule ~constraint_constants : _ Pickles.Inductive_rule.t =
+      let rule ~constraint_constants : _ Pickles.Inductive_rule.t =
         { identifier= "snapp-zero-proved"
         ; prevs= []
         ; main=
             (fun [] x ->
-              let () = main ~constraint_constants x in
+              dummy_constraints () ;
+              ignore constraint_constants ;
+              ignore x ;
+              (*               let () = main ~constraint_constants x in *)
               [] )
         ; main_value= (fun _ _ -> []) }
     end
@@ -2798,7 +2806,7 @@ module Base = struct
   *)
   let%snarkydef main ~constraint_constants
       (statement : Statement.With_sok.Checked.t) =
-    let%bind () = dummy_constraints () in
+    let%bind () = make_checked dummy_constraints in
     let%bind (module Shifted) = Tick.Inner_curve.Checked.Shifted.create () in
     let%bind t =
       with_label __LOC__
@@ -2955,7 +2963,7 @@ type tag =
   ( Statement.With_sok.Checked.t
   , Statement.With_sok.t
   , Nat.N2.n
-  , Nat.N2.n )
+  , Nat.N4.n )
   Pickles.Tag.t
 
 let time lab f =
@@ -2971,14 +2979,17 @@ let system ~proof_level ~constraint_constants =
         (module Statement.With_sok.Checked)
         (module Statement.With_sok)
         ~typ:Statement.With_sok.typ
-        ~branches:(module Nat.N2)
+        ~branches:(module Nat.N4)
         ~max_branching:(module Nat.N2)
         ~name:"transaction-snark"
         ~constraint_constants:
           (Genesis_constants.Constraint_constants.to_snark_keys_header
              constraint_constants)
         ~choices:(fun ~self ->
-          [Base.rule ~constraint_constants; Merge.rule ~proof_level self] ) )
+          [ Base.rule ~constraint_constants
+          ; Merge.rule ~proof_level self
+          ; Base.Snapp_command.Zero_proved.rule ~constraint_constants
+          ; Base.Snapp_command.One_proved.rule ~constraint_constants ] ) )
 
 module Verification = struct
   module type S = sig
@@ -3348,7 +3359,10 @@ end) =
 struct
   open Inputs
 
-  let tag, cache_handle, p, Pickles.Provers.[base; merge] =
+  let ( tag
+      , cache_handle
+      , p
+      , Pickles.Provers.[base; merge; snapp_zero_proved; snapp_one_proved] ) =
     system ~proof_level ~constraint_constants
 
   module Proof = (val p)
@@ -3393,7 +3407,7 @@ struct
       ~pending_coinbase_stack_state ~next_available_token_before
       ~next_available_token_after ~snapp_account1 ~snapp_account2 ~state_body t
       handler =
-    let _handler =
+    let handler =
       Base.Snapp_command.handler ~state_body ~snapp_account1 ~snapp_account2 t
         handler
     in
@@ -3407,10 +3421,20 @@ struct
       ; next_available_token_after
       ; sok_digest }
     in
-    let proof =
+    let%map.Async proof =
       match command_to_proofs t with
-      | [] | [_] | [_; _] ->
-          failwith "unimplemented"
+      | [] ->
+          snapp_zero_proved ~handler [] statement
+      | [_proof1] ->
+          (*
+        let a1 = Option.value_exn snapp_account1 in
+        let k = Option.value_exn a1.verification_key in
+          Pickles.Side_loaded.in_prover 
+            Base.Snapp_command.snapp1_tag
+            k.data  ; *)
+          snapp_one_proved ~handler [ (*proof1*) ] statement
+      | [_proof1; _proof2] ->
+          failwith "not supported"
     in
     {statement; proof}
 
@@ -3427,11 +3451,10 @@ struct
     in
     match to_preunion transaction with
     | `Snapp_command t ->
-        Async.Deferred.return
-        @@ of_snapp_command ~sok_digest ~source ~target ~init_stack
-             ~pending_coinbase_stack_state ~next_available_token_before
-             ~next_available_token_after ~snapp_account1 ~snapp_account2
-             ~state_body t handler
+        of_snapp_command ~sok_digest ~source ~target ~init_stack
+          ~pending_coinbase_stack_state ~next_available_token_before
+          ~next_available_token_after ~snapp_account1 ~snapp_account2
+          ~state_body t handler
     | `Transaction t ->
         of_transaction_union sok_digest source target ~init_stack
           ~pending_coinbase_stack_state ~next_available_token_before

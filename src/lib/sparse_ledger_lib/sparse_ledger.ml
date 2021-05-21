@@ -200,7 +200,13 @@ end = struct
   let ith_bit idx i = (idx lsr i) land 1 = 1
 
   let find_index_exn (t : t) aid =
-    List.Assoc.find_exn t.indexes ~equal:Account_id.equal aid
+    try List.Assoc.find_exn t.indexes ~equal:Account_id.equal aid
+    with _ ->
+      failwithf
+        !"Not_found(%{sexp:Account_id.t}, %{sexp:Account_id.t list})"
+        aid
+        (List.map t.indexes ~f:fst)
+        ()
 
   let get_exn ({T.tree; depth; _} as t) idx =
     let rec go i tree =

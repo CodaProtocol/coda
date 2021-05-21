@@ -24,3 +24,10 @@ val get_status :
   -> transaction_pool:Network_pool.Transaction_pool.t
   -> Signed_command.t
   -> State.t Or_error.t
+
+val get_snapp_status :
+     frontier_broadcast_pipe:Transition_frontier.t Option.t
+                             Broadcast_pipe.Reader.t
+  -> transaction_pool:Network_pool.Transaction_pool.t
+  -> Snapp_command.t
+  -> State.t Or_error.t

@@ -283,6 +283,36 @@ module Uncompressed = struct
     let%map bs = Field.Checked.unpack_full y in
     List.hd_exn (Bitstring_lib.Bitstring.Lsb_first.to_list bs)
 
+  let decompress_var' ({x; is_odd} : Compressed.var) =
+    let open Let_syntax in
+    let%bind y, on_curve =
+      let%bind x2 = Field.Checked.square x in
+      let%bind x3_ax =
+        Field.Checked.(mul x (x2 + Field.Var.constant Inner_curve.Params.a))
+      in
+      Field.Checked.(
+        sqrt_check (x3_ax + Field.Var.constant Inner_curve.Params.b))
+    in
+    let%bind parity = parity_var y in
+    let%bind y =
+      let%bind sgn =
+        let ( <> ) = Boolean.( lxor ) in
+        let%bind switch = parity <> is_odd in
+        Field.Checked.if_ switch
+          ~then_:(Field.Var.constant Field.(negate one))
+          ~else_:(Field.Var.constant Field.one)
+      in
+      Field.Checked.mul sgn y
+    in
+    let gx, gy = Inner_curve.(to_affine_exn one) in
+    let%bind x =
+      Field.Checked.if_ on_curve ~then_:x ~else_:(Field.Var.constant gx)
+    in
+    let%bind y =
+      Field.Checked.if_ on_curve ~then_:y ~else_:(Field.Var.constant gy)
+    in
+    return ((x, y), on_curve)
+
   let decompress_var ({x; is_odd} as c : Compressed.var) =
     let open Let_syntax in
     let%bind y =

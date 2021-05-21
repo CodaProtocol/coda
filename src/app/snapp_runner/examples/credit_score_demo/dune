@@ -1,0 +1,4 @@
+(executable
+ (name credit_score_demo)
+ (libraries snark_worker snapp_runner_functor core pickles crypto_params mina_base cli_lib)
+ (preprocess (pps ppx_sexp_conv ppx_custom_printf ppx_let)))

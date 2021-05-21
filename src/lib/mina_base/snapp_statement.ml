@@ -32,7 +32,7 @@ module Poly = struct
     module V1 = struct
       type ('predicate, 'body) t =
         {predicate: 'predicate; body1: 'body; body2: 'body}
-      [@@deriving hlist, sexp]
+      [@@deriving hlist, sexp, yojson]
 
       let to_latest = Fn.id
     end
@@ -51,7 +51,7 @@ module Stable = struct
       ( Predicate.Stable.V1.t
       , Snapp_command.Party.Body.Stable.V1.t )
       Poly.Stable.V1.t
-    [@@deriving sexp]
+    [@@deriving sexp, yojson]
 
     let to_latest = Fn.id
   end

@@ -1243,6 +1243,12 @@ let to_payload (t : t) : Payload.t =
             Option.map fee_payment ~f:(fun {payload; signature= _} -> payload)
         }
 
+let payload_digest (t : t) =
+  to_payload t |> Payload.digested |> Payload.Digested.digest
+
+let sign (t : t) sk =
+  payload_digest t |> Random_oracle_input.field |> Schnorr.sign sk
+
 let signed_signed ?fee_payment ~token_id (signer1, data1) (signer2, data2) : t
     =
   let r : _ Inner.t =
@@ -1253,14 +1259,7 @@ let signed_signed ?fee_payment ~token_id (signer1, data1) (signer2, data2) : t
         Option.map fee_payment ~f:(fun (_priv_key, payload) ->
             {Other_fee_payer.payload; signature= Signature.dummy} ) }
   in
-  let sign =
-    let msg =
-      to_payload (Signed_signed r)
-      |> Payload.digested |> Payload.Digested.digest
-      |> Random_oracle_input.field
-    in
-    fun sk -> Schnorr.sign sk msg
-  in
+  let sign = sign (Signed_signed r) in
   Signed_signed
     { r with
       one= {r.one with authorization= sign signer1}
@@ -1280,14 +1279,7 @@ let signed_empty ?fee_payment ?data2 ~token_id (signer1, data1) : t =
         Option.map fee_payment ~f:(fun (_priv_key, payload) ->
             {Other_fee_payer.payload; signature= Signature.dummy} ) }
   in
-  let sign =
-    let msg =
-      to_payload (Signed_empty r)
-      |> Payload.digested |> Payload.Digested.digest
-      |> Random_oracle_input.field
-    in
-    fun sk -> Schnorr.sign sk msg
-  in
+  let sign = sign (Signed_empty r) in
   Signed_empty
     { r with
       one= {r.one with authorization= sign signer1}

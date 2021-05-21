@@ -18,8 +18,14 @@ let public_key () =
   scalar "PublicKey" ~doc:"Base58Check-encoded public key string"
     ~coerce:(fun key -> `String (Public_key.Compressed.to_base58_check key))
 
+let raw_signature () =
+  scalar "RawSignature" ~doc:"Raw encoded signature" ~coerce:(fun signature ->
+      `String (Mina_base.Signature.Raw.encode signature) )
+
 let uint32 () =
   unsigned_scalar_scalar ~to_string:Unsigned.UInt32.to_string "UInt32"
+
+let int64 () = unsigned_scalar_scalar ~to_string:Int64.to_string "Int64"
 
 let uint64 () =
   unsigned_scalar_scalar ~to_string:Unsigned.UInt64.to_string "UInt64"

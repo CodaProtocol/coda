@@ -7,7 +7,7 @@ module Data = struct
   [%%versioned
   module Stable = struct
     module V1 = struct
-      type t = {constraints: int}
+      type t = {constraints: int} [@@deriving sexp]
 
       let to_latest = Fn.id
     end
@@ -37,9 +37,9 @@ module Stable = struct
       { commitments:
           Backend.Tock.Curve.Affine.t array Plonk_verification_key_evals.t
       ; step_domains: Domains.t array
-      ; index: Impls.Wrap.Verification_key.t
+      ; index: Impls.Wrap.Verification_key.t sexp_opaque
       ; data: Data.t }
-    [@@deriving fields]
+    [@@deriving fields, sexp]
 
     let to_latest = Fn.id
 

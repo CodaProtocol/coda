@@ -95,6 +95,13 @@ val add_transactions :
      * Network_pool.Transaction_pool.Resource_pool.Diff.Rejected.t )
      Deferred.Or_error.t
 
+val add_snapp_transactions :
+     t
+  -> Snapp_command_input.t list
+  -> ( Network_pool.Transaction_pool.Resource_pool.Diff.t
+     * Network_pool.Transaction_pool.Resource_pool.Diff.Rejected.t )
+     Deferred.Or_error.t
+
 val add_full_transactions :
      t
   -> User_command.t list
