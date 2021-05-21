@@ -100,43 +100,6 @@
         },
         {
           "kind": "SCALAR",
-          "name": "RosettaTransaction",
-          "description": "A transaction encoded in the rosetta format",
-          "fields": null,
-          "inputFields": null,
-          "interfaces": null,
-          "enumValues": null,
-          "possibleTypes": null
-        },
-        {
-          "kind": "OBJECT",
-          "name": "SendRosettaTransactionPayload",
-          "description": null,
-          "fields": [
-            {
-              "name": "userCommand",
-              "description": "Command that was sent",
-              "args": [],
-              "type": {
-                "kind": "NON_NULL",
-                "name": null,
-                "ofType": {
-                  "kind": "INTERFACE",
-                  "name": "UserCommand",
-                  "ofType": null
-                }
-              },
-              "isDeprecated": false,
-              "deprecationReason": null
-            }
-          ],
-          "inputFields": null,
-          "interfaces": [],
-          "enumValues": null,
-          "possibleTypes": null
-        },
-        {
-          "kind": "SCALAR",
           "name": "ExtensionalBlock",
           "description": "Block encoded in extensional block format",
           "fields": null,
@@ -3085,6 +3048,43 @@
                 "ofType": {
                   "kind": "OBJECT",
                   "name": "SendRosettaTransactionPayload",
+                  "ofType": null
+                }
+              },
+              "isDeprecated": false,
+              "deprecationReason": null
+            }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "SCALAR",
+          "name": "RosettaTransaction",
+          "description": "A transaction encoded in the rosetta format",
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "OBJECT",
+          "name": "SendRosettaTransactionPayload",
+          "description": null,
+          "fields": [
+            {
+              "name": "userCommand",
+              "description": "Command that was sent",
+              "args": [],
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "INTERFACE",
+                  "name": "UserCommand",
                   "ofType": null
                 }
               },
@@ -9325,6 +9325,37 @@
                 "ofType": {
                   "kind": "SCALAR",
                   "name": "Boolean",
+                  "ofType": null
+                }
+              },
+              "isDeprecated": false,
+              "deprecationReason": null
+            },
+            {
+              "name": "convertRosettaTransaction",
+              "description": "Convert a transaction from rosetta format",
+              "args": [
+                {
+                  "name": "input",
+                  "description": null,
+                  "type": {
+                    "kind": "NON_NULL",
+                    "name": null,
+                    "ofType": {
+                      "kind": "SCALAR",
+                      "name": "RosettaTransaction",
+                      "ofType": null
+                    }
+                  },
+                  "defaultValue": null
+                }
+              ],
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "OBJECT",
+                  "name": "SendRosettaTransactionPayload",
                   "ofType": null
                 }
               },

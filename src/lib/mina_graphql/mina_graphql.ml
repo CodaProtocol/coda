@@ -3548,6 +3548,22 @@ module Queries = struct
         in
         Signed_command.check_signature user_command )
 
+  let convert_rosetta_transaction =
+    io_field "convertRosettaTransaction"
+      ~doc:"Convert a transaction from rosetta format"
+      ~typ:(non_null Types.Payload.send_rosetta_transaction)
+      ~args:Arg.[arg "input" ~typ:(non_null Types.Input.rosetta_transaction)]
+      ~resolve:(fun _ () signed_command ->
+        return
+          (Ok
+             (Types.UserCommand.mk_user_command
+                { data=
+                    { With_hash.data= signed_command
+                    ; hash=
+                        Transaction_hash.hash_command
+                          (User_command.Signed_command signed_command) }
+                ; status= Unknown })) )
+
   let commands =
     [ sync_status
     ; daemon_status
@@ -3574,7 +3590,8 @@ module Queries = struct
     ; genesis_constants
     ; time_offset
     ; next_available_token
-    ; validate_payment ]
+    ; validate_payment
+    ; convert_rosetta_transaction ]
 end
 
 let schema =
