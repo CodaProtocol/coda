@@ -1,5 +1,5 @@
 # This is a temporary hack for the integration test framework to be able to stop
-# and start nodes dyamically in a kubernetes environment. This script takes
+# and start nodes dynamically in a kubernetes environment. This script takes
 # mina arguments and will start and monitor a mina process with those arguments.
 # If a SIGUSR1 signal is sent, it will stop this process, and if a SIGUSR2 is
 # sent, it will resume the process. Since this script is a hack, there are some
