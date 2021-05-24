@@ -36,6 +36,7 @@ Pipeline.build
           S.exactly "dockerfiles/Dockerfile-coda-daemon-puppeteered" "",
           S.exactly "dockerfiles/coda_daemon_puppeteer" "py",
           S.exactly "dockerfiles/scripts/healthcheck-utilities" "sh",
+          S.exactly "buildkite/nightly" "txt",
           S.strictlyStart (S.contains "scripts")
         ],
         path = "Release",

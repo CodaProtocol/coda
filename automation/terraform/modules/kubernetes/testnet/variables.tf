@@ -4,14 +4,6 @@ terraform {
 
 # K8s Cluster Vars
 
-variable "cluster_name" {
-  type = string
-}
-
-variable "cluster_region" {
-  type = string
-}
-
 variable "k8s_context" {
   type = string
 

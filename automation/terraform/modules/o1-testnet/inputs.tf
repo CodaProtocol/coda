@@ -8,10 +8,6 @@ provider "google" {
 
 # K8s Cluster Vars
 
-variable "cluster_name" {
-  type = string
-}
-
 variable "cluster_region" {
   type = string
 }

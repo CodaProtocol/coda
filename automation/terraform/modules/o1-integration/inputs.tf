@@ -10,14 +10,6 @@ variable "aws_route53_zone_id" {
   type = string
 }
 
-variable "cluster_name" {
-  type = string
-}
-
-variable "cluster_region" {
-  type = string
-}
-
 variable "k8s_context" {
   type = string
 }

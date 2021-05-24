@@ -7,8 +7,6 @@ module "kubernetes_testnet" {
   healthcheck_enabled = false
   deploy_watchdog     = false
 
-  cluster_name   = var.cluster_name
-  cluster_region = var.cluster_region
   k8s_context    = var.k8s_context
   testnet_name   = var.testnet_name
 

@@ -13,18 +13,22 @@ provider "aws" {
   region = "us-west-2"
 }
 
+variable "testnet_name" {
+  type    = string
+  default = ""
+}
+
 variable "coda_image" {
   type = string
-
-  description = "Mina daemon image to use in provisioning a ci-net"
-  default     = "gcr.io/o1labs-192920/coda-daemon:0.2.11-develop"
 }
 
 variable "coda_archive_image" {
   type = string
+}
 
-  description = "Mina archive node image to use in provisioning a ci-net"
-  default     = "gcr.io/o1labs-192920/coda-archive:0.2.11-develop"
+variable "seed_count" {
+  type    = number
+  default = 1
 }
 
 variable "whale_count" {
@@ -42,48 +46,50 @@ variable "archive_count" {
   default = 1
 }
 
+variable "archive_configs" {
+  description = "individual archive-node deployment configurations"
+  default     = null
+}
+
 variable "snark_worker_count" {
   type    = number
   default = 1
 }
 
-variable "ci_cluster_region" {
+variable "cluster_region" {
   type    = string
   default = "us-west1"
 }
 
-variable "ci_k8s_ctx" {
+variable "k8s_ctx" {
   type    = string
   default = "gke_o1labs-192920_us-west1_mina-integration-west1"
 }
 
-variable "ci_artifact_path" {
+variable "artifact_path" {
   type    = string
   default = "/tmp"
 }
 
-locals {
-  seed_region = "us-west1"
-  seed_zone   = "us-west1-b"
-}
-
-
 module "ci_testnet" {
-  source    = "../../modules/o1-testnet"
+  source = "../../modules/o1-testnet"
 
-  artifact_path = var.ci_artifact_path
+  artifact_path = var.artifact_path
 
   # TODO: remove obsolete cluster_name var + cluster region
-  cluster_name   = "mina-integration-west1"
-  cluster_region = var.ci_cluster_region
-  k8s_context    = var.ci_k8s_ctx
-  testnet_name   = "ci-net-${substr(sha256(terraform.workspace), 0, 7)}"
+  cluster_region = var.cluster_region
+  k8s_context    = var.k8s_ctx
+  testnet_name   = length(var.testnet_name) > 0 ? var.testnet_name : "ci-net-${substr(sha256(terraform.workspace), 0, 7)}"
 
   coda_image         = var.coda_image
   coda_archive_image = var.coda_archive_image
   coda_agent_image   = "codaprotocol/coda-user-agent:0.1.8"
-  coda_bots_image    = "codaprotocol/bots:1.0.0"
+  coda_bots_image    = "codaprotocol/coda-bots:0.0.13-beta-1"
   coda_points_image  = "codaprotocol/coda-points-hack:32b.4"
+  watchdog_image     = "gcr.io/o1labs-192920/watchdog:0.4.6"
+
+  archive_configs     = var.archive_configs
+  mina_archive_schema = "https://raw.githubusercontent.com/MinaProtocol/mina/fd3980820fb82c7355af49462ffefe6718800b77/src/app/archive/create_schema.sql"
 
   coda_faucet_amount = "10000000000"
   coda_faucet_fee    = "100000000"
@@ -94,23 +100,26 @@ module "ci_testnet" {
   agent_max_tx          = "0.0015"
   agent_send_every_mins = "1"
 
-  archive_node_count  = var.archive_count
-  mina_archive_schema = "https://raw.githubusercontent.com/MinaProtocol/mina/develop/src/app/archive/create_schema.sql"
-
-  seed_zone   = local.seed_zone
-  seed_region = local.seed_region
-
   log_level           = "Info"
   log_txn_pool_gossip = false
 
   block_producer_key_pass           = "naughty blue worm"
   block_producer_starting_host_port = 10501
 
-  snark_worker_replicas   = var.snark_worker_count
+  snark_worker_host_port  = 10401
+  whale_count             = var.whale_count
+  fish_count              = var.fish_count
+  seed_count              = var.seed_count
+  snark_worker_replicas   = 1
   snark_worker_fee        = "0.025"
   snark_worker_public_key = "B62qk4nuKn2U5kb4dnZiUwXeRNtP1LncekdAKddnd1Ze8cWZnjWpmMU"
-  snark_worker_host_port  = 10401
 
-  whale_count = var.whale_count
-  fish_count  = var.fish_count
+  upload_blocks_to_gcloud         = false
+  restart_nodes                   = false
+  restart_nodes_every_mins        = "60"
+  make_reports                    = true
+  make_report_every_mins          = "5"
+  make_report_discord_webhook_url = ""
+  make_report_accounts            = false
+  seed_peers_url                  = ""
 }

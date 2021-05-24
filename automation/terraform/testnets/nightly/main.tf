@@ -27,12 +27,6 @@ variable "testnet_name" {
   default     = "ci-net"
 }
 
-variable "coda_image" {
-  type = string
-
-  description = "Mina daemon image to use in provisioning a ci-net"
-  default     = "gcr.io/o1labs-192920/coda-daemon:0.0.17-beta6-develop-0344dd5"
-}
 
 variable "whale_count" {
   type = number
@@ -48,12 +42,20 @@ variable "fish_count" {
   default     = 1
 }
 
+variable "coda_image" {
+  type = string
+
+  description = "Mina daemon image to use in provisioning a ci-net"
+  default     = "gcr.io/o1labs-192920/coda-daemon:0.2.6-compatible"
+}
+
 variable "coda_archive_image" {
   type = string
 
   description = "Mina archive node image to use in provisioning a ci-net"
-  default     = "gcr.io/o1labs-192920/coda-archive:0.1.0-beta1-develop"
+  default     = "gcr.io/o1labs-192920/coda-archive:0.2.6-compatible"
 }
+
 
 locals {
   seed_region = "us-east4"
@@ -67,10 +69,10 @@ module "ci_testnet" {
   providers = { google.gke = google.google-us-east4 }
   source    = "../../modules/o1-testnet"
 
+  cluster_name          = "mina-integration-west1"
+  cluster_region        = "us-west1"
+  k8s_context           = "gke_o1labs-192920_us-west1_mina-integration-west1"
 
-  cluster_name          = "coda-infra-east4"
-  cluster_region        = "us-east4"
-  k8s_context           = "gke_o1labs-192920_us-east4_coda-infra-east4"
   testnet_name          = var.testnet_name
 
   coda_image            = var.coda_image
@@ -100,8 +102,39 @@ module "ci_testnet" {
   block_producer_key_pass           = "naughty blue worm"
   block_producer_starting_host_port = 10501
 
-  snark_worker_replicas   = 1
-  snark_worker_fee        = "0.025"
+  block_producer_configs = concat(
+    [
+      for i in range(var.whale_count): {
+        name                   = "whale-block-producer-${i + 1}"
+        class                  = "whale"
+        id                     = i + 1
+        private_key_secret     = "online-whale-account-${i + 1}-key"
+        libp2p_secret          = "online-whale-libp2p-${i + 1}-key"
+        enable_gossip_flooding = false
+        run_with_user_agent    = false
+        run_with_bots          = false
+        enable_peer_exchange   = true
+        isolated               = false
+      }
+    ],
+    [
+      for i in range(var.fish_count): {
+        name                   = "fish-block-producer-${i + 1}"
+        class                  = "fish"
+        id                     = i + 1
+        private_key_secret     = "online-fish-account-${i + 1}-key"
+        libp2p_secret          = "online-fish-libp2p-${i + 1}-key"
+        enable_gossip_flooding = false
+        run_with_user_agent    = false
+        run_with_bots          = false
+        enable_peer_exchange   = true
+        isolated               = false
+      }
+    ]
+  )
+
+  snark_worker_replicas = 1
+  snark_worker_fee      = "0.025"
   snark_worker_public_key = "B62qk4nuKn2U5kb4dnZiUwXeRNtP1LncekdAKddnd1Ze8cWZnjWpmMU"
   snark_worker_host_port  = 10401
 
