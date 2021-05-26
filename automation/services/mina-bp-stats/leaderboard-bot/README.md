@@ -10,13 +10,13 @@ Initial config for Leaderboard Bot
     `POSTGRES_PORT`			The postgres port  
     `POSTGRES_USER`			The postgres username  
     `POSTGRES_PASSWORD`		The postgres password  
-    `POSTGRES_DB`			 The postgres  database name  
+    `POSTGRES_DB`			The postgres  database name  
 	
 	**Note**  If postgres is hosted on different machine, make sure to update "postgresql.conf" 
 		and set  "listen_addresses" to appropriate value.  
 	  
   
-## GCS Credentials Config:	  
+## GCS Credentials for Uptime data Config:	  
 	Copy the GCS Credentials JSON file to local folder as survey_collect.py script, 
 	and update the file name in config.py "CREDENTIAL_PATH"  
 	
@@ -25,11 +25,15 @@ Initial config for Leaderboard Bot
 	  
 ## Email Credentials Config:	  
 	Update below in config.py
-	`SENDGRID_API_KEY`	**Required** Sendgrid API secret key.  
-    `FROM_EMAIL`		**Required** From email to be used.
-	`TO_EMAILS`			**Required** list of comma separeted email id's to send email to.
-	
+	`SENDGRID_API_KEY`		**Required** Sendgrid API secret key.  
+    `FROM_EMAIL`			**Required** From email to be used.
+	`TO_EMAILS`				**Required** list of comma separeted email id's to send email to.
 
+## Participant application spreadsheet:	  
+    `SPREADSHEET_SCOPE` 				['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    `SPREADSHEET_NAME` 					'Mina Foundation Delegation Application (Responses)'
+    `SPREADSHEET_JSON` 					GCS credentials json to access applications spreadsheet
+	`MAX_THREADS_TO_DOWNLOAD_FILES`		Max number of concurrent threads to download files from GCS Bucket
 ***
 ### Installing Docker file
 1. Go to the terminal.

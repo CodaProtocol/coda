@@ -1,7 +1,8 @@
 import threading
+from config import BaseConfig
 
 
-def download_batch_into_memory(batch, bucket, inclue_metadata=True, max_threads=50):
+def download_batch_into_memory(batch, bucket, inclue_metadata=True, max_threads=BaseConfig.MAX_THREADS_TO_DOWNLOAD_FILES):
     """Given a batch of storage filenames, download them into memory.
 
     Downloading the files in a batch is multithreaded.
@@ -22,9 +23,8 @@ def download_batch_into_memory(batch, bucket, inclue_metadata=True, max_threads=
         """Standalone function so that we can multithread this."""
         blob = bucket.blob(blob_name=blob_name)
         content = blob.download_as_string()  # json.loads(blob.download_as_string())
-
         state[blob_name] = content
-
+        
     batch_data = {bn: {} for bn in batch}
     threads = []
     active_thread_count = 0
@@ -45,3 +45,4 @@ def download_batch_into_memory(batch, bucket, inclue_metadata=True, max_threads=
     for thread in threads:
         thread.join()
     return batch_data
+

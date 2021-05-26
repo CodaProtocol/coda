@@ -25,7 +25,6 @@ connection = psycopg2.connect(
 
 start_time = time()
 
-
 def Download_Files(start_offset, script_start_time, ten_min_add):
     storage_client = storage.Client.from_service_account_json(BaseConfig.CREDENTIAL_PATH)
     bucket = storage_client.get_bucket(BaseConfig.GCS_BUCKET_NAME)
@@ -36,8 +35,8 @@ def Download_Files(start_offset, script_start_time, ten_min_add):
 
     for blob in blobs:
         if (blob.updated < ten_min_add) and (blob.updated > script_start_time):
-            msg = 'name : {0} time: {1} size: {2}'.format(blob.name, blob.updated, blob.size)
-            logger.info(msg)
+            #msg = 'name : {0} time: {1} size: {2}'.format(blob.name, blob.updated, blob.size)
+            #logger.info(msg)
             file_name_list_for_memory.append(blob.name)
             file_timestamps.append(blob.updated)
         elif blob.updated > ten_min_add:
@@ -46,16 +45,26 @@ def Download_Files(start_offset, script_start_time, ten_min_add):
     logger.info('file count for process : {0}'.format(file_count))
 
     if len(file_name_list_for_memory) > 0:
+        start = time()
         file_contents = download_batch_into_memory(file_name_list_for_memory, bucket)
+        end = time()
+        logger.info('Time to downaload files: {0}'.format(end - start))
         file_name_list = list()
         for k, v in file_contents.items():
             file_name_list.append(k)
             file_json_content_list.append(json.loads(v))
 
         df = pd.json_normalize(file_json_content_list)
-        df.drop(df.columns[[1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14]], axis=1, inplace=True)
+        columns_to_drop = ['receivedFrom',  'nodeData.version', 'nodeData.daemonStatus.blockchainLength', 'nodeData.daemonStatus.syncStatus', 
+        'nodeData.daemonStatus.chainId', 'nodeData.daemonStatus.commitId', 'nodeData.daemonStatus.highestBlockLengthReceived', 
+        'nodeData.daemonStatus.highestUnvalidatedBlockLengthReceived', 'nodeData.daemonStatus.stateHash', 
+        'nodeData.daemonStatus.blockProductionKeys', 'nodeData.daemonStatus.uptimeSecs', 'nodeData.retrievedAt']
+        df.drop(columns_to_drop, axis=1, inplace=True)
         df.insert(0, 'file_timestamps', file_timestamps)
         df.insert(0, 'file_name', file_name_list)
+        if df.columns.values.tolist()[-1] !=  'nodeData.blockHeight':
+            df = df[['file_name', 'file_timestamps', 'receivedAt', 'blockProducerKey', 'nodeData.block.stateHash', 'nodeData.blockHeight']]
+        
     else:
         df = pd.DataFrame()
     return df
@@ -77,7 +86,7 @@ def execute_node_record_batch(conn, df, page_size=100):
         conn.commit()
         logger.info('insert into node record table')
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0}", format(error))
+        logger.info('Error: {0}'.format(error))
         conn.rollback()
         cursor.close()
         return 1
@@ -105,7 +114,7 @@ def execute_point_record_batch(conn, df, page_size=100):
         extras.execute_batch(cursor, query, tuples, page_size)
         conn.commit()
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
+        logger.info('Error: {0} '.format(error))
         conn.rollback()
         cursor.close()
         return 1
@@ -125,7 +134,7 @@ def create_bot_log(conn, values):
         conn.commit()
         logger.info("insert into bot log record table")
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info('Error: {0}', format(error))
+        logger.info('Error: {0}'.format(error))
         conn.rollback()
         cursor.close()
         return -1
@@ -289,17 +298,18 @@ def GCS_main(read_file_interval):
                     logger.info('point record is not empty')
                     # min & max block height calculation
                     # logger.info(Counter(point_record_df['blockchain_height']))
+                
                     max_block_height = point_record_df['nodeData.blockHeight'].max()
                     min_block_height = point_record_df['nodeData.blockHeight'].min()
                     logger.info(
                         'min block height{0} and max block height{1} '.format(min_block_height, max_block_height))
                     distinct_blockchain_height = point_record_df['nodeData.blockHeight'].nunique()
                     if distinct_blockchain_height == 2:
-                        height_filter_df = point_record_df.drop(
+                        point_record_df = point_record_df.drop(
                             point_record_df[(point_record_df['nodeData.blockHeight'] == min_block_height)].index)
                     elif distinct_blockchain_height > 2:
                         # filtered dataframe removed max and min height
-                        height_filter_df = point_record_df.drop(
+                        point_record_df = point_record_df.drop(
                             point_record_df[
                                 (point_record_df['nodeData.blockHeight'] == min_block_height) | (point_record_df[
                                                                                                      'nodeData'
@@ -334,14 +344,13 @@ def GCS_main(read_file_interval):
                                  'nodeData.block.stateHash': 'state_hash'})
                     points_to_insert['created_at'] = datetime.now(timezone.utc)
                     points_to_insert['bot_log_id'] = bot_log_id
-                    print(points_to_insert)
                     #points_to_insert.drop('file_timestamps', inplace=True, axis=1)
                     execute_point_record_batch(connection, points_to_insert)
                     logger.info('data in point records table is inserted')
                     update_scoreboard(connection)
                     update_score_percent(connection)
             except Exception as e:
-                logger.info(e)
+                logger.error('Error:{0}', format(error))
             finally:
                 logger.info('done')
 

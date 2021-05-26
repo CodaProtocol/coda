@@ -27,3 +27,4 @@ class BaseConfig(object):
     SPREADSHEET_SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     SPREADSHEET_NAME = 'Mina Foundation Delegation Application (Responses)'
     SPREADSHEET_JSON = 'leaderboard-bot\minanet_app\mina-foundation-delegation-app-b889c28d5b9b.json'
+    MAX_THREADS_TO_DOWNLOAD_FILES=128
