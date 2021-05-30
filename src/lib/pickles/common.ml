@@ -175,9 +175,10 @@ module Ipa = struct
         Array.of_list_map comm_chals ~f:(fun (comm, _) ->
             Or_infinity.Finite comm )
       in
-      Marlin_plonk_bindings.Pasta_fp_urs.batch_accumulator_check
-        (Backend.Tick.Keypair.load_urs ())
-        comms chals
+      let urs = Backend.Tick.Keypair.load_urs () in
+      Async.In_thread.run (fun () ->
+          Marlin_plonk_bindings.Pasta_fp_urs.batch_accumulator_check urs comms
+            chals )
   end
 end
 

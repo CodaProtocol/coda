@@ -244,7 +244,7 @@ module type Proof_intf = sig
 
   val id : Verification_key.Id.t Lazy.t
 
-  val verify : (statement * t) list -> bool
+  val verify : (statement * t) list -> bool Async.Deferred.t
 end
 
 module Prover = struct
@@ -853,7 +853,11 @@ module Side_loaded = struct
                           Pow_2_roots_of_unity (Int.ceil_log2 input_size)
                       ; h= d.h } )
               ; index=
-                  (match vk.wrap_vk with None -> return false | Some x -> x)
+                  ( match vk.wrap_vk with
+                  | None ->
+                      return (Async.return false)
+                  | Some x ->
+                      x )
               ; data=
                   (* This isn't used in verify_heterogeneous, so we can leave this dummy *)
                   {constraints= 0} }
@@ -1033,7 +1037,10 @@ let%test_module "test no side-loaded" =
       in
       [(Field.Constant.zero, b0); (Field.Constant.one, b1)]
 
-    let%test_unit "verify" = assert (Blockchain_snark.Proof.verify xs)
+    let%test_unit "verify" =
+      assert (
+        Async.Thread_safe.block_on_async_exn (fun () ->
+            Blockchain_snark.Proof.verify xs ) )
   end )
 
 (*

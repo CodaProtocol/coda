@@ -14,7 +14,7 @@ type tag =
 val verify :
      (Protocol_state.Value.t * Proof.t) list
   -> key:Pickles.Verification_key.t
-  -> bool
+  -> bool Async.Deferred.t
 
 val check :
      Witness.t
