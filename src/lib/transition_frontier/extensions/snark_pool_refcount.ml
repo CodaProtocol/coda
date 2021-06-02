@@ -127,7 +127,7 @@ module T = struct
             in
             { num_removed
             ; is_added= is_added || added_scan_state || added_transition }
-        | E (Root_transitioned {new_root= _; garbage= Full garbage_nodes}, _)
+        | E (Root_transitioned {new_root= _; garbage= Full garbage_nodes; _}, _)
           ->
             let open Diff.Node_list in
             let extra_num_removed =

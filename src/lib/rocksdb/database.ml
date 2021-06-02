@@ -19,6 +19,9 @@ let create_checkpoint t dir =
   Rocks.checkpoint_create t.db ~dir ?log_size_for_flush:None ;
   create dir
 
+let make_checkpoint t dir =
+  Rocks.checkpoint_create t.db ~dir ?log_size_for_flush:None
+
 let get_uuid t = t.uuid
 
 let close t = Rocks.close t.db

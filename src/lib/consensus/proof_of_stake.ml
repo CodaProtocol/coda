@@ -2674,7 +2674,6 @@ module Hooks = struct
             let ledger =
               Mina_base.Ledger.Db.create_checkpoint next_epoch_ledger
                 ~directory_name:(staking_epoch_ledger_location local_state)
-                ()
             in
             set_snapshot local_state Staking_epoch_snapshot
               { ledger= Ledger_snapshot.Ledger_db ledger
@@ -3103,8 +3102,7 @@ module Hooks = struct
                  (Mina_base.Ledger.Db.create_checkpoint snarked_ledger
                     ~directory_name:
                       ( !local_state.epoch_ledger_location
-                      ^ Uuid.to_string epoch_ledger_uuids.next )
-                    ())
+                      ^ Uuid.to_string epoch_ledger_uuids.next ))
            ; delegatee_table=
                compute_delegatee_table_ledger_db
                  (Local_state.current_block_production_keys local_state)

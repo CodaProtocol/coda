@@ -84,7 +84,7 @@ module Make (Inputs : Inputs_intf) :
     let kvdb = Kvdb.create directory in
     {uuid; kvdb; depth; directory; detached_parent_signal= Async.Ivar.create ()}
 
-  let create_checkpoint t ~directory_name () =
+  let create_checkpoint t ~directory_name =
     let uuid = Uuid_unix.create () in
     let kvdb = Kvdb.create_checkpoint t.kvdb directory_name in
     { uuid
@@ -92,6 +92,9 @@ module Make (Inputs : Inputs_intf) :
     ; depth= t.depth
     ; directory= directory_name
     ; detached_parent_signal= Async.Ivar.create () }
+
+  let make_checkpoint t ~directory_name =
+    Kvdb.make_checkpoint t.kvdb directory_name
 
   let close {kvdb; uuid= _; depth= _; directory= _; detached_parent_signal} =
     Kvdb.close kvdb ;
