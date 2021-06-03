@@ -10,6 +10,8 @@ open Pipe_lib
 open Signature_lib
 open Network_peer
 
+let max_per_15_seconds = 10
+
 (* TEMP HACK UNTIL DEFUNCTORING: transition frontier interface is simplified *)
 module type Transition_frontier_intf = sig
   type t
@@ -205,13 +207,14 @@ struct
 
       type t = unit Q.t
 
-      let mem t h = Q.mem t h
-
       let add t h =
         if not (Q.mem t h) then (
-          if Q.length t >= max_size then Q.dequeue_front t |> ignore ;
-          Q.enqueue_back_exn t h () )
-        else Q.lookup_and_move_to_back t h |> ignore
+          if Q.length t >= max_size then ignore (Q.dequeue_front t : 'a option) ;
+          Q.enqueue_back_exn t h () ;
+          `Already_mem false )
+        else (
+          ignore (Q.lookup_and_move_to_back t h : unit option) ;
+          `Already_mem true )
     end
 
     type t =
@@ -219,15 +222,17 @@ struct
       ; recently_seen: Lru_cache.t sexp_opaque
       ; locally_generated_uncommitted:
           ( Transaction_hash.User_command_with_valid_signature.t
-          , Time.t )
+          , Time.t * [`Batch of int] )
           Hashtbl.t
             (** Commands generated on this machine, that are not included in the
                 current best tip, along with the time they were added. *)
       ; locally_generated_committed:
           ( Transaction_hash.User_command_with_valid_signature.t
-          , Time.t )
+          , Time.t * [`Batch of int] )
           Hashtbl.t
             (** Ones that are included in the current best tip. *)
+      ; mutable current_batch: int
+      ; mutable remaining_in_batch: int
       ; config: Config.t
       ; logger: Logger.t sexp_opaque
       ; batcher: Batcher.t
@@ -638,6 +643,8 @@ struct
             Hashtbl.create
               ( module Transaction_hash.User_command_with_valid_signature.Stable
                        .Latest )
+        ; current_batch= 0
+        ; remaining_in_batch= max_per_15_seconds
         ; config
         ; logger
         ; batcher= Batcher.create config.verifier
@@ -791,7 +798,7 @@ struct
 
       let score x = Int.max 1 (List.length x)
 
-      let max_per_15_seconds = 10
+      let max_per_15_seconds = max_per_15_seconds
 
       let verified_size = List.length
 
@@ -832,6 +839,7 @@ struct
           verified Envelope.Incoming.t Deferred.Or_error.t =
         let open Deferred.Let_syntax in
         let sender = Envelope.Incoming.sender diffs in
+        let is_sender_local = Envelope.Sender.(equal sender Local) in
         let diffs_are_valid () =
           List.for_all (Envelope.Incoming.data diffs) ~f:(fun cmd ->
               let is_valid = not (User_command.has_insufficient_fee cmd) in
@@ -847,9 +855,13 @@ struct
               is_valid )
         in
         let h = Lru_cache.T.hash diffs.data in
-        let already_mem = Lru_cache.mem t.recently_seen h in
-        Lru_cache.add t.recently_seen h ;
-        if already_mem then Deferred.Or_error.error_string "already saw this"
+        let (`Already_mem already_mem) = Lru_cache.add t.recently_seen h in
+        if already_mem && not is_sender_local then
+          (* We only reject here if the command was from the network: the user
+             may want to re-issue a transaction if it is no longer being
+             rebroadcast but also never made it into a block for some reason.
+          *)
+          Deferred.Or_error.error_string "already saw this"
         else if not (diffs_are_valid ()) then
           Deferred.Or_error.error_string
             "at least one user command had an insufficient fee"
@@ -885,6 +897,25 @@ struct
                 Deferred.Or_error.return diffs'
                 (* Currently we defer all verification to [apply] *) )
 
+      let register_locally_generated t txn =
+        Hashtbl.update t.locally_generated_uncommitted txn ~f:(function
+          | Some (_, `Batch batch_num) ->
+              (* Use the existing [batch_num] on a re-issue, to avoid splitting
+                 existing batches.
+              *)
+              (Time.now (), `Batch batch_num)
+          | None ->
+              let batch_num =
+                if t.remaining_in_batch > 0 then (
+                  t.remaining_in_batch <- t.remaining_in_batch - 1 ;
+                  t.current_batch )
+                else (
+                  t.remaining_in_batch <- max_per_15_seconds - 1 ;
+                  t.current_batch <- t.current_batch + 1 ;
+                  t.current_batch )
+              in
+              (Time.now (), `Batch batch_num) )
+
       let apply t (env : verified Envelope.Incoming.t) =
         let txs = Envelope.Incoming.data env in
         let sender = Envelope.Incoming.sender env in
@@ -912,13 +943,28 @@ struct
                   (*                   let tx = User_command.forget_check tx' in *)
                   let tx' = Transaction_hash.User_command.create tx in
                   if Indexed_pool.member t.pool tx' then
-                    let%bind _ =
-                      trust_record (Trust_system.Actions.Sent_old_gossip, None)
-                    in
-                    go txs''
-                      ( accepted
-                      , (tx, Diff_versioned.Diff_error.Duplicate) :: rejected
-                      )
+                    if is_sender_local then (
+                      [%log' info t.logger]
+                        "Rebroadcasting $cmd already present in the pool"
+                        ~metadata:[("cmd", User_command.to_yojson tx)] ;
+                      Option.iter (check_command tx) ~f:(fun cmd ->
+                          (* Re-register to reset the rebroadcast
+                             timer.
+                          *)
+                          register_locally_generated t
+                            Transaction_hash.(
+                              User_command_with_valid_signature.make cmd
+                                (User_command.hash tx')) ) ;
+                      go txs'' (tx :: accepted, rejected) )
+                    else
+                      let%bind _ =
+                        trust_record
+                          (Trust_system.Actions.Sent_old_gossip, None)
+                      in
+                      go txs''
+                        ( accepted
+                        , (tx, Diff_versioned.Diff_error.Duplicate) :: rejected
+                        )
                   else
                     let account ledger account_id =
                       Option.bind
@@ -1022,8 +1068,7 @@ struct
                           match add_res with
                           | Ok (verified, pool', dropped) ->
                               if is_sender_local then
-                                Hashtbl.add_exn t.locally_generated_uncommitted
-                                  ~key:verified ~data:(Time.now ()) ;
+                                register_locally_generated t verified ;
                               let pool'', dropped_for_size =
                                 drop_until_below_max_size pool' ~pool_max_size
                               in
@@ -1088,10 +1133,10 @@ struct
                               (Insufficient_replace_fee
                                 (`Replace_fee rfee, fee)) ->
                               (* We can't punish peers for this, since an
-                             attacker can simultaneously send different
-                             transactions at the same nonce to different
-                             nodes, which will then naturally gossip them.
-                          *)
+                                 attacker can simultaneously send different
+                                 transactions at the same nonce to different
+                                 nodes, which will then naturally gossip them.
+                              *)
                               let f_log =
                                 if is_sender_local then [%log' error t.logger]
                                 else [%log' debug t.logger]
@@ -1215,48 +1260,70 @@ struct
     end
 
     let get_rebroadcastable (t : t) ~has_timed_out =
-      let metadata ~key ~data =
+      let metadata ~key ~time =
         [ ( "cmd"
           , Transaction_hash.User_command_with_valid_signature.to_yojson key )
-        ; ("time", `String (Time.to_string_abs ~zone:Time.Zone.utc data)) ]
+        ; ("time", `String (Time.to_string_abs ~zone:Time.Zone.utc time)) ]
       in
       let added_str =
         "it was added at $time and its rebroadcast period is now expired."
       in
       let logger = t.logger in
       Hashtbl.filteri_inplace t.locally_generated_uncommitted
-        ~f:(fun ~key ~data ->
-          match has_timed_out data with
+        ~f:(fun ~key ~data:(time, `Batch _) ->
+          match has_timed_out time with
           | `Timed_out ->
               [%log info]
                 "No longer rebroadcasting uncommitted command $cmd, %s"
-                added_str ~metadata:(metadata ~key ~data) ;
+                added_str ~metadata:(metadata ~key ~time) ;
               false
           | `Ok ->
               true ) ;
       Hashtbl.filteri_inplace t.locally_generated_committed
-        ~f:(fun ~key ~data ->
-          match has_timed_out data with
+        ~f:(fun ~key ~data:(time, `Batch _) ->
+          match has_timed_out time with
           | `Timed_out ->
               [%log debug]
                 "Removing committed locally generated command $cmd from \
                  possible rebroadcast pool, %s"
-                added_str ~metadata:(metadata ~key ~data) ;
+                added_str ~metadata:(metadata ~key ~time) ;
               false
           | `Ok ->
               true ) ;
       (* Important to maintain ordering here *)
       let rebroadcastable_txs =
-        Hashtbl.keys t.locally_generated_uncommitted
+        Hashtbl.to_alist t.locally_generated_uncommitted
+        |> List.sort
+             ~compare:(fun (txn1, (_, `Batch batch1))
+                      (txn2, (_, `Batch batch2))
+                      ->
+               let cmp = compare batch1 batch2 in
+               let get_hash =
+                 Transaction_hash.User_command_with_valid_signature.hash
+               in
+               let get_nonce txn =
+                 Transaction_hash.User_command_with_valid_signature.command txn
+                 |> User_command.nonce_exn
+               in
+               if cmp <> 0 then cmp
+               else
+                 let cmp =
+                   Mina_numbers.Account_nonce.compare (get_nonce txn1)
+                     (get_nonce txn2)
+                 in
+                 if cmp <> 0 then cmp
+                 else Transaction_hash.compare (get_hash txn1) (get_hash txn2)
+           )
+        |> List.group
+             ~break:(fun (_, (_, `Batch batch1)) (_, (_, `Batch batch2)) ->
+               batch1 <> batch2 )
         |> List.map
-             ~f:Transaction_hash.User_command_with_valid_signature.command
+             ~f:
+               (List.map ~f:(fun (txn, _) ->
+                    Transaction_hash.User_command_with_valid_signature.command
+                      txn ))
       in
-      if List.is_empty rebroadcastable_txs then []
-      else
-        [ List.sort rebroadcastable_txs ~compare:(fun tx1 tx2 ->
-              User_command.(
-                Mina_numbers.Account_nonce.compare (nonce_exn tx1)
-                  (nonce_exn tx2)) ) ]
+      rebroadcastable_txs
   end
 
   include Network_pool_base.Make (Transition_frontier) (Resource_pool)
@@ -1356,7 +1423,7 @@ let%test_module _ =
       let _ =
         Hashtbl.merge pool.locally_generated_committed
           pool.locally_generated_uncommitted ~f:(fun ~key -> function
-          | `Both (committed, uncommitted) ->
+          | `Both ((committed, _), (uncommitted, _)) ->
               failwithf
                 !"Command \
                   %{sexp:Transaction_hash.User_command_with_valid_signature.t} \
