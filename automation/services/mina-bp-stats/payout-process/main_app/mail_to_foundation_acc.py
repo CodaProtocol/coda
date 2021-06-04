@@ -16,7 +16,7 @@ connection_leaderboard = psycopg2.connect(
     password=BaseConfig.POSTGRES_LEADERBOARD_PASSWORD
 )
 
-
+BLOCKS_CSV = 'blocks_won.csv'
 def postgresql_to_dataframe(conn):
     # get records where blocks_won is 0
     select_query = """select provider_pub_key,winner_pub_key,blocks  from payout_summary where blocks=0;"""
@@ -38,7 +38,7 @@ def postgresql_to_dataframe(conn):
 
 def mail_to_foundation_accounts(zero_block_producers, epoch_no):
     blocks_df = zero_block_producers
-    blocks_df.to_csv('blocks_won.csv')
+    blocks_df.to_csv(BLOCKS_CSV)
 
     message = Mail(from_email=BaseConfig.FROM_EMAIL,
                    to_emails=BaseConfig.PROVIDER_EMAIL,
@@ -46,13 +46,13 @@ def mail_to_foundation_accounts(zero_block_producers, epoch_no):
                    plain_text_content='Please see the attached list of zero block producers',
                    html_content='<p> Hi, please find the attachment Below </p>')
 
-    with open('blocks_won.csv', 'rb') as fd:
+    with open(BLOCKS_CSV, 'rb') as fd:
         data = fd.read()
         fd.close()
     b64data = base64.b64encode(data)
     attch_file = Attachment(
         FileContent(str(b64data, 'utf-8')),
-        FileName('blocks_won.csv'),
+        FileName(BLOCKS_CSV),
         FileType('application/csv'),
         Disposition('attachment')
     )

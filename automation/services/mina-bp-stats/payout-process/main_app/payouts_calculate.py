@@ -25,7 +25,7 @@ connection_payout = psycopg2.connect(
     password=BaseConfig.POSTGRES_PAYOUT_PASSWORD
 )
 
-
+ERROR = 'Error: {0}'
 def get_gcs_client():
     credential_path = BaseConfig.CREDENTIAL_PATH
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
@@ -58,7 +58,7 @@ def get_last_processed_epoch_from_audit():
             data_count = cursor.fetchall()
             last_epoch = int(data_count[-1][-1])
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
+        logger.error(ERROR.format(error))
         cursor.close()
         return -1
     finally:
@@ -121,7 +121,7 @@ def insert_data(df, page_size=100):
         extras.execute_batch(cursor, query, tuples, page_size)
         connection_payout.commit()
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
+        logger.error(ERROR.format(error))
         connection_payout.rollback()
         cursor.close()
         result = -1
@@ -199,7 +199,7 @@ def insert_into_audit_table(file_name):
         cursor.execute(insert_audit_sql, values)
         connection_payout.commit()
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
+        logger.error(ERROR.format(error))
         connection_payout.rollback()
         cursor.close()
     finally:
