@@ -34,16 +34,22 @@
    ;; Indices
    marlin_plonk_bindings_pasta_fp_index
    marlin_plonk_bindings_pasta_fq_index
+   marlin_plonk_bindings_pasta_5_wires_fp_index
+   marlin_plonk_bindings_pasta_5_wires_fq_index
    marlin_plonk_bindings_tweedle_fp_index
    marlin_plonk_bindings_tweedle_fq_index
    ;; Verification indices
    marlin_plonk_bindings_pasta_fp_verifier_index
    marlin_plonk_bindings_pasta_fq_verifier_index
+   marlin_plonk_bindings_pasta_5_wires_fp_verifier_index
+   marlin_plonk_bindings_pasta_5_wires_fq_verifier_index
    marlin_plonk_bindings_tweedle_fp_verifier_index
    marlin_plonk_bindings_tweedle_fq_verifier_index
    ;; Proofs
    marlin_plonk_bindings_pasta_fp_proof
    marlin_plonk_bindings_pasta_fq_proof
+   marlin_plonk_bindings_pasta_5_wires_fp_proof
+   marlin_plonk_bindings_pasta_5_wires_fq_proof
    marlin_plonk_bindings_tweedle_fp_proof
    marlin_plonk_bindings_tweedle_fq_proof
    ;; Oracles

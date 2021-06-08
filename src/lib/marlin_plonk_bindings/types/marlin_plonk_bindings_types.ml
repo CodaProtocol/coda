@@ -50,6 +50,48 @@ module Plonk_verifier_index = struct
     ; shifts: 'field Plonk_verification_shifts.t }
 end
 
+module Plonk_5_wires_verification_evals = struct
+  type 'poly_comm t =
+    { sigma_comm_0: 'poly_comm
+    ; sigma_comm_1: 'poly_comm
+    ; sigma_comm_2: 'poly_comm
+    ; sigma_comm_3: 'poly_comm
+    ; sigma_comm_4: 'poly_comm
+    ; ql_comm: 'poly_comm
+    ; qr_comm: 'poly_comm
+    ; qo_comm: 'poly_comm
+    ; qq_comm: 'poly_comm
+    ; qp_comm: 'poly_comm
+    ; qm_comm: 'poly_comm
+    ; qc_comm: 'poly_comm
+    ; rcm_comm_0: 'poly_comm
+    ; rcm_comm_1: 'poly_comm
+    ; rcm_comm_2: 'poly_comm
+    ; rcm_comm_3: 'poly_comm
+    ; rcm_comm_4: 'poly_comm
+    ; psm_comm: 'poly_comm
+    ; add_comm: 'poly_comm
+    ; double_comm: 'poly_comm
+    ; mul1_comm: 'poly_comm
+    ; mul2_comm: 'poly_comm
+    ; emul_comm: 'poly_comm
+    ; pack_comm: 'poly_comm }
+end
+
+module Plonk_5_wires_verification_shifts = struct
+  type 'field t = {s0: 'field; s1: 'field; s2: 'field; s3: 'field; s4: 'field}
+end
+
+module Plonk_5_wires_verifier_index = struct
+  type ('field, 'urs, 'poly_comm) t =
+    { domain: 'field Plonk_domain.t
+    ; max_poly_size: int
+    ; max_quot_size: int
+    ; urs: 'urs
+    ; evals: 'poly_comm Plonk_5_wires_verification_evals.t
+    ; shifts: 'field Plonk_5_wires_verification_shifts.t }
+end
+
 module Plonk_gate = struct
   module Kind = struct
     type t =
@@ -82,6 +124,31 @@ module Plonk_gate = struct
   type 'a t = {kind: Kind.t; wires: Wires.t; c: 'a array}
 end
 
+module Plonk_5_wires_gate = struct
+  module Kind = struct
+    type t =
+      | Zero
+      | Generic
+      | Poseidon
+      | Add
+      | Double
+      | Vbmul1
+      | Vbmul2
+      | Endomul
+      | Pack
+  end
+
+  module Wire = struct
+    type t = {row: int; col: int}
+  end
+
+  module Wires = struct
+    type t = {l: Wire.t; r: Wire.t; o: Wire.t; q: Wire.t; p: Wire.t}
+  end
+
+  type 'a t = {kind: Kind.t; row: int; wires: Wires.t; c: 'a array}
+end
+
 module Plonk_proof = struct
   module Evaluations = struct
     type 'field t =
@@ -105,6 +172,38 @@ module Plonk_proof = struct
       { l_comm: 'poly_comm
       ; r_comm: 'poly_comm
       ; o_comm: 'poly_comm
+      ; z_comm: 'poly_comm
+      ; t_comm: 'poly_comm }
+  end
+
+  type ('field, 'g, 'poly_comm) t =
+    { messages: 'poly_comm Messages.t
+    ; proof: ('field, 'g) Opening_proof.t
+    ; evals: 'field Evaluations.t * 'field Evaluations.t
+    ; public: 'field array
+    ; prev_challenges: ('field array * 'poly_comm) array }
+end
+
+module Plonk_5_wires_proof = struct
+  module Evaluations = struct
+    type 'field t =
+      { w:
+          'field array
+          * 'field array
+          * 'field array
+          * 'field array
+          * 'field array
+      ; z: 'field array
+      ; t: 'field array
+      ; f: 'field array
+      ; s: 'field array * 'field array * 'field array * 'field array }
+  end
+
+  module Opening_proof = Plonk_proof.Opening_proof
+
+  module Messages = struct
+    type 'poly_comm t =
+      { w_comm: 'poly_comm * 'poly_comm * 'poly_comm * 'poly_comm * 'poly_comm
       ; z_comm: 'poly_comm
       ; t_comm: 'poly_comm }
   end

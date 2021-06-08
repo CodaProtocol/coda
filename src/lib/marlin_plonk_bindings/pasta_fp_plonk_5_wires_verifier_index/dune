@@ -1,0 +1,9 @@
+(library
+ (name marlin_plonk_bindings_pasta_5_wires_fp_verifier_index)
+ (public_name marlin_plonk_bindings.pasta_5_wires_fp_verifier_index)
+ (libraries
+   marlin_plonk_bindings_stubs
+   marlin_plonk_bindings_pasta_5_wires_fp_index)
+ (instrumentation (backend bisect_ppx))
+ (inline_tests)
+ (preprocess (pps ppx_version ppx_inline_test)))
