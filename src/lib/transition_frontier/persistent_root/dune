@@ -1,6 +1,6 @@
 (library
  (name persistent_root)
  (public_name transition_frontier_persistent_root)
- (libraries core_kernel mina_base transition_frontier_full_frontier)
+ (libraries core_kernel mina_base transition_frontier_base)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_jane ppx_coda ppx_version)))

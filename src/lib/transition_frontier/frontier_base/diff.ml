@@ -67,7 +67,10 @@ module Node_list = struct
 end
 
 module Root_transition = struct
-  type 'repr t = {new_root: Root_data.Limited.t; garbage: 'repr Node_list.t}
+  type 'repr t =
+    { new_root: Root_data.Limited.t
+    ; garbage: 'repr Node_list.t
+    ; just_emitted_a_proof: bool }
 
   type 'repr root_transition = 'repr t
 
@@ -77,7 +80,8 @@ module Root_transition = struct
       module V1 = struct
         type t =
           { new_root: Root_data.Limited.Stable.V1.t
-          ; garbage: Node_list.Lite.Stable.V1.t }
+          ; garbage: Node_list.Lite.Stable.V1.t
+          ; just_emitted_a_proof: bool }
 
         let to_latest = Fn.id
       end
@@ -104,11 +108,14 @@ module Root_transition = struct
         module T_nonbinable = struct
           type nonrec t = t
 
-          let to_binable ({new_root; garbage} : t) : Binable_arg.Stable.V1.t =
-            {new_root; garbage}
+          let to_binable ({new_root; garbage; just_emitted_a_proof} : t) :
+              Binable_arg.Stable.V1.t =
+            {new_root; garbage; just_emitted_a_proof}
 
-          let of_binable ({new_root; garbage} : Binable_arg.Stable.V1.t) : t =
-            {new_root; garbage}
+          let of_binable
+              ({new_root; garbage; just_emitted_a_proof} :
+                Binable_arg.Stable.V1.t) : t =
+            {new_root; garbage; just_emitted_a_proof}
         end
 
         include Binable.Of_binable (Binable_arg.Stable.V1) (T_nonbinable)
@@ -142,7 +149,7 @@ let to_yojson (type repr mutant) (key : (repr, mutant) t) =
     | New_node (Lite transition) ->
         State_hash.to_yojson
           (External_transition.Validated.state_hash transition)
-    | Root_transitioned {new_root; garbage} ->
+    | Root_transitioned {new_root; garbage; just_emitted_a_proof} ->
         let garbage_hashes =
           match garbage with
           | Node_list.Full nodes ->
@@ -153,7 +160,7 @@ let to_yojson (type repr mutant) (key : (repr, mutant) t) =
         `Assoc
           [ ("new_root", State_hash.to_yojson (Root_data.Limited.hash new_root))
           ; ("garbage", `List (List.map ~f:State_hash.to_yojson garbage_hashes))
-          ]
+          ; ("just_emitted_a_proof", `Bool just_emitted_a_proof) ]
     | Best_tip_changed breadcrumb ->
         State_hash.to_yojson breadcrumb
   in
@@ -163,9 +170,12 @@ let to_lite (type mutant) (diff : (full, mutant) t) : (lite, mutant) t =
   match diff with
   | New_node (Full breadcrumb) ->
       New_node (Lite (Breadcrumb.validated_transition breadcrumb))
-  | Root_transitioned {new_root; garbage= Full garbage_nodes} ->
+  | Root_transitioned
+      {new_root; garbage= Full garbage_nodes; just_emitted_a_proof} ->
       Root_transitioned
-        {new_root; garbage= Lite (Node_list.to_lite garbage_nodes)}
+        { new_root
+        ; garbage= Lite (Node_list.to_lite garbage_nodes)
+        ; just_emitted_a_proof }
   | Best_tip_changed b ->
       Best_tip_changed b
 

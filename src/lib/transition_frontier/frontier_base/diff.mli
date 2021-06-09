@@ -59,7 +59,10 @@ end
  *  by transitioning the root.
  *)
 module Root_transition : sig
-  type 'repr t = {new_root: Root_data.Limited.t; garbage: 'repr Node_list.t}
+  type 'repr t =
+    { new_root: Root_data.Limited.t
+    ; garbage: 'repr Node_list.t
+    ; just_emitted_a_proof: bool }
 
   type 'repr root_transition = 'repr t
 
