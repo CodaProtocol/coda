@@ -117,6 +117,16 @@ end
 module Constants = Constants
 module Genesis_epoch_data = Genesis_epoch_data
 
+module Coinbase_receiver = struct
+  type t = [`Producer | `Other of Public_key.Compressed.t] [@@deriving yojson]
+
+  let resolve ~self : t -> Public_key.Compressed.t = function
+    | `Producer ->
+        self
+    | `Other pk ->
+        pk
+end
+
 module Data = struct
   module Epoch_seed = struct
     include Mina_base.Epoch_seed
@@ -733,67 +743,171 @@ module Data = struct
     end
 
     let check ~constraint_constants ~global_slot ~global_slot_since_genesis
-        ~seed ~private_key ~public_key ~public_key_compressed
-        ~coinbase_receiver ~total_stake ~logger ~epoch_snapshot =
+        ~seed ~coinbase_receiver ~staking_keypairs ~total_stake ~logger
+        ~epoch_snapshot =
       let open Message in
       let open Local_state in
       let open Snapshot in
-      with_return (fun {return} ->
-          Hashtbl.iteri
-            ( Snapshot.delegators epoch_snapshot public_key_compressed
-            |> Option.value ~default:(Core_kernel.Int.Table.create ()) )
-            ~f:(fun ~key:delegator ~data:account ->
-              let vrf_result =
-                T.eval ~constraint_constants ~private_key
-                  {global_slot; seed; delegator}
-              in
-              let truncated_vrf_result = Output.truncate vrf_result in
-              [%log debug]
-                "VRF result for delegator: $delegator, balance: $balance, \
-                 amount: $amount, result: $result"
-                ~metadata:
-                  [ ( "delegator"
-                    , `Int (Mina_base.Account.Index.to_int delegator) )
-                  ; ( "delegator_pk"
-                    , Public_key.Compressed.to_yojson account.public_key )
-                  ; ("balance", `Int (Balance.to_int account.balance))
-                  ; ("amount", `Int (Amount.to_int total_stake))
-                  ; ( "result"
-                    , `String
-                        (* use sexp representation; int might be too small *)
-                        ( Fold.string_bits truncated_vrf_result
-                        |> Bignum_bigint.of_bit_fold_lsb
-                        |> Bignum_bigint.sexp_of_t |> Sexp.to_string ) ) ] ;
-              Mina_metrics.Counter.inc_one
-                Mina_metrics.Consensus.vrf_evaluations ;
-              if
-                Threshold.is_satisfied ~my_stake:account.balance ~total_stake
-                  truncated_vrf_result
-              then
-                return
-                  (Some
-                     ( { Block_data.stake_proof=
-                           { producer_private_key= private_key
-                           ; producer_public_key= public_key
-                           ; delegator
-                           ; delegator_pk= account.public_key
-                           ; coinbase_receiver_pk= coinbase_receiver
-                           ; ledger=
-                               Local_state.Snapshot.Ledger_snapshot
-                               .ledger_subset
-                                 [ Mina_base.(
-                                     Account_id.create
-                                       (Public_key.compress public_key)
-                                       Token_id.default)
-                                 ; Mina_base.(
-                                     Account_id.create account.public_key
-                                       Token_id.default) ]
-                                 epoch_snapshot.ledger }
-                       ; global_slot
-                       ; global_slot_since_genesis
-                       ; vrf_result }
-                     , account.public_key )) ) ;
-          None )
+      let time_call_ms f =
+        let module Time = Core.Time in
+        let start = Time.now () in
+        let x = f () in
+        let elapsed = Time.diff (Time.now ()) start in
+        (Time.Span.to_ms elapsed, x)
+      in
+      let check_vrf ~(staker_keypair : Keypair.t) ~staker_public_key_compressed
+          ~coinbase_receiver_pk ~delegator ~(account : Mina_base.Account.t) =
+        let vrf_result =
+          T.eval ~constraint_constants ~private_key:staker_keypair.private_key
+            {global_slot; seed; delegator}
+        in
+        let truncated_vrf_result = Output.truncate vrf_result in
+        [%log debug]
+          "VRF result for delegator: $delegator, balance: $balance, amount: \
+           $amount, result: $result"
+          ~metadata:
+            [ ("delegator", `Int (Mina_base.Account.Index.to_int delegator))
+            ; ( "delegator_pk"
+              , Public_key.Compressed.to_yojson account.public_key )
+            ; ("balance", `Int (Balance.to_int account.balance))
+            ; ("amount", `Int (Amount.to_int total_stake))
+            ; ( "result"
+              , `String
+                  (* use sexp representation; int might be too small *)
+                  ( Fold.string_bits truncated_vrf_result
+                  |> Bignum_bigint.of_bit_fold_lsb |> Bignum_bigint.sexp_of_t
+                  |> Sexp.to_string ) ) ] ;
+        Mina_metrics.Counter.inc_one Mina_metrics.Consensus.vrf_evaluations ;
+        if
+          Threshold.is_satisfied ~my_stake:account.balance ~total_stake
+            truncated_vrf_result
+        then
+          Some
+            ( { Block_data.stake_proof=
+                  { producer_private_key= staker_keypair.private_key
+                  ; producer_public_key= staker_keypair.public_key
+                  ; delegator
+                  ; delegator_pk= account.public_key
+                  ; coinbase_receiver_pk
+                  ; ledger=
+                      Local_state.Snapshot.Ledger_snapshot.ledger_subset
+                        [ Mina_base.(
+                            Account_id.create staker_public_key_compressed
+                              Token_id.default)
+                        ; Mina_base.(
+                            Account_id.create account.public_key
+                              Token_id.default) ]
+                        epoch_snapshot.ledger }
+              ; global_slot
+              ; global_slot_since_genesis
+              ; vrf_result }
+            , account.public_key )
+        else None
+      in
+      let max_vrfs_to_evaluate_in_slot =
+        Hashtbl.fold epoch_snapshot.delegatee_table ~init:0
+          ~f:(fun ~key:_ ~data:sub_table count ->
+            count + Hashtbl.length sub_table )
+      in
+      let time_elapsed_ms, (vrfs_evaluated, win) =
+        let open Continue_or_stop in
+        time_call_ms (fun () ->
+            Keypair.And_compressed_pk.Set.fold_until staking_keypairs ~init:0
+              ~f:
+                (fun vrfs_evaluated
+                     (staker_keypair, staker_public_key_compressed) ->
+                let coinbase_receiver_pk =
+                  Coinbase_receiver.resolve ~self:staker_public_key_compressed
+                    coinbase_receiver
+                in
+                let delegators =
+                  match
+                    Snapshot.delegators epoch_snapshot
+                      staker_public_key_compressed
+                  with
+                  | Some delegators ->
+                      delegators
+                  | None ->
+                      Mina_base.Account.Index.Table.create ()
+                in
+                let vrfs_evaluated', win =
+                  Hashtbl.fold delegators ~init:(vrfs_evaluated, None)
+                    ~f:(fun ~key:delegator
+                       ~data:account
+                       (vrfs_evaluated, win)
+                       ->
+                      if Option.is_some win then (vrfs_evaluated, win)
+                      else
+                        let win' =
+                          check_vrf ~staker_keypair
+                            ~staker_public_key_compressed ~coinbase_receiver_pk
+                            ~delegator ~account
+                        in
+                        (vrfs_evaluated + 1, win') )
+                in
+                match win with
+                | None ->
+                    Continue vrfs_evaluated'
+                | Some w ->
+                    Stop (vrfs_evaluated', Some w) )
+              ~finish:(fun vrfs_evaluated -> (vrfs_evaluated, None)) )
+      in
+      Mina_metrics.Consensus.record_slot_check ~time_elapsed_ms
+        ~vrfs_evaluated_in_slot:vrfs_evaluated ~max_vrfs_to_evaluate_in_slot ;
+      win
+
+    let%bench_fun "1_000 vrf checks on single staking account" =
+      let logger = Logger.null () in
+      let constraint_constants =
+        Genesis_constants.Constraint_constants.for_unit_tests
+      in
+      (* let constants = Lazy.force Constants.for_unit_tests in *)
+      let seed =
+        Quickcheck.Generator.generate Epoch_seed.gen ~size:1
+          ~random:(Splittable_random.State.of_int 0xDEADBEEF)
+      in
+      let genesis_ledger, staking_account, private_key =
+        let ledger_accounts = Lazy.force Genesis_ledger.Test.accounts in
+        let ledger =
+          Mina_base.Ledger.create_ephemeral
+            ~depth:constraint_constants.ledger_depth ()
+        in
+        List.iter ledger_accounts ~f:(fun (_, account) ->
+            Mina_base.Ledger.create_new_account_exn ledger
+              (Mina_base.Account.identifier account)
+              account ) ;
+        let sk_opt, account = List.hd_exn ledger_accounts in
+        (ledger, account, Option.value_exn sk_opt)
+      in
+      let public_key = Public_key.of_private_key_exn private_key in
+      let public_key_compressed = Public_key.compress public_key in
+      let staking_keypairs =
+        let keypair = {Keypair.public_key; private_key} in
+        Keypair.And_compressed_pk.Set.singleton (keypair, public_key_compressed)
+      in
+      let total_stake =
+        Mina_base.Ledger.foldi genesis_ledger ~init:Currency.Amount.zero
+          ~f:(fun _addr amount account ->
+            Option.value_exn
+              (Currency.Amount.add amount
+                 (Currency.Balance.to_amount account.balance)) )
+      in
+      let epoch_snapshot =
+        let open Local_state.Snapshot in
+        { ledger= Ledger_snapshot.Genesis_epoch_ledger genesis_ledger
+        ; delegatee_table=
+            Public_key.Compressed.Table.of_alist_exn
+              [ ( public_key_compressed
+                , Mina_base.Account.Index.Table.of_alist_exn
+                    [(0, staking_account)] ) ] }
+      in
+      let check_vrf n =
+        let global_slot = UInt32.of_int n in
+        check ~constraint_constants ~global_slot
+          ~global_slot_since_genesis:global_slot ~seed ~epoch_snapshot
+          ~staking_keypairs ~coinbase_receiver:`Producer ~total_stake ~logger
+      in
+      fun () -> ignore (List.init 1_000 ~f:check_vrf)
   end
 
   module Optional_state_hash = struct
@@ -2350,16 +2464,6 @@ module Data = struct
   end
 end
 
-module Coinbase_receiver = struct
-  type t = [`Producer | `Other of Public_key.Compressed.t] [@@deriving yojson]
-
-  let resolve ~self : t -> Public_key.Compressed.t = function
-    | `Producer ->
-        self
-    | `Other pk ->
-        pk
-end
-
 module Hooks = struct
   open Data
 
@@ -2979,65 +3083,46 @@ module Hooks = struct
           (* Try vrfs for all keypairs that are unseen within this slot until one wins or all lose *)
           (* TODO: Don't do this, and instead pick the one that has the highest
        * chance of winning. See #2573 *)
-          Keypair.And_compressed_pk.Set.fold_until keypairs ~init:()
-            ~f:(fun () (keypair, public_key_compressed) ->
-              let coinbase_receiver =
-                Coinbase_receiver.resolve ~self:public_key_compressed
-                  coinbase_receiver
-              in
-              if
-                not
-                @@ Public_key.Compressed.Set.mem unseen_pks
-                     public_key_compressed
-              then Continue_or_stop.Continue ()
-              else
-                let global_slot =
-                  Global_slot.of_epoch_and_slot ~constants (epoch, slot)
-                in
-                let global_slot_since_genesis =
-                  let slot_diff =
-                    match
-                      Mina_numbers.Global_slot.sub
-                        (Global_slot.slot_number global_slot)
-                        (Consensus_state.curr_global_slot state)
-                    with
-                    | None ->
-                        [%log fatal]
-                          "Checking slot-winner for slot $slot which is older \
-                           than the slot in the latest consensus state $state"
-                          ~metadata:
-                            [ ("slot", Global_slot.to_yojson global_slot)
-                            ; ("state", Consensus_state.Value.to_yojson state)
-                            ] ;
-                        failwith
-                          "Checking slot-winner for a slot which is older \
-                           than the slot in the latest consensus state. \
-                           System time might be out-of-sync"
-                    | Some diff ->
-                        diff
-                  in
-                  Mina_numbers.Global_slot.add
-                    (Consensus_state.global_slot_since_genesis state)
-                    slot_diff
-                in
-                [%log info]
-                  "Checking VRF evaluations at epoch: $epoch, slot: $slot"
-                  ~metadata:
-                    [ ("epoch", `Int (Epoch.to_int epoch))
-                    ; ("slot", `Int (Slot.to_int slot)) ] ;
-                match
-                  Vrf.check ~constraint_constants
-                    ~global_slot:(Global_slot.slot_number global_slot)
-                    ~global_slot_since_genesis ~seed:epoch_data.seed
-                    ~epoch_snapshot ~private_key:keypair.private_key
-                    ~public_key:keypair.public_key ~public_key_compressed
-                    ~coinbase_receiver ~total_stake ~logger
-                with
-                | None ->
-                    Continue_or_stop.Continue ()
-                | Some (data, delegator_pk) ->
-                    Continue_or_stop.Stop (Some (data, delegator_pk)) )
-            ~finish:(fun () -> None)
+          let global_slot =
+            Global_slot.of_epoch_and_slot ~constants (epoch, slot)
+          in
+          let global_slot_since_genesis =
+            let slot_diff =
+              match
+                Mina_numbers.Global_slot.sub
+                  (Global_slot.slot_number global_slot)
+                  (Consensus_state.curr_global_slot state)
+              with
+              | None ->
+                  [%log fatal]
+                    "Checking slot-winner for slot $slot which is older than \
+                     the slot in the latest consensus state $state"
+                    ~metadata:
+                      [ ("slot", Global_slot.to_yojson global_slot)
+                      ; ("state", Consensus_state.Value.to_yojson state) ] ;
+                  failwith
+                    "Checking slot-winner for a slot which is older than the \
+                     slot in the latest consensus state. System time might be \
+                     out-of-sync"
+              | Some diff ->
+                  diff
+            in
+            Mina_numbers.Global_slot.add
+              (Consensus_state.global_slot_since_genesis state)
+              slot_diff
+          in
+          let staking_keypairs =
+            Keypair.And_compressed_pk.Set.filter keypairs ~f:(fun (_, pk) ->
+                Public_key.Compressed.Set.mem unseen_pks pk )
+          in
+          [%log info] "Checking VRF evaluations at epoch: $epoch, slot: $slot"
+            ~metadata:
+              [ ("epoch", `Int (Epoch.to_int epoch))
+              ; ("slot", `Int (Slot.to_int slot)) ] ;
+          Vrf.check ~constraint_constants
+            ~global_slot:(Global_slot.slot_number global_slot)
+            ~global_slot_since_genesis ~seed:epoch_data.seed ~epoch_snapshot
+            ~coinbase_receiver ~total_stake ~logger ~staking_keypairs
         in
         let rec find_winning_slot (slot : Slot.t) =
           if UInt32.compare slot constants.epoch_size >= 0 then
@@ -3683,9 +3768,11 @@ let%test_module "Proof of stake tests" =
         let global_slot_since_genesis = global_slot in
         let result =
           Vrf.check ~constraint_constants ~global_slot
-            ~global_slot_since_genesis ~seed ~private_key ~public_key
-            ~public_key_compressed ~coinbase_receiver:public_key_compressed
-            ~total_stake ~logger ~epoch_snapshot
+            ~global_slot_since_genesis ~seed
+            ~staking_keypairs:
+              (Keypair.And_compressed_pk.Set.singleton
+                 ({Keypair.public_key; private_key}, public_key_compressed))
+            ~coinbase_receiver:`Producer ~total_stake ~logger ~epoch_snapshot
         in
         match result with Some _ -> 1 | None -> 0
       in

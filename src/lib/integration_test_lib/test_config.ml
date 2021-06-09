@@ -1,3 +1,5 @@
+type delegation_config = Block_producer of int | Additional_account of int
+
 module Container_images = struct
   type t =
     { coda: string
@@ -7,8 +9,11 @@ module Container_images = struct
     ; points: string }
 end
 
-module Block_producer = struct
-  type t = {balance: string; timing: Mina_base.Account_timing.t}
+module Account_config = struct
+  type t =
+    { balance: string
+    ; timing: Mina_base.Account_timing.t
+    ; delegate: delegation_config option }
 end
 
 type constants =
@@ -25,7 +30,8 @@ type t =
   ; slots_per_sub_window: int
   ; proof_level: Runtime_config.Proof_keys.Level.t
   ; txpool_max_size: int
-  ; block_producers: Block_producer.t list
+  ; block_producers: Account_config.t list
+  ; additional_accounts: Account_config.t list
   ; num_snark_workers: int
   ; num_archive_nodes: int
   ; log_precomputed_blocks: bool
@@ -41,6 +47,7 @@ let default =
   ; proof_level= Full
   ; txpool_max_size= 3000
   ; block_producers= []
+  ; additional_accounts= []
   ; num_snark_workers= 0
   ; num_archive_nodes= 0
   ; log_precomputed_blocks= false

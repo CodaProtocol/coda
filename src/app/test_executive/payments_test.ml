@@ -21,7 +21,7 @@ module Make (Inputs : Intf.Test.Inputs_intf) = struct
   (* TODO: test snark work *)
   let config =
     let open Test_config in
-    let open Test_config.Block_producer in
+    let open Test_config.Account_config in
     let make_timing ~min_balance ~cliff_time ~cliff_amount ~vesting_period
         ~vesting_increment : Mina_base.Account_timing.t =
       let open Currency in
@@ -35,13 +35,14 @@ module Make (Inputs : Intf.Test.Inputs_intf) = struct
     { default with
       requires_graphql= true
     ; block_producers=
-        [ {balance= "4000"; timing= Untimed}
-        ; {balance= "3000"; timing= Untimed}
+        [ {balance= "4000"; timing= Untimed; delegate= None}
+        ; {balance= "3000"; timing= Untimed; delegate= None}
         ; { balance= "1000"
           ; timing=
               make_timing ~min_balance:100_000_000_000 ~cliff_time:4
                 ~cliff_amount:0 ~vesting_period:2
-                ~vesting_increment:50_000_000_000 } ]
+                ~vesting_increment:50_000_000_000
+          ; delegate= None } ]
     ; num_snark_workers= 0 }
 
   let run network t =

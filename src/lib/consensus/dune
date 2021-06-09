@@ -40,7 +40,8 @@
     ppx_optcomp
     ppx_sexp_conv
     ppx_snarky
-    ppx_version))
+    ppx_version
+    ppx_bench))
  (instrumentation (backend bisect_ppx))
  (synopsis "Consensus mechanisms"))
 

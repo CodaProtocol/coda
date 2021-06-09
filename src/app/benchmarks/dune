@@ -1,7 +1,7 @@
 (executable
  (name main)
  (public_name main)
- (libraries core_bench.inline_benchmarks vrf_lib_tests mina_base)
+ (libraries core_bench.inline_benchmarks vrf_lib_tests mina_base consensus)
  ; the -w list here should be the same as in src/dune
  (flags -short-paths -g -w @a-4-29-40-41-42-44-45-48-58-59-60)
  (instrumentation (backend bisect_ppx))

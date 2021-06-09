@@ -22,8 +22,9 @@ module Make (Inputs : Intf.Test.Inputs_intf) = struct
       requires_graphql= true
     ; block_producers=
         List.init n ~f:(fun _ ->
-            {Block_producer.balance= block_producer_balance; timing= Untimed}
-        ) }
+            { Account_config.balance= block_producer_balance
+            ; timing= Untimed
+            ; delegate= None } ) }
 
   let wait_for_all_to_initialize ~logger network t =
     let open Malleable_error.Let_syntax in

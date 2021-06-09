@@ -64,11 +64,135 @@ module Network_config = struct
     ; terraform: terraform_config }
   [@@deriving to_yojson]
 
+  type 'a accounts = {block_producers: 'a list; additional_accounts: 'a list}
+
+  let count_accounts {block_producers; additional_accounts} =
+    List.length block_producers + List.length additional_accounts
+
+  let flatten_accounts {block_producers; additional_accounts} =
+    block_producers @ additional_accounts
+
+  let fold_map_accounts accounts ~init:acc ~f =
+    let acc', block_producers =
+      List.fold_map accounts.block_producers ~init:acc ~f
+    in
+    let acc'', additional_accounts =
+      List.fold_map accounts.additional_accounts ~init:acc' ~f
+    in
+    (acc'', {block_producers; additional_accounts})
+
+  let id_mapi_accounts accounts ~f =
+    { block_producers=
+        List.mapi accounts.block_producers ~f:(f "block-producer")
+    ; additional_accounts=
+        List.mapi accounts.additional_accounts ~f:(f "additional-account") }
+
+  let map_accounts accounts ~f =
+    { block_producers= List.map accounts.block_producers ~f
+    ; additional_accounts= List.map accounts.additional_accounts ~f }
+
+  let zip_accounts_exn a1 a2 =
+    { block_producers= List.zip_exn a1.block_producers a2.block_producers
+    ; additional_accounts=
+        List.zip_exn a1.additional_accounts a2.additional_accounts }
+
   let terraform_config_to_assoc t =
     let[@warning "-8"] (`Assoc assoc : Yojson.Safe.t) =
       terraform_config_to_yojson t
     in
     assoc
+
+  let generate_account (account_keypairs : Keypair.t accounts)
+      (this_account_keypair : Keypair.t)
+      (this_account_config : Test_config.Account_config.t) :
+      Runtime_config.Accounts.Single.t =
+    let open Account.Timing in
+    let format_pk =
+      Fn.compose Public_key.Compressed.to_string Public_key.compress
+    in
+    let balance = Balance.of_formatted_string this_account_config.balance in
+    let delegate =
+      Option.map this_account_config.delegate ~f:(fun delegation ->
+          let delegate_keypair =
+            match delegation with
+            | Block_producer n ->
+                List.nth_exn account_keypairs.block_producers n
+            | Additional_account n ->
+                List.nth_exn account_keypairs.additional_accounts n
+          in
+          format_pk delegate_keypair.public_key )
+    in
+    let timing =
+      match this_account_config.timing with
+      | Untimed ->
+          None
+      | Timed t ->
+          Some
+            { Runtime_config.Accounts.Single.Timed.initial_minimum_balance=
+                t.initial_minimum_balance
+            ; cliff_time= t.cliff_time
+            ; cliff_amount= t.cliff_amount
+            ; vesting_period= t.vesting_period
+            ; vesting_increment= t.vesting_increment }
+    in
+    let default = Runtime_config.Accounts.Single.default in
+    { default with
+      pk= Some (format_pk this_account_keypair.public_key)
+    ; sk= None
+    ; balance
+    ; delegate
+    ; timing }
+
+  let distribute_keypairs ~logger
+      (account_configs : Test_config.Account_config.t accounts) :
+      Network_keypair.t accounts * Runtime_config.Accounts.Single.t accounts =
+    let keypair_pool =
+      (* the first keypair is the genesis winner and is assumed to be untimed. Therefore dropping it, and not assigning it to any block producer *)
+      let sample_keypairs =
+        Lazy.force Sample_keypairs.keypairs
+        |> Array.to_list |> List.tl_exn
+        |> List.map ~f:(fun (public_key, private_key) ->
+               { Keypair.public_key= Public_key.decompress_exn public_key
+               ; private_key } )
+      in
+      (* we may not have enough sample keypairs available for our config, so we generate some more keypairs as needed *)
+      let num_keypairs_to_generate =
+        max 0 (count_accounts account_configs - List.length sample_keypairs)
+      in
+      let additional_keypairs =
+        if num_keypairs_to_generate > 0 then (
+          [%log warn]
+            "There are not enough sample keypairs to create the network \
+             config. Generating $num_to_generate keypairs."
+            ~metadata:[("num_to_generate", `Int num_keypairs_to_generate)] ;
+          List.init num_keypairs_to_generate ~f:(fun _n -> Keypair.create ()) )
+        else []
+      in
+      sample_keypairs @ additional_keypairs
+    in
+    let assign_keypair pool _ =
+      match pool with
+      | keypair :: rest ->
+          (rest, keypair)
+      | [] ->
+          failwith "not enough sample keypairs to generate test config"
+      (* should probably log a message when this happens and generate them anyway, despite expense *)
+      (* can be done upfront before we do the fold by simply counting the account configs *)
+    in
+    let _lefotver_samples, keypairs =
+      fold_map_accounts account_configs ~init:keypair_pool ~f:assign_keypair
+    in
+    let accounts =
+      zip_accounts_exn keypairs account_configs
+      |> map_accounts ~f:(fun (keypair, config) ->
+             generate_account keypairs keypair config )
+    in
+    let network_keypairs =
+      id_mapi_accounts keypairs ~f:(fun id index keypair ->
+          let secret_name = "test-keypair-" ^ id ^ "-" ^ Int.to_string index in
+          Network_keypair.create_network_keypair ~keypair ~secret_name )
+    in
+    (network_keypairs, accounts)
 
   let expand ~logger ~test_name ~(cli_inputs : Cli_inputs.t) ~(debug : bool)
       ~(test_config : Test_config.t) ~(images : Test_config.Container_images.t)
@@ -81,6 +205,7 @@ module Network_config = struct
         ; txpool_max_size
         ; requires_graphql
         ; block_producers
+        ; additional_accounts
         ; num_snark_workers
         ; num_archive_nodes
         ; log_precomputed_blocks
@@ -98,51 +223,8 @@ module Network_config = struct
     (* see ./src/app/test_executive/README.md for information regarding the namespace name format and length restrictions *)
     let testnet_name = "it-" ^ user ^ "-" ^ git_commit ^ "-" ^ test_name in
     (* GENERATE ACCOUNTS AND KEYPAIRS *)
-    let num_block_producers = List.length block_producers in
-    let block_producer_keypairs, runtime_accounts =
-      (* the first keypair is the genesis winner and is assumed to be untimed. Therefore dropping it, and not assigning it to any block producer *)
-      let keypairs =
-        List.drop (Array.to_list (Lazy.force Sample_keypairs.keypairs)) 1
-      in
-      if num_block_producers > List.length keypairs then
-        failwith
-          "not enough sample keypairs for specified number of block producers" ;
-      let f index ({Test_config.Block_producer.balance; timing}, (pk, sk)) =
-        let runtime_account =
-          let timing =
-            match timing with
-            | Account.Timing.Untimed ->
-                None
-            | Timed t ->
-                Some
-                  { Runtime_config.Accounts.Single.Timed.initial_minimum_balance=
-                      t.initial_minimum_balance
-                  ; cliff_time= t.cliff_time
-                  ; cliff_amount= t.cliff_amount
-                  ; vesting_period= t.vesting_period
-                  ; vesting_increment= t.vesting_increment }
-          in
-          let default = Runtime_config.Accounts.Single.default in
-          { default with
-            pk= Some (Public_key.Compressed.to_string pk)
-          ; sk= None
-          ; balance=
-              Balance.of_formatted_string balance
-              (* delegation currently unsupported *)
-          ; delegate= None
-          ; timing }
-        in
-        let secret_name = "test-keypair-" ^ Int.to_string index in
-        let keypair =
-          {Keypair.public_key= Public_key.decompress_exn pk; private_key= sk}
-        in
-        ( Network_keypair.create_network_keypair ~keypair ~secret_name
-        , runtime_account )
-      in
-      List.mapi ~f
-        (List.zip_exn block_producers
-           (List.take keypairs (List.length block_producers)))
-      |> List.unzip
+    let account_keypairs, runtime_accounts =
+      distribute_keypairs ~logger {block_producers; additional_accounts}
     in
     (* DAEMON CONFIG *)
     let proof_config =
@@ -180,7 +262,7 @@ module Network_config = struct
           (* was: Some proof_config; TODO: prebake ledger and only set hash *)
       ; ledger=
           Some
-            { base= Accounts runtime_accounts
+            { base= Accounts (flatten_accounts runtime_accounts)
             ; add_genesis_winner= None
             ; num_accounts= None
             ; balances= []
@@ -212,7 +294,7 @@ module Network_config = struct
     (* NETWORK CONFIG *)
     { coda_automation_location= cli_inputs.coda_automation_location
     ; debug_arg= debug
-    ; keypairs= block_producer_keypairs
+    ; keypairs= flatten_accounts account_keypairs
     ; constants
     ; terraform=
         { cluster_name
@@ -227,7 +309,7 @@ module Network_config = struct
         ; coda_archive_image= images.archive_node
         ; runtime_config= Runtime_config.to_yojson runtime_config
         ; block_producer_configs=
-            List.mapi block_producer_keypairs ~f:block_producer_config
+            List.mapi account_keypairs.block_producers ~f:block_producer_config
         ; log_precomputed_blocks
         ; archive_node_count= num_archive_nodes
         ; mina_archive_schema

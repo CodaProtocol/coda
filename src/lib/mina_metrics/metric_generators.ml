@@ -29,7 +29,7 @@ module type Time_average_spec_intf = sig
   val rolling_interval : Core.Time.Span.t
 end
 
-module type Moving_average_metric_intf = sig
+module type Average_metric_intf = sig
   type datum
 
   val v : Gauge.t
@@ -39,8 +39,35 @@ module type Moving_average_metric_intf = sig
   val clear : unit -> unit
 end
 
+module Rolling_average (Spec : Metric_spec_intf) () :
+  Average_metric_intf with type datum := float = struct
+  open Spec
+
+  let v = Gauge.v name ~subsystem ~namespace ~help
+
+  let count = ref 0
+
+  let moving_average = ref None
+
+  let clear () =
+    count := 0 ;
+    moving_average := None
+
+  let update_avg ~avg ~count ~value =
+    ((avg /. count) +. value) *. (count +. 1.0)
+
+  let update value =
+    (moving_average :=
+       match !moving_average with
+       | None ->
+           Some value
+       | Some avg ->
+           Some (update_avg ~avg ~value ~count:(Float.of_int !count))) ;
+    incr count
+end
+
 module Moving_bucketed_average (Spec : Bucketed_average_spec_intf) () :
-  Moving_average_metric_intf with type datum := float = struct
+  Average_metric_intf with type datum := float = struct
   open Spec
 
   let v = Gauge.v name ~subsystem ~namespace ~help
@@ -77,7 +104,7 @@ module Moving_bucketed_average (Spec : Bucketed_average_spec_intf) () :
 end
 
 module Moving_time_average (Spec : Time_average_spec_intf) () :
-  Moving_average_metric_intf with type datum := Core.Time.Span.t = struct
+  Average_metric_intf with type datum := Core.Time.Span.t = struct
   open Spec
 
   let () =
