@@ -105,10 +105,12 @@ def insert_uptime_file_history_batch(conn, df, page_size=100):
         nodeData_daemonStatus_blockProductionKeys, nodeData_daemonStatus_uptimeSecs, nodeData_block_stateHash, 
         nodeData_retrievedAt, nodeData_blockHeight, file_created_at, file_modified_at, file_generation, file_owner, file_crc32c, file_md5_hash) 
     VALUES(%s ,%s ,%s ,%s ,%s ,%s ,%s , %s ,%s ,%s ,%s ,%s , %s ,%s ,%s , %s , %s ,%s, %s, %s , %s ,%s, %s ) """
-    cursor = conn.cursor()
+    
     try:
+        cursor = conn.cursor()
         extras.execute_batch(cursor, query, tuples, page_size)
         conn.commit()
+        logger.info("insert into uptime_file_history table")
     except (Exception, psycopg2.DatabaseError) as error:
         logger.error(ERROR.format(error))
         conn.rollback()
@@ -153,8 +155,6 @@ def execute_point_record_batch(conn, df, page_size=100):
     """
 
     tuples = [tuple(x) for x in df.to_numpy()]
-
-    logger.info('Tuples {0}'.format(tuples[0]))
     query = """INSERT INTO point_record_table ( file_name,file_timestamps,blockchain_epoch, node_id, state_hash,blockchain_height,
                 amount,created_at,bot_log_id) 
             VALUES ( %s, %s,  %s, (SELECT id FROM node_record_table WHERE block_producer_key= %s), %s, %s, %s,  %s, %s )"""
