@@ -98,7 +98,6 @@ def insert_uptime_file_history_batch(conn, df, page_size=100):
     block_producer_key, updated_at
     """
     tuples = [tuple(x) for x in df.to_numpy()]
-    df.to_csv('file_name.csv', index=False)
     query = """INSERT INTO uptime_file_history(file_name, receivedAt, receivedFrom, blockProducerKey, 
         nodeData_version, nodeData_daemonStatus_blockchainLength, nodeData_daemonStatus_syncStatus, 
         nodeData_daemonStatus_chainId, nodeData_daemonStatus_commitId, nodeData_daemonStatus_highestBlockLengthReceived, 
