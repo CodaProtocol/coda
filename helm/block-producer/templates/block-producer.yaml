@@ -326,7 +326,12 @@ spec:
       - name: wallet-keys
         emptyDir: {}
       - name: config-dir
+      {{- if $.Values.coda.persistentStorage }}
+        persistentVolumeClaim:
+          claimName: mina-pv-claim
+      {{- else }}
         emptyDir: {}
+      {{- end }}
       - name: actual-libp2p
         emptyDir: {}
       {{- if $.Values.coda.runtimeConfig }}
@@ -344,6 +349,21 @@ spec:
             path: keyfile.json
       {{- end }}
 ---
+{{- if $.Values.coda.persistentStorage }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mina-pv-claim
+  labels:
+    app: mina
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
