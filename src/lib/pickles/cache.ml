@@ -215,9 +215,9 @@ module Wrap = struct
                    let%map header_read, index =
                      Snark_keys_header.read_with_header
                        ~read_data:(fun ~offset path ->
-                         Binable.of_string
-                           (module Vk.Stable.Latest)
-                           (In_channel.read_all path) )
+                         In_channel.read_all path
+                         |> Bigstring.of_string ~pos:offset
+                         |> Vk.Stable.Latest.bin_read_t ~pos_ref:(ref 0) )
                        path
                    in
                    [%test_eq: int] header.header_version

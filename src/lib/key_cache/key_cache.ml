@@ -4,9 +4,24 @@ open Core
 "/src/config.mlh"]
 
 module Spec = struct
-  type t =
-    | On_disk of {directory: string; should_write: bool}
-    | S3 of {bucket_prefix: string; install_path: string}
+  module T = struct
+    type t =
+      | On_disk of {directory: string; should_write: bool}
+      | S3 of {bucket_prefix: string; install_path: string}
+    [@@deriving ord, sexp]
+  end
+
+  include T
+  include Comparable.Make_plain (T)
+
+  module List = struct
+    module T = struct
+      type t = T.t list [@@deriving ord, sexp]
+    end
+
+    include T
+    include Comparable.Make_plain (T)
+  end
 end
 
 [%%inject

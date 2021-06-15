@@ -4,6 +4,14 @@ module Spec : sig
   type t =
     | On_disk of {directory: string; should_write: bool}
     | S3 of {bucket_prefix: string; install_path: string}
+
+  include Comparable.S_plain with type t := t
+
+  module List : sig
+    type nonrec t = t list
+
+    include Comparable.S_plain with type t := t
+  end
 end
 
 val set_downloads_enabled : bool -> unit

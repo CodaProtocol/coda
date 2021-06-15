@@ -4,4 +4,4 @@
  (libraries core async error_json logger)
  (preprocessor_deps ../../config.mlh)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_base ppx_let ppx_custom_printf ppx_optcomp)))
+ (preprocess (pps ppx_coda ppx_version ppx_base ppx_let ppx_custom_printf ppx_optcomp ppx_deriving.ord)))
