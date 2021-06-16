@@ -162,7 +162,7 @@ module Numeric = struct
     type 'a t = 'a Closed_interval.t Or_ignore.Checked.t
 
     let to_input {to_input_checked; _} (t : 'a t) =
-      Or_ignore.Checked.to_input t
+      Or_ignore.Checked.to_input ~explicit:false t
         ~f:(Closed_interval.to_input ~f:to_input_checked)
 
     open Impl
@@ -273,8 +273,8 @@ module Eq_data = struct
 
   let to_input_explicit tc = to_input ~explicit:true tc
 
-  let to_input_checked {Tc.to_input_checked; _} (t : _ Checked.t) =
-    Checked.to_input t ~f:to_input_checked
+  let to_input_checked ~explicit {Tc.to_input_checked; _} (t : _ Checked.t) =
+    Checked.to_input ~explicit t ~f:to_input_checked
 
   let check_checked {Tc.equal_checked; _} (t : 'a Checked.t) (x : 'a) =
     Checked.check t ~f:(equal_checked x)
@@ -297,6 +297,8 @@ module Hash = struct
   include Eq_data
 
   let to_input tc = to_input ~explicit:true tc
+
+  let to_input_checked tc = to_input_checked ~explicit:true tc
 
   let typ = typ_explicit
 end
@@ -411,10 +413,12 @@ module Account = struct
         [ Numeric.(Checked.to_input Tc.balance balance)
         ; Numeric.(Checked.to_input Tc.nonce nonce)
         ; Hash.(to_input_checked Tc.receipt_chain_hash receipt_chain_hash)
-        ; Eq_data.(to_input_checked (Tc.public_key ()) public_key)
-        ; Eq_data.(to_input_checked (Tc.public_key ()) delegate)
+        ; Eq_data.(
+            to_input_checked ~explicit:true (Tc.public_key ()) public_key)
+        ; Eq_data.(to_input_checked ~explicit:true (Tc.public_key ()) delegate)
         ; Vector.reduce_exn ~f:append
-            (Vector.map state ~f:Eq_data.(to_input_checked Tc.field)) ]
+            (Vector.map state
+               ~f:Eq_data.(to_input_checked ~explicit:true Tc.field)) ]
 
     open Impl
 
@@ -458,9 +462,8 @@ module Account = struct
       ; receipt_chain_hash
       ; public_key ()
       ; public_key ()
-      ; Snapp_state.typ
-          (Or_ignore.typ_implicit Field.typ ~equal:Field.equal
-             ~ignore:Field.zero) ]
+      ; Snapp_state.typ (Or_ignore.typ_explicit Field.typ ~ignore:Field.zero)
+      ]
       ~var_to_hlist:to_hlist ~var_of_hlist:of_hlist ~value_to_hlist:to_hlist
       ~value_of_hlist:of_hlist
 
@@ -1232,7 +1235,7 @@ module Checked = struct
     List.reduce_exn ~f:append
       [ Account.Checked.to_input self_predicate
       ; Other.Checked.to_input other
-      ; Eq_data.(to_input_checked (Tc.public_key ())) fee_payer
+      ; Eq_data.(to_input_checked ~explicit:true (Tc.public_key ())) fee_payer
       ; Protocol_state.Checked.to_input protocol_state_predicate ]
 
   let digest t =

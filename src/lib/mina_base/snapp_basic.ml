@@ -186,7 +186,8 @@ module Or_ignore = struct
       ignore:'a -> ('a_var, 'a) Typ.t -> ('a_var t, 'a Stable.Latest.t) Typ.t
 
     val to_input :
-         'a t
+         explicit:bool
+      -> 'a t
       -> f:('a -> ('f, Boolean.var) Random_oracle_input.t)
       -> ('f, Boolean.var) Random_oracle_input.t
 
@@ -196,12 +197,13 @@ module Or_ignore = struct
       | Implicit of 'a
       | Explicit of (Boolean.var, 'a) Flagged_option.t
 
-    let to_input t ~f =
+    let to_input ~explicit t ~f =
       match t with
       | Implicit x ->
-          f x
+          if explicit then failwith "Should not be explicit" else f x
       | Explicit t ->
-          Flagged_option.to_input' t ~f
+          if explicit then Flagged_option.to_input' t ~f
+          else failwith "Should not be implicit"
 
     let check t ~f =
       match t with
