@@ -170,6 +170,8 @@ module Or_ignore = struct
 
   let of_option = function None -> Ignore | Some x -> Check x
 
+  let map x ~f = match x with Ignore -> Ignore | Check x -> Check (f x)
+
   [%%ifdef
   consensus_mechanism]
 

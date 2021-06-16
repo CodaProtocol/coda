@@ -1,0 +1,5 @@
+(library
+ (name snapp_command_input)
+ (public_name snapp_command_input)
+ (libraries core_kernel mina_base)
+ (preprocess (pps ppx_version ppx_sexp_conv ppx_deriving_yojson ppx_let)))

@@ -41,6 +41,8 @@ module Closed_interval = struct
   let typ x =
     Typ.of_hlistable [x; x] ~var_to_hlist:to_hlist ~var_of_hlist:of_hlist
       ~value_to_hlist:to_hlist ~value_of_hlist:of_hlist
+
+  let map {lower; upper} ~f = {lower= f lower; upper= f upper}
 end
 
 let assert_ b e = if b then Ok () else Or_error.error_string e
