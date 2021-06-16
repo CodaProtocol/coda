@@ -720,6 +720,26 @@ module Transition_frontier = struct
   *)
 end
 
+module Catchup = struct
+  let subsystem = "Catchup"
+
+  let download_time : Gauge.t =
+    let help = "time to download 1 transition in ms" in
+    Gauge.v "download_time" ~help ~namespace ~subsystem
+
+  let initial_validation_time : Gauge.t =
+    let help = "time to do initial validation in ms" in
+    Gauge.v "initial_validation_time" ~help ~namespace ~subsystem
+
+  let verification_time : Gauge.t =
+    let help = "time to do verificatin in ms" in
+    Gauge.v "verification_time" ~help ~namespace ~subsystem
+
+  let build_breadcrumb_time : Gauge.t =
+    let help = "time to build breadcrumb in ms" in
+    Gauge.v "build_breadcrumb_time" ~help ~namespace ~subsystem
+end
+
 module Transition_frontier_controller = struct
   let subsystem = "Transition_frontier_controller"
 
