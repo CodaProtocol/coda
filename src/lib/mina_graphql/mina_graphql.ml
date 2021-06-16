@@ -1219,6 +1219,10 @@ module Types = struct
                  transaction"
           ; abstract_field "memo" ~typ:(non_null string) ~args:[]
               ~doc:"Short arbitrary message provided by the sender"
+          ; abstract_field "validUntil" ~typ:(non_null uint32) ~args:[]
+              ~doc:
+                "The global slot number after which this transaction cannot \
+                 be applied"
           ; abstract_field "isDelegation" ~typ:(non_null bool) ~args:[]
               ~doc:
                 "If true, this represents a delegation of stake, otherwise it \
@@ -1315,6 +1319,11 @@ module Types = struct
             "Fee that the fee-payer is willing to pay for making the \
              transaction" ~resolve:(fun _ cmd ->
             Signed_command.fee cmd.With_hash.data |> Currency.Fee.to_uint64 )
+      ; field "validUntil" ~typ:(non_null uint32) ~args:[]
+          ~doc:
+            "The global slot number after which this transaction cannot be \
+             applied" ~resolve:(fun _ cmd ->
+            Signed_command.valid_until cmd.With_hash.data )
       ; field_no_status "memo" ~typ:(non_null string) ~args:[]
           ~doc:
             (sprintf
