@@ -1,6 +1,6 @@
 (executable
  (name plugin_toplevel)
- (libraries coda_plugins ocamlnat.lib)
+ (libraries mina_plugins ocamlnat.lib)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_version ppx_let ppx_coda))
  (modes (native plugin))

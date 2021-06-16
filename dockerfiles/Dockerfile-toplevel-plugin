@@ -1,0 +1,146 @@
+FROM codaprotocol/coda:toolchain-9924f4c56a40d65d36440e8f70b93720f29ba171
+
+ENV DEBIAN_FRONTEND noninteractive
+RUN echo "Building image with toplevel"
+
+# Dependencies
+RUN DEBIAN_FRONTEND=noninteractive sudo apt-get update && \
+    DEBIAN_FRONTEND=noninteractive sudo apt-get -y upgrade && \
+    DEBIAN_FRONTEND=noninteractive sudo apt-get -y install \
+    curl \
+    jq \
+    strace \
+    dumb-init \
+    libssl1.1 \
+    libprocps6 \
+    libgmp10 \
+    libgomp1 \
+    libffi6 \
+    apt-transport-https \
+    ca-certificates \
+    dnsutils \
+    tzdata \
+    rlwrap \
+    tmux \
+    locales \
+    locales-all
+
+# Set locale for tmux
+RUN sudo apt-get install -y locales locales-all
+RUN sudo sed \
+      -e '/en_US.UTF-8/s/^# //g' \
+      -e '/en_GB.UTF-8/s/^# //g' \
+      -i /etc/locale.gen && \
+    sudo locale-gen
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+
+# Update opam repo
+RUN opam repository remove --all default && opam repo add --all --set-default default https://github.com/ocaml/opam-repository.git && opam update
+
+# Install opam
+RUN opam switch create 4.07.1
+
+# Pin ocamlnat
+RUN opam pin add ocamlnat https://github.com/mrmr1993/ocamlnat.git
+
+ARG OPAM_EXPORT_BRANCH_OR_COMMIT=compatible
+
+# Install opam switch
+# NB: We use a separate branch/commit for fetching opam.export, since it will
+# usually be the same as the one from compatible on whichever branch we select
+RUN wget https://raw.githubusercontent.com/MinaProtocol/mina/$OPAM_EXPORT_BRANCH_OR_COMMIT/src/opam.export
+RUN opam switch import opam.export
+RUN yes | opam user-setup
+
+WORKDIR /home/opam
+
+ARG BRANCH=compatible
+
+# Clone mina repo
+RUN git clone --depth 1 --shallow-submodules --branch $BRANCH https://github.com/MinaProtocol/mina.git mina
+
+WORKDIR /home/opam/mina
+
+RUN git submodule update --init --recursive
+
+# Install packages, pin forked packages
+RUN opam pin add src/external/ocaml-sodium
+RUN opam pin add src/external/rpc_parallel
+RUN opam pin add src/external/ocaml-extlib
+RUN opam pin add src/external/async_kernel
+RUN opam pin add src/external/coda_base58
+RUN opam pin add src/external/graphql_ppx
+
+RUN sudo chown -R opam .
+
+ARG DUNE_PROFILE=testnet_postake_medium_curves
+ENV DUNE_PROFILE=$DUNE_PROFILE
+
+ARG DOWNLOAD_SNARK_KEYS=false
+
+ENV PATH=/home/opam/.cargo/bin:${PATH}
+
+RUN eval $(opam config env) && dune clean
+RUN eval $(opam config env) && GO=/usr/lib/go/bin/go make libp2p_helper
+
+# Enable plugins, set download_snark_keys in the config file
+RUN cat src/config/$DUNE_PROFILE.mlh \
+    | sed -e 's/plugins false/plugins true/' \
+          -e "s/download_snark_keys true/download_snark_keys ${DOWNLOAD_SNARK_KEYS}/" \
+    > modified_config_file.mlh \
+    && mv modified_config_file.mlh src/config/$DUNE_PROFILE.mlh
+
+# Build coda.exe and the toplevel plugin
+RUN eval $(opam config env) && dune build --profile=$DUNE_PROFILE src/app/logproc/logproc.exe src/app/cli/src/coda.exe src/lib/mina_plugins/examples/toplevel/plugin_toplevel.cmxs
+
+# Make init script.
+# Note: log-level=fatal is less than ideal, but does allow us to operate the
+# toplevel without being interrupted by log messages.
+RUN echo '#!/bin/bash -x\n\
+  tmux new-session -d rlwrap _build/default/src/app/cli/src/coda.exe daemon\
+    -log-level fatal\
+    -config-file automation/terraform/testnets/$MINA_TESTNET/genesis_ledger.json\
+    -peer-list-file automation/terraform/testnets/$MINA_TESTNET/peers.txt\
+    -load-plugin\
+      _build/default/src/lib/mina_plugins/examples/toplevel/plugin_toplevel.cmxs\n\
+  mkfifo tmux_output_pipe\n\
+  tmux pipe-pane -o "cat >> tmux_output_pipe"\n\
+  tail -f tmux_output_pipe'\
+> init_mina.sh
+
+# Make list commands to run to initialize the toplevel by
+# * using the coda.exe .merlin file to infer the paths to its interface files,
+# * manually specifying the path to the toplevel plugin interface files,
+# * adding a command to load the plugin's mina object directly in the toplevel.
+# This file can be loaded into the toplevel using the
+# `#load "toplevel_init_commands";;` directive.
+RUN \
+  (cat src/app/cli/src/.merlin \
+     | sed \
+       -e 's/^B \/\(.*\)/#directory "\/\1";;/' \
+       -e 's/B \(.*\)/#directory "src\/app\/cli\/src\/\1"/' \
+     | grep "#directory" \
+   && echo '#directory "_build/default/src/lib/mina_plugins/examples/toplevel/.plugin_toplevel.eobjs/byte";;' \
+   && echo '#directory "_build/default/src/lib/mina_plugins/examples/toplevel/.plugin_toplevel.eobjs/native";;' \
+   && echo 'let mina = Dune__exe__Plugin_toplevel.mina;;') \
+   > toplevel_init_commands
+
+ARG MINA_TESTNET=testworld
+ENV MINA_TESTNET=$MINA_TESTNET
+
+# Generate genesis proof
+RUN _build/default/src/app/cli/src/coda.exe daemon\
+      -log-level info\
+      -config-file automation/terraform/testnets/$MINA_TESTNET/genesis_ledger.json\
+      -generate-genesis-proof true || true
+
+# Remove the lockfile in case generating the genesis proof left one behind
+RUN rm /home/opam/.coda-config/.mina-lock || true
+
+RUN chmod +x init_mina.sh
+
+ENV CODA_TIME_OFFSET 0
+
+ENTRYPOINT ["/usr/bin/dumb-init", "/home/opam/mina/init_mina.sh"]

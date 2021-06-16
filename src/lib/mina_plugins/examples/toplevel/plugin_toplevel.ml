@@ -1,6 +1,6 @@
 open Async
 
-let coda = Coda_plugins.get_coda_lib ()
+let mina = Mina_plugins.get_mina_lib ()
 
 let read_input =
   let stdout = Lazy.force Writer.stdout in
@@ -23,12 +23,12 @@ let read_input =
         go buffer len 0 )
 
 let () =
-  let config = Coda_lib.config coda in
+  let config = Mina_lib.config mina in
   [%log' info config.logger] "Hi from toplevel plugin!" ;
   (* TODO: Load relevant interfaces into the environment as
      [toplevel_startup_hook].
   *)
-  (* TODO: Place [coda] in the toplevel environment once the interfaces -- and
+  (* TODO: Place [mina] in the toplevel environment once the interfaces -- and
      thus its type -- has been loaded.
   *)
   for i = 1 to Array.length Sys.argv - 1 do

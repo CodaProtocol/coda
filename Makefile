@@ -48,6 +48,9 @@ git_hooks: $(wildcard scripts/git_hooks/*)
 	      [ ! -f ".git/hooks/$$(basename $$f)" ] && ln -s ../../$$f .git/hooks/; \
 	    done; \
 	    break;; \
+    " cannot open \`.git' (No such file or directory)") \
+        echo 'not in a git repo; refusing to install hooks'; \
+		break;; \
 	*) \
 	    echo 'unhandled case when installing git hooks' \
 	    exit 1 \
