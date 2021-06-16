@@ -738,62 +738,72 @@ module Data = struct
       let open Message in
       let open Local_state in
       let open Snapshot in
-      with_return (fun {return} ->
-          Hashtbl.iteri
-            ( Snapshot.delegators epoch_snapshot public_key_compressed
-            |> Option.value ~default:(Core_kernel.Int.Table.create ()) )
-            ~f:(fun ~key:delegator ~data:account ->
-              let vrf_result =
-                T.eval ~constraint_constants ~private_key
-                  {global_slot; seed; delegator}
-              in
-              let truncated_vrf_result = Output.truncate vrf_result in
-              [%log debug]
-                "VRF result for delegator: $delegator, balance: $balance, \
-                 amount: $amount, result: $result"
-                ~metadata:
-                  [ ( "delegator"
-                    , `Int (Mina_base.Account.Index.to_int delegator) )
-                  ; ( "delegator_pk"
-                    , Public_key.Compressed.to_yojson account.public_key )
-                  ; ("balance", `Int (Balance.to_int account.balance))
-                  ; ("amount", `Int (Amount.to_int total_stake))
-                  ; ( "result"
-                    , `String
-                        (* use sexp representation; int might be too small *)
-                        ( Fold.string_bits truncated_vrf_result
-                        |> Bignum_bigint.of_bit_fold_lsb
-                        |> Bignum_bigint.sexp_of_t |> Sexp.to_string ) ) ] ;
-              Mina_metrics.Counter.inc_one
-                Mina_metrics.Consensus.vrf_evaluations ;
-              if
-                Threshold.is_satisfied ~my_stake:account.balance ~total_stake
-                  truncated_vrf_result
-              then
-                return
-                  (Some
-                     ( { Block_data.stake_proof=
-                           { producer_private_key= private_key
-                           ; producer_public_key= public_key
-                           ; delegator
-                           ; delegator_pk= account.public_key
-                           ; coinbase_receiver_pk= coinbase_receiver
-                           ; ledger=
-                               Local_state.Snapshot.Ledger_snapshot
-                               .ledger_subset
-                                 [ Mina_base.(
-                                     Account_id.create
-                                       (Public_key.compress public_key)
-                                       Token_id.default)
-                                 ; Mina_base.(
-                                     Account_id.create account.public_key
-                                       Token_id.default) ]
-                                 epoch_snapshot.ledger }
-                       ; global_slot
-                       ; global_slot_since_genesis
-                       ; vrf_result }
-                     , account.public_key )) ) ;
-          None )
+      Hashtbl.fold ~init:None
+        ( Snapshot.delegators epoch_snapshot public_key_compressed
+        |> Option.value ~default:(Core_kernel.Int.Table.create ()) )
+        ~f:(fun ~key:delegator ~data:account best_vrf ->
+          let vrf_result =
+            T.eval ~constraint_constants ~private_key
+              {global_slot; seed; delegator}
+          in
+          let truncated_vrf_result = Output.truncate vrf_result in
+          [%log debug]
+            "VRF result for delegator: $delegator, balance: $balance, amount: \
+             $amount, result: $result"
+            ~metadata:
+              [ ("delegator", `Int (Mina_base.Account.Index.to_int delegator))
+              ; ( "delegator_pk"
+                , Public_key.Compressed.to_yojson account.public_key )
+              ; ("balance", `Int (Balance.to_int account.balance))
+              ; ("amount", `Int (Amount.to_int total_stake))
+              ; ( "result"
+                , `String
+                    (* use sexp representation; int might be too small *)
+                    ( Fold.string_bits truncated_vrf_result
+                    |> Bignum_bigint.of_bit_fold_lsb |> Bignum_bigint.sexp_of_t
+                    |> Sexp.to_string ) ) ] ;
+          Mina_metrics.Counter.inc_one Mina_metrics.Consensus.vrf_evaluations ;
+          if
+            Threshold.is_satisfied ~my_stake:account.balance ~total_stake
+              truncated_vrf_result
+          then
+            let string_of_blake2 =
+              Blake2.(Fn.compose to_raw_string digest_string)
+            in
+            let vrf_eval = string_of_blake2 truncated_vrf_result in
+            let this_vrf () =
+              Some
+                ( vrf_eval
+                , ( { Block_data.stake_proof=
+                        { producer_private_key= private_key
+                        ; producer_public_key= public_key
+                        ; delegator
+                        ; delegator_pk= account.public_key
+                        ; coinbase_receiver_pk= coinbase_receiver
+                        ; ledger=
+                            Local_state.Snapshot.Ledger_snapshot.ledger_subset
+                              [ Mina_base.(
+                                  Account_id.create
+                                    (Public_key.compress public_key)
+                                    Token_id.default)
+                              ; Mina_base.(
+                                  Account_id.create account.public_key
+                                    Token_id.default) ]
+                              epoch_snapshot.ledger }
+                    ; global_slot
+                    ; global_slot_since_genesis
+                    ; vrf_result }
+                  , account.public_key ) )
+            in
+            match best_vrf with
+            | Some (prev_best_vrf_eval, _) ->
+                if String.compare prev_best_vrf_eval vrf_eval < 0 then
+                  this_vrf ()
+                else best_vrf
+            | None ->
+                this_vrf ()
+          else best_vrf )
+      |> Option.map ~f:snd
   end
 
   module Optional_state_hash = struct
