@@ -425,7 +425,7 @@ let setup_local_server ?(client_trustlist = []) ?rest_server_port
                 (Mina_lib.snark_coordinator_key coda)
                 ~f:Fn.const
             in
-            let%map r = Mina_lib.request_work coda in
+            let%map r = Mina_lib.request_work coda key in
             [%log trace]
               ~metadata:[("work_spec", Snark_worker.Work.Spec.to_yojson r)]
               "responding to a Get_work request with some new work" ;

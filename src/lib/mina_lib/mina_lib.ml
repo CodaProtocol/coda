@@ -790,15 +790,53 @@ let best_chain ?max_length t =
   | _ ->
       Transition_frontier.root frontier :: best_tip_path
 
-let request_work t =
+let request_work t pk =
+  let open Option.Let_syntax in
   let (module Work_selection_method) = t.config.work_selection_method in
-  let fee = snark_work_fee t in
-  let instances_opt =
+  let%bind fee =
+    let preferred_fee = snark_work_fee t in
+    let account_creation_fee =
+      t.config.precomputed_values.constraint_constants.account_creation_fee
+    in
+    if Currency.Fee.(preferred_fee < account_creation_fee) then (
+      match get_account t (Account_id.create pk Token_id.default) with
+      | `Active (Some _) ->
+          Some preferred_fee
+      | `Active None ->
+          (* Block producers won't be able to pay us for this work at our
+             preferred fee, because it isn't enough to create an account and we
+             don't already have one.
+             Instead, we elect to charge the higher account_creation_fee.
+          *)
+          let boost_fee = t.config.boost_snark_worker_fee in
+          [%log' error t.config.logger]
+            "No account exists for the snark worker public key $pk, and the \
+             fee $fee is lower than the account creation fee \
+             $account_creation_fee. %s"
+            ( if boost_fee then
+              "Setting fee for this snark work to the account creation fee."
+            else "Refusing to produce snark work." )
+            ~metadata:
+              [ ("pk", Public_key.Compressed.to_yojson pk)
+              ; ("fee", Currency.Fee.to_yojson preferred_fee)
+              ; ( "account_creation_fee"
+                , Currency.Fee.to_yojson account_creation_fee ) ] ;
+          Option.some_if boost_fee account_creation_fee
+      | `Bootstrapping ->
+          [%log' debug t.config.logger]
+            "Refusing to produce snark work while bootstrapping." ;
+          None )
+    else
+      (* This fee is always high enough to pay for the work, even if a new
+         account needs to be created for our pk.
+      *)
+      Some preferred_fee
+  in
+  let%map instances =
     Work_selection_method.work ~logger:t.config.logger ~fee
       ~snark_pool:(snark_pool t) (snark_job_state t)
   in
-  Option.map instances_opt ~f:(fun instances ->
-      {Snark_work_lib.Work.Spec.instances; fee} )
+  {Snark_work_lib.Work.Spec.instances; fee}
 
 let work_selection_method t = t.config.work_selection_method
 

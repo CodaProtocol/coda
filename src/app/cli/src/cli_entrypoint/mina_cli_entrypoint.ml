@@ -182,6 +182,14 @@ let setup_daemon logger =
             snark proof (default: %d)"
            (Currency.Fee.to_int Mina_compile_config.default_snark_worker_fee))
       (optional txn_fee)
+  and boost_snark_worker_fee =
+    flag "--boost-snark-worker-fee" ~aliases:["boost-snark-worker-fee"]
+      ~doc:
+        "true/false If the snark worker's public key doesn't have an account \
+         and its fee is too low to create one, boost the fee to the account \
+         creation fee until that account is created. If false, no snark work \
+         will be produced when no account is present. (default: true)"
+      (optional_with_default true bool)
   and work_reassignment_wait =
     flag "--work-reassignment-wait" ~aliases:["work-reassignment-wait"]
       (optional int)
@@ -1120,6 +1128,7 @@ Pass one of -peer, -peer-list-file, -seed, -peer-list-url.|} ;
                    run_snark_worker_flag
                ; shutdown_on_disconnect= true
                ; num_threads= snark_worker_parallelism_flag }
+             ~boost_snark_worker_fee
              ~snark_coordinator_key:run_snark_coordinator_flag
              ~snark_pool_disk_location:(conf_dir ^/ "snark_pool")
              ~wallets_disk_location:(conf_dir ^/ "wallets")

@@ -75,7 +75,8 @@ val snark_work_fee : t -> Currency.Fee.t
 
 val set_snark_work_fee : t -> Currency.Fee.t -> unit
 
-val request_work : t -> Snark_worker.Work.Spec.t option
+val request_work :
+  t -> Public_key.Compressed.t -> Snark_worker.Work.Spec.t option
 
 val work_selection_method : t -> (module Work_selector.Selection_method_intf)
 
