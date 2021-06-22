@@ -1,0 +1,25 @@
+version: '3.3'
+         
+services:
+ php:
+      build:
+        context: ./php
+        dockerfile: ./Dockerfile
+      container_name: mina-web
+      ports:
+         - "8080:80"
+         - "8443:443"
+      networks:
+        mina-network:
+          ipv4_address: 172.16.238.10
+          ipv6_address: 2001:3984:3989::10
+
+networks:
+  mina-network:
+    ipam:
+     driver: default
+     config:
+      - subnet: "172.16.238.0/24"
+      - subnet: "2001:3984:3989::/64"
+                 
+         

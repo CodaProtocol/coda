@@ -34,12 +34,24 @@ def download_files(start_offset, script_start_time, ten_min_add):
     blobs = storage_client.list_blobs(bucket, start_offset=start_offset)
     file_name_list_for_memory = list()
     file_json_content_list = list()
-    file_timestamps = list()
+    file_names = list()
+    file_created = list()
+    file_updated = list()
+    file_generation = list()
+    file_owner = list()
+    file_crc32c = list()
+    file_md5_hash = list()
 
     for blob in blobs:
         if (blob.updated < ten_min_add) and (blob.updated > script_start_time):
             file_name_list_for_memory.append(blob.name)
-            file_timestamps.append(blob.updated)
+            file_names.append(blob.name)
+            file_updated.append(blob.updated)
+            file_created.append(blob.time_created)
+            file_generation.append(blob.generation)
+            file_owner.append(blob.owner)
+            file_crc32c.append(blob.crc32c)
+            file_md5_hash.append(blob.md5_hash)
         elif blob.updated > ten_min_add:
             break
     file_count = len(file_name_list_for_memory)
@@ -50,31 +62,64 @@ def download_files(start_offset, script_start_time, ten_min_add):
         file_contents = download_batch_into_memory(file_name_list_for_memory, bucket)
         end = time()
         logger.info('Time to downaload files: {0}'.format(end - start))
-        file_name_list = list()
         for k, v in file_contents.items():
-            file_name_list.append(k)
             file_json_content_list.append(json.loads(v))
 
         df = pd.json_normalize(file_json_content_list)
-        columns_to_drop = ['receivedFrom', 'nodeData.version', 'nodeData.daemonStatus.blockchainLength',
-                           'nodeData.daemonStatus.syncStatus',
-                           'nodeData.daemonStatus.chainId', 'nodeData.daemonStatus.commitId',
-                           'nodeData.daemonStatus.highestBlockLengthReceived',
-                           'nodeData.daemonStatus.highestUnvalidatedBlockLengthReceived',
-                           'nodeData.daemonStatus.stateHash',
-                           'nodeData.daemonStatus.blockProductionKeys', 'nodeData.daemonStatus.uptimeSecs',
-                           'nodeData.retrievedAt']
-        df.drop(columns_to_drop, axis=1, inplace=True)
-        df.insert(0, 'file_timestamps', file_timestamps)
-        df.insert(0, 'file_name', file_name_list)
-        if df.columns.values.tolist()[-1] != NODE_DATA_BLOCK_HEIGHT:
-            df = df[['file_name', 'file_timestamps', 'receivedAt', 'blockProducerKey', 'nodeData.block.stateHash',
-                     'nodeData.blockHeight']]
-
+        #df.drop(columns_to_drop, axis=1, inplace=True)
+        df.insert(0, 'file_name', file_names)
+        df['file_created'] = file_created
+        df['file_updated'] = file_updated
+        df['file_generation'] = file_generation
+        df['file_owner'] = file_owner
+        df['file_crc32c'] = file_crc32c
+        df['file_md5_hash'] = file_md5_hash
+        df=df[['file_name', 'receivedAt', 'receivedFrom', 'blockProducerKey',
+       'nodeData.version', 'nodeData.daemonStatus.blockchainLength',
+       'nodeData.daemonStatus.syncStatus', 'nodeData.daemonStatus.chainId',
+       'nodeData.daemonStatus.commitId',
+       'nodeData.daemonStatus.highestBlockLengthReceived',
+       'nodeData.daemonStatus.highestUnvalidatedBlockLengthReceived',
+       'nodeData.daemonStatus.stateHash',
+       'nodeData.daemonStatus.blockProductionKeys',
+       'nodeData.daemonStatus.uptimeSecs', 'nodeData.block.stateHash',
+       'nodeData.retrievedAt', 'nodeData.blockHeight', 'file_created',
+       'file_updated', 'file_generation', 'file_owner', 'file_crc32c',
+       'file_md5_hash']]
+        
     else:
         df = pd.DataFrame()
     return df
 
+def insert_uptime_file_history_batch(conn, df, page_size=100):
+    """
+    Using psycopg2.extras.execute_batch() to insert node records dataframe
+    Make sure datafram has exact following columns
+    block_producer_key, updated_at
+    """
+    tuples = [tuple(x) for x in df.to_numpy()]
+    query = """INSERT INTO uptime_file_history(file_name, receivedAt, receivedFrom, blockProducerKey, 
+        nodeData_version, nodeData_daemonStatus_blockchainLength, nodeData_daemonStatus_syncStatus, 
+        nodeData_daemonStatus_chainId, nodeData_daemonStatus_commitId, nodeData_daemonStatus_highestBlockLengthReceived, 
+        nodeData_daemonStatus_highestUnvalidatedBlockLengthReceived, nodeData_daemonStatus_stateHash, 
+        nodeData_daemonStatus_blockProductionKeys, nodeData_daemonStatus_uptimeSecs, nodeData_block_stateHash, 
+        nodeData_retrievedAt, nodeData_blockHeight, file_created_at, file_modified_at, file_generation, file_owner, file_crc32c, file_md5_hash) 
+    VALUES(%s ,%s ,%s ,%s ,%s ,%s ,%s , %s ,%s ,%s ,%s ,%s , %s ,%s ,%s , %s , %s ,%s, %s, %s , %s ,%s, %s ) """
+    
+    try:
+        cursor = conn.cursor()
+        extras.execute_batch(cursor, query, tuples, page_size)
+        conn.commit()
+        logger.info("insert into uptime_file_history table")
+    except (Exception, psycopg2.DatabaseError) as error:
+        logger.error(ERROR.format(error))
+        conn.rollback()
+        cursor.close()
+        return 1
+    finally:
+        conn.commit()
+        cursor.close()
+        return 0
 
 def execute_node_record_batch(conn, df, page_size=100):
     """
@@ -110,8 +155,6 @@ def execute_point_record_batch(conn, df, page_size=100):
     """
 
     tuples = [tuple(x) for x in df.to_numpy()]
-
-    logger.info('Tuples {0}'.format(tuples[0]))
     query = """INSERT INTO point_record_table ( file_name,file_timestamps,blockchain_epoch, node_id, state_hash,blockchain_height,
                 amount,created_at,bot_log_id) 
             VALUES ( %s, %s,  %s, (SELECT id FROM node_record_table WHERE block_producer_key= %s), %s, %s, %s,  %s, %s )"""
@@ -280,11 +323,25 @@ def gcs_main(read_file_interval):
 
             # processing code logic
             master_df = download_files(script_offset, script_start_time, ten_min_add)
+            insert_uptime_file_history_batch(connection, master_df)
+            columns_to_drop = ['receivedFrom', 'nodeData.version', 'nodeData.daemonStatus.blockchainLength',
+                           'nodeData.daemonStatus.syncStatus', 'nodeData.daemonStatus.chainId', 
+                           'nodeData.daemonStatus.commitId', 'nodeData.daemonStatus.highestBlockLengthReceived',
+                           'nodeData.daemonStatus.highestUnvalidatedBlockLengthReceived',
+                           'nodeData.daemonStatus.stateHash', 'nodeData.daemonStatus.blockProductionKeys', 
+                           'nodeData.daemonStatus.uptimeSecs', 'nodeData.retrievedAt','file_created', 
+                           'file_generation', 'file_owner', 'file_crc32c', 'file_md5_hash']
+            master_df.drop(columns_to_drop, axis=1, inplace=True)
+            master_df = master_df.rename(columns={'file_updated': 'file_timestamps'})
+            if master_df.columns.values.tolist()[-1] != NODE_DATA_BLOCK_HEIGHT:
+                master_df = master_df[['file_name', 'file_timestamps', 'receivedAt', 'blockProducerKey', 'nodeData.block.stateHash',
+                        'nodeData.blockHeight']]
+
             all_file_count = master_df.shape[0]
             # remove the Mina foundation account from the master_df
 
             master_df = master_df[~master_df['blockProducerKey'].isin(foundation_df['block_producer_key'])]
-
+            
             point_record_df = master_df
 
             try:
