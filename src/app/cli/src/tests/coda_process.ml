@@ -51,7 +51,7 @@ let local_config ?block_production_interval:_ ~is_seed ~peers ~addrs_and_ports
             ~f:(List.map ~f:Node_addrs_and_ports.to_display)
             all_peers_list )
     ; env=
-        ( "CODA_TIME_OFFSET"
+        ( "MINA_TIME_OFFSET"
         , Time.Span.to_int63_seconds_round_down_exn offset
           |> Int63.to_int
           |> Option.value_exn ?here:None ?message:None ?error:None

@@ -31,7 +31,7 @@ if [[ -n ${RUN_DEMO} ]]; then
     echo "Contents of config file ${MINA_CONFIG_FILE}:"
     cat "${MINA_CONFIG_FILE}"
 
-    CODA_TIME_OFFSET=${CODA_TIME_OFFSET:-0}
+    MINA_TIME_OFFSET=${MINA_TIME_OFFSET:-0}
     MINA_TIME_OFFSET=${MINA_TIME_OFFSET:-0}
     
     CODA_PRIVKEY_PASS=${CODA_PRIVKEY_PASS:-""}

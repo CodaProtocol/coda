@@ -122,9 +122,9 @@ let get_time_offset_graphql =
            "Current time offset:\n\
             %i\n\n\
             Start other daemons with this offset by setting the \
-            CODA_TIME_OFFSET environment variable in the shell before \
+            MINA_TIME_OFFSET environment variable in the shell before \
             executing them:\n\
-            export CODA_TIME_OFFSET=%i\n"
+            export MINA_TIME_OFFSET=%i\n"
            time_offset time_offset ))
 
 let print_trust_statuses statuses json =

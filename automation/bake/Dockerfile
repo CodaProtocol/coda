@@ -44,6 +44,6 @@ done'\
 
 RUN chmod +x init_mina_baked.sh
 
-ENV CODA_TIME_OFFSET 0
+ENV MINA_TIME_OFFSET 0
 
 ENTRYPOINT ["/usr/bin/dumb-init", "/root/init_mina_baked.sh"]

@@ -52,7 +52,7 @@ let medium_curves = false
 time_offsets = true]
 
 let setup_time_offsets consensus_constants =
-  Unix.putenv ~key:"CODA_TIME_OFFSET"
+  Unix.putenv ~key:"MINA_TIME_OFFSET"
     ~data:
       ( Time.Span.to_int63_seconds_round_down_exn
           (Coda_processes.offset consensus_constants)

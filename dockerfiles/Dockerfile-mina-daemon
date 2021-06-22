@@ -71,8 +71,6 @@ COPY --chown=${UID} ./auxiliary_entrypoints /entrypoint.d
 COPY --chown=${UID} puppeteer-context/* /
 RUN chmod +x /mina_daemon_puppeteer.py /find_puppeteer.sh /start.sh /stop.sh
 
-ENV CODA_TIME_OFFSET 0
-# for future use
 ENV MINA_TIME_OFFSET 0
 
 ENTRYPOINT ["/usr/bin/dumb-init", "/entrypoint.sh"]
