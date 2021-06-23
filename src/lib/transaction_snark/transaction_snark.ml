@@ -3977,7 +3977,7 @@ let%test_module "transaction_snark" =
           |> Or_error.ok_exn
           |> fun ((), ()) -> () )
 
-    (* Disabling until new-style snapp transactions are fully implemented. 
+    (* Disabling until new-style snapp transactions are fully implemented.
 
     let%test_unit "signed_signed" =
       Test_util.with_randomness 123456789 (fun () ->
@@ -4028,6 +4028,529 @@ let%test_module "transaction_snark" =
                 ~next_available_token_after ~snapp_account1 ~snapp_account2 t1
                 (unstage @@ Sparse_ledger.handler sparse_ledger) ) )
        *)
+
+    let%test_module "multisig_account" =
+      ( module struct
+        module M_of_n_predicate = struct
+          type _witness = (Schnorr.Signature.t * Public_key.t) list
+
+          (* check that two public keys are equal *)
+          let eq_pk ((x0, y0) : Public_key.var) ((x1, y1) : Public_key.var) :
+              (Boolean.var, _) Checked.t =
+            [Field.Checked.equal x0 x1; Field.Checked.equal y0 y1]
+            |> Checked.List.all >>= Boolean.all
+
+          (* check that two public keys are not equal *)
+          let neq_pk (pk0 : Public_key.var) (pk1 : Public_key.var) :
+              (Boolean.var, _) Checked.t =
+            eq_pk pk0 pk1 >>| Boolean.not
+
+          (* check that the witness has distinct public keys for each signature *)
+          let rec distinct_public_keys = function
+            | (_, pk) :: xs ->
+                Checked.List.map ~f:(fun (_, pk') -> neq_pk pk pk') xs
+                >>= Boolean.Assert.all
+                >>= fun () -> distinct_public_keys xs
+            | [] ->
+                Checked.return ()
+
+          (* check a signature on msg against a public key *)
+          let check_sig pk msg sigma : (Boolean.var, _) Checked.t =
+            let%bind (module S) = Inner_curve.Checked.Shifted.create () in
+            Schnorr.Checked.verifies (module S) sigma pk msg
+
+          (* verify witness signatures against public keys *)
+          let verify_sigs pubkeys commitment witness =
+            let%bind pubkeys =
+              exists
+                (Typ.list ~length:(List.length pubkeys) Inner_curve.typ)
+                ~compute:(As_prover.return pubkeys)
+            in
+            let verify_sig (sigma, pk) : (Boolean.var, _) Checked.t =
+              Checked.List.exists pubkeys ~f:(fun pk' ->
+                  [eq_pk pk pk'; check_sig pk' commitment sigma]
+                  |> Checked.List.all >>= Boolean.all )
+            in
+            Checked.List.map witness ~f:verify_sig >>= Boolean.Assert.all
+
+          let check_witness m pubkeys commitment witness =
+            if List.length witness <> m then
+              failwith @@ "witness length must be exactly " ^ Int.to_string m
+            else
+              Base.dummy_constraints ()
+              >>= fun () ->
+              distinct_public_keys witness
+              >>= fun () -> verify_sigs pubkeys commitment witness
+
+          let%test_unit "1-of-1" =
+            let gen =
+              let open Quickcheck.Generator.Let_syntax in
+              let%map sk = Private_key.gen and msg = Field.gen_uniform in
+              (sk, Random_oracle.Input.field_elements [|msg|])
+            in
+            Quickcheck.test ~trials:1 gen ~f:(fun (sk, msg) ->
+                let pk = Inner_curve.(scale one sk) in
+                (let%bind pk_var =
+                   exists Inner_curve.typ ~compute:(As_prover.return pk)
+                 in
+                 let sigma = Schnorr.sign sk msg in
+                 let%bind sigma_var =
+                   exists Schnorr.Signature.typ
+                     ~compute:(As_prover.return sigma)
+                 in
+                 let%bind msg_var =
+                   exists (Schnorr.message_typ ())
+                     ~compute:(As_prover.return msg)
+                 in
+                 let witness = [(sigma_var, pk_var)] in
+                 check_witness 1 [pk] msg_var witness)
+                |> Checked.map ~f:As_prover.return
+                |> Fn.flip run_and_check () |> Or_error.ok_exn |> snd )
+
+          let%test_unit "2-of-2" =
+            let gen =
+              let open Quickcheck.Generator.Let_syntax in
+              let%map sk0 = Private_key.gen
+              and sk1 = Private_key.gen
+              and msg = Field.gen_uniform in
+              (sk0, sk1, Random_oracle.Input.field_elements [|msg|])
+            in
+            Quickcheck.test ~trials:1 gen ~f:(fun (sk0, sk1, msg) ->
+                let pk0 = Inner_curve.(scale one sk0) in
+                let pk1 = Inner_curve.(scale one sk1) in
+                (let%bind pk0_var =
+                   exists Inner_curve.typ ~compute:(As_prover.return pk0)
+                 in
+                 let%bind pk1_var =
+                   exists Inner_curve.typ ~compute:(As_prover.return pk1)
+                 in
+                 let sigma0 = Schnorr.sign sk0 msg in
+                 let sigma1 = Schnorr.sign sk1 msg in
+                 let%bind sigma0_var =
+                   exists Schnorr.Signature.typ
+                     ~compute:(As_prover.return sigma0)
+                 in
+                 let%bind sigma1_var =
+                   exists Schnorr.Signature.typ
+                     ~compute:(As_prover.return sigma1)
+                 in
+                 let%bind msg_var =
+                   exists (Schnorr.message_typ ())
+                     ~compute:(As_prover.return msg)
+                 in
+                 let witness =
+                   [(sigma0_var, pk0_var); (sigma1_var, pk1_var)]
+                 in
+                 check_witness 2 [pk0; pk1] msg_var witness)
+                |> Checked.map ~f:As_prover.return
+                |> Fn.flip run_and_check () |> Or_error.ok_exn |> snd )
+        end
+
+        let%test_unit "FIXME: wip" =
+          let open Transaction_logic.For_tests in
+          Quickcheck.test ~trials:15 Test_spec.gen
+            ~f:(fun {init_ledger; specs= _} ->
+              Ledger.with_ledger ~depth:ledger_depth ~f:(fun ledger ->
+                  Init_ledger.init
+                    (module Ledger.Ledger_inner)
+                    init_ledger ledger ;
+                  let witness : Parties_segment.Witness.t =
+                    let global_ledger : _ =
+                      failwith @@ "FIXME: not implemented @" ^ __LOC__
+                    in
+                    let local_state_init : _ =
+                      failwith @@ "FIXME: not implemented @" ^ __LOC__
+                    in
+                    let start_parties : _ =
+                      failwith @@ "FIXME: not implemented @" ^ __LOC__
+                    in
+                    {global_ledger; local_state_init; start_parties; state_body}
+                  in
+                  let statement : Statement.With_sok.t =
+                    let source : (_, _, _, _) Registers.t =
+                      let ledger : Frozen_ledger_hash.t =
+                        failwith @@ "FIXME: not implemented @" ^ __LOC__
+                      in
+                      let pending_coinbase_stack : Pending_coinbase.Stack.t =
+                        failwith @@ "FIXME: not implemented @" ^ __LOC__
+                      in
+                      let next_available_token : Token_id.t =
+                        failwith @@ "FIXME: not implemented @" ^ __LOC__
+                      in
+                      let local_state : Local_state.t =
+                        failwith @@ "FIXME: not implemented @" ^ __LOC__
+                      in
+                      { ledger
+                      ; pending_coinbase_stack
+                      ; next_available_token
+                      ; local_state }
+                    in
+                    let target : (_, _, _, _) Registers.t =
+                      failwith @@ "FIXME: not implemented @" ^ __LOC__
+                    in
+                    let supply_increase : Currency.Amount.t =
+                      failwith @@ "FIXME: not implemented @" ^ __LOC__
+                    in
+                    let fee_excess : Fee_excess.t =
+                      failwith @@ "FIXME: not implemented @" ^ __LOC__
+                    in
+                    let sok_digest : Sok_message.Digest.t =
+                      let sok_message : Sok_message.t =
+                        let fee : Currency.Fee.Stable.V1.t =
+                          failwith @@ "FIXME: not implemented @" ^ __LOC__
+                        in
+                        let prover : Public_key.Compressed.Stable.V1.t =
+                          failwith @@ "FIXME: not implemented @" ^ __LOC__
+                        in
+                        {fee; prover}
+                      in
+                      Sok_message.digest sok_message
+                    in
+                    {source; target; supply_increase; fee_excess; sok_digest}
+                  in
+                  let parties_segment_basic :
+                      (_, _, _, _) Parties_segment.Basic.t =
+                    Proved
+                  in
+                  let _proof =
+                    of_parties_segment_exn ~statement ~witness
+                      parties_segment_basic
+                  in
+                  failwith @@ "FIXME: not implemented @" ^ __LOC__ ) )
+
+        type _ Snarky_backendless.Request.t +=
+          | Pubkey : int -> Inner_curve.t Snarky_backendless.Request.t
+          | Sigma : int -> Schnorr.Signature.t Snarky_backendless.Request.t
+
+        (* test with a 2-of-3 multisig *)
+        let%test_unit "snapps-based proved transaction" =
+          let open Transaction_logic.For_tests in
+          let gen =
+            let open Quickcheck.Generator.Let_syntax in
+            let%map sk0 = Private_key.gen
+            and sk1 = Private_key.gen
+            and sk2 = Private_key.gen
+            (* index of the key that is not signing the msg *)
+            and not_signing = Base_quickcheck.Generator.int_inclusive 0 2
+            and test_spec = Test_spec.gen in
+            let secrets = (sk0, sk1, sk2) in
+            (secrets, not_signing, test_spec)
+          in
+          Quickcheck.test ~trials:1 gen
+            ~f:(fun (secrets, not_signing, {init_ledger; specs}) ->
+              let sk0, sk1, sk2 = secrets in
+              let pk0 = Inner_curve.(scale one sk0) in
+              let pk1 = Inner_curve.(scale one sk1) in
+              let pk2 = Inner_curve.(scale one sk2) in
+              Ledger.with_ledger ~depth:ledger_depth ~f:(fun ledger ->
+                  Init_ledger.init
+                    (module Ledger.Ledger_inner)
+                    init_ledger ledger ;
+                  let spec = List.hd_exn specs in
+                  let tag, _, (module P), Pickles.Provers.[multisig_prover; _]
+                      =
+                    let multisig_rule : _ Pickles.Inductive_rule.t =
+                      let multisig_main
+                          (tx_commitment : Snapp_statement.Checked.t) :
+                          (unit, _) Checked.t =
+                        let%bind pk0_var =
+                          exists Inner_curve.typ
+                            ~request:(As_prover.return @@ Pubkey 0)
+                        and pk1_var =
+                          exists Inner_curve.typ
+                            ~request:(As_prover.return @@ Pubkey 1)
+                        and pk2_var =
+                          exists Inner_curve.typ
+                            ~request:(As_prover.return @@ Pubkey 2)
+                        in
+                        let msg_var =
+                          tx_commitment
+                          |> Snapp_statement.Checked.to_field_elements
+                          |> Random_oracle_input.field_elements
+                        in
+                        let%bind sigma0_var =
+                          exists Schnorr.Signature.typ
+                            ~request:(As_prover.return @@ Sigma 0)
+                        and sigma1_var =
+                          exists Schnorr.Signature.typ
+                            ~request:(As_prover.return @@ Sigma 1)
+                        and sigma2_var =
+                          exists Schnorr.Signature.typ
+                            ~request:(As_prover.return @@ Sigma 2)
+                        in
+                        let witness =
+                          [ (sigma0_var, pk0_var)
+                          ; (sigma1_var, pk1_var)
+                          ; (sigma2_var, pk2_var) ]
+                          |> Fn.flip List.drop not_signing
+                        in
+                        M_of_n_predicate.check_witness 2 [pk0; pk1; pk2]
+                          msg_var witness
+                      in
+                      { identifier= "multisig-rule"
+                      ; prevs= []
+                      ; main=
+                          (fun [] x ->
+                            multisig_main x |> Run.run_checked
+                            |> fun _ ->
+                            ( []
+                              : unit
+                                Pickles_types.Hlist0.H1
+                                  (Pickles_types.Hlist.E01
+                                     (Pickles.Inductive_rule.B))
+                                .t ) )
+                      ; main_value= (fun [] _ -> []) }
+                    in
+                    Pickles.compile ~cache:Cache_dir.cache
+                      (module Snapp_statement.Checked)
+                      (module Snapp_statement)
+                      ~typ:Snapp_statement.typ
+                      ~branches:(module Nat.N2)
+                      ~max_branching:
+                        (module Nat.N2) (* You have to put 2 here... *)
+                      ~name:"multisig"
+                      ~constraint_constants:
+                        (Genesis_constants.Constraint_constants
+                         .to_snark_keys_header constraint_constants)
+                      ~choices:(fun ~self ->
+                        [ multisig_rule
+                        ; { identifier= "dummy"
+                          ; prevs= [self; self]
+                          ; main_value= (fun [_; _] _ -> [true; true])
+                          ; main=
+                              (fun [_; _] _ ->
+                                let dummy_constraints () =
+                                  let open Run in
+                                  let b =
+                                    exists Boolean.typ_unchecked
+                                      ~compute:(fun _ -> true)
+                                  in
+                                  let g =
+                                    exists
+                                      Pickles.Step_main_inputs.Inner_curve.typ
+                                      ~compute:(fun _ ->
+                                        Tick.Inner_curve.(to_affine_exn one) )
+                                  in
+                                  let _ =
+                                    Pickles.Step_main_inputs.Ops.scale_fast g
+                                      (`Plus_two_to_len [|b; b|])
+                                  in
+                                  let _ =
+                                    Pickles.Pairing_main.Scalar_challenge.endo
+                                      g
+                                      (Scalar_challenge [b])
+                                  in
+                                  ()
+                                in
+                                dummy_constraints ()
+                                |> fun () ->
+                                (* Unsatisfiable. *)
+                                Run.exists Field.typ ~compute:(fun () ->
+                                    Run.Field.Constant.zero )
+                                |> fun s ->
+                                Run.Field.(Assert.equal s (s + one))
+                                |> fun () ->
+                                ( [Boolean.true_; Boolean.true_]
+                                  : ( Snapp_statement.Checked.t
+                                    * (Snapp_statement.Checked.t * unit) )
+                                    Pickles_types.Hlist0.H1
+                                      (Pickles_types.Hlist.E01
+                                         (Pickles.Inductive_rule.B))
+                                    .t ) ) } ] )
+                  in
+                  let vk =
+                    Pickles.Side_loaded.Verification_key.of_compiled tag
+                  in
+                  let { Transaction_logic.For_tests.Transaction_spec.fee
+                      ; sender= sender, sender_nonce
+                      ; receiver= multisig_account_pk
+                      ; amount } =
+                    spec
+                  in
+                  let vk =
+                    With_hash.of_data ~hash_data:Snapp_account.digest_vk vk
+                  in
+                  (let _is_new, loc =
+                     let id =
+                       Account_id.create multisig_account_pk Token_id.default
+                     in
+                     Ledger.get_or_create_account ledger id
+                       (Account.create id Balance.(of_int 234234234234))
+                     |> Or_error.ok_exn
+                   in
+                   let a = Ledger.get ledger loc |> Option.value_exn in
+                   Ledger.set ledger loc
+                     { a with
+                       snapp=
+                         Some
+                           { (Option.value ~default:Snapp_account.default
+                                a.snapp)
+                             with
+                             verification_key= Some vk } }) ;
+                  let total = Option.value_exn (Amount.add fee amount) in
+                  let fee_payer =
+                    { Party.Signed.data=
+                        { body=
+                            { pk= sender.public_key |> Public_key.compress
+                            ; update= Party.Update.noop
+                            ; token_id= Token_id.default
+                            ; delta= Amount.Signed.(negate (of_unsigned total))
+                            }
+                        ; predicate= sender_nonce }
+                        (* Real signature added in below *)
+                    ; authorization= Signature.dummy }
+                  in
+                  let snapp_party_data : Party.Predicated.t =
+                    { Party.Predicated.Poly.body=
+                        { pk= multisig_account_pk
+                        ; update= Party.Update.noop
+                        ; token_id= Token_id.default
+                        ; delta= Amount.Signed.(of_unsigned amount) }
+                    ; predicate= Accept }
+                  in
+                  let protocol_state = Snapp_predicate.Protocol_state.accept in
+                  let other_parties_hash =
+                    Party.Predicated.digest snapp_party_data
+                    |> Parties.With_hashes.(Fn.flip cons_hash empty)
+                  in
+                  let protocol_state_predicate_hash =
+                    (*FIXME: is this ok? *)
+                    Snapp_predicate.Protocol_state.digest protocol_state
+                  in
+                  let transaction : Parties.Transaction_commitment.t =
+                    (*FIXME: is this correct? *)
+                    Parties.Transaction_commitment.create ~other_parties_hash
+                      ~protocol_state_predicate_hash
+                  in
+                  let at_party =
+                    Party.Predicated.digest snapp_party_data
+                    |> Parties.With_hashes.(Fn.flip cons_hash empty)
+                  in
+                  let tx_statement : Snapp_statement.t =
+                    {transaction; at_party}
+                  in
+                  let msg =
+                    tx_statement |> Snapp_statement.to_field_elements
+                    |> Random_oracle_input.field_elements
+                  in
+                  let sigma0 = Schnorr.sign sk0 msg in
+                  let sigma1 = Schnorr.sign sk1 msg in
+                  let sigma2 = Schnorr.sign sk2 msg in
+                  let handler
+                      (Snarky_backendless.Request.With {request; respond}) =
+                    match request with
+                    | Pubkey 0 ->
+                        respond @@ Provide pk0
+                    | Pubkey 1 ->
+                        respond @@ Provide pk1
+                    | Pubkey 2 ->
+                        respond @@ Provide pk2
+                    | Sigma 0 ->
+                        respond @@ Provide sigma0
+                    | Sigma 1 ->
+                        respond @@ Provide sigma1
+                    | Sigma 2 ->
+                        respond @@ Provide sigma2
+                    | _ ->
+                        respond Unhandled
+                  in
+                  let pi : Pickles.Side_loaded.Proof.t =
+                    (fun () -> multisig_prover ~handler [] tx_statement)
+                    |> Async.Thread_safe.block_on_async_exn
+                  in
+                  let parties : Parties.t =
+                    { fee_payer
+                    ; other_parties=
+                        [{data= snapp_party_data; authorization= Proof pi}]
+                    ; protocol_state }
+                  in
+                  let w : Parties_segment.Witness.t =
+                    { global_ledger=
+                        Sparse_ledger.of_ledger_subset_exn ledger
+                          (Parties.accounts_accessed parties)
+                    ; local_state_init=
+                        { Local_state.dummy with
+                          parties= []
+                        ; ledger=
+                            Sparse_ledger.of_root ~depth:ledger_depth
+                              ~next_available_token:Token_id.(next default)
+                              Local_state.dummy.ledger }
+                    ; start_parties=
+                        [ { will_succeed= true
+                          ; protocol_state_predicate=
+                              Snapp_predicate.Protocol_state.accept
+                          ; parties } ]
+                    ; state_body }
+                  in
+                  let _, (local_state_post, excess) =
+                    Ledger.apply_parties_unchecked ledger ~constraint_constants
+                      ~state_view:
+                        (Mina_state.Protocol_state.Body.view state_body)
+                      parties
+                    |> Or_error.ok_exn
+                  in
+                  let statement : Statement.With_sok.t =
+                    { source=
+                        { ledger= Sparse_ledger.merkle_root w.global_ledger
+                        ; next_available_token=
+                            Sparse_ledger.next_available_token w.global_ledger
+                        ; pending_coinbase_stack= Pending_coinbase.Stack.empty
+                        ; local_state=
+                            { w.local_state_init with
+                              parties=
+                                Parties.With_hashes.digest
+                                  w.local_state_init.parties
+                            ; ledger=
+                                Sparse_ledger.merkle_root
+                                  w.local_state_init.ledger } }
+                    ; target=
+                        { ledger= Ledger.merkle_root ledger
+                        ; next_available_token=
+                            Ledger.next_available_token ledger
+                        ; pending_coinbase_stack= Pending_coinbase.Stack.empty
+                        ; local_state=
+                            { local_state_post with
+                              parties=
+                                List.fold (List.rev local_state_post.parties)
+                                  ~init:Parties.With_hashes.empty
+                                  ~f:(fun acc p ->
+                                    Parties.With_hashes.cons_hash
+                                      (Party.Predicated.digest p.data)
+                                      acc )
+                            ; ledger=
+                                (* TODO: This won't quite work when the transaction fails. *)
+                                Ledger.merkle_root local_state_post.ledger
+                            ; transaction_commitment=
+                                w.local_state_init.transaction_commitment } }
+                    ; supply_increase= Amount.zero
+                    ; fee_excess=
+                        { fee_token_l= Token_id.default
+                        ; fee_excess_l=
+                            Fee.Signed.of_unsigned (Amount.to_fee excess)
+                        ; fee_token_r= Token_id.default
+                        ; fee_excess_r= Fee.Signed.zero }
+                    ; sok_digest= Sok_message.Digest.default }
+                  in
+                  let open Impl in
+                  run_and_check
+                    (fun () ->
+                      let s =
+                        exists Statement.With_sok.typ ~compute:(fun () ->
+                            statement )
+                      in
+                      Base.Parties_snark.main ~constraint_constants
+                        [ { predicate_type= `Nonce_or_accept
+                          ; auth_type= Signature
+                          ; is_start= `Yes }
+                        ; { predicate_type= `Full
+                          ; auth_type= Proof
+                          ; is_start= `No } ]
+                        [] s ~witness:w ;
+                      fun () -> () )
+                    () )
+              |> Or_error.ok_exn
+              |> fun ((), ()) -> () )
+      end )
 
     let account_fee = Fee.to_int constraint_constants.account_creation_fee
 

@@ -141,6 +141,8 @@ module Side_loaded : sig
 
     val typ : (Checked.t, t) Impls.Step.Typ.t
 
+    val of_compiled : _ Tag.t -> t
+
     module Max_branches : Nat.Add.Intf
 
     module Max_width = Nat.N2
@@ -181,9 +183,6 @@ module Side_loaded : sig
   val in_prover : ('var, 'value, 'n1, 'n2) Tag.t -> Verification_key.t -> unit
 end
 
-(** This compiles a series of inductive rules defining a set into a proof
-    system for proving membership in that set, with a prover corresponding
-    to each inductive rule. *)
 val compile :
      ?self:('a_var, 'a_value, 'max_branching, 'branches) Tag.t
   -> ?cache:Key_cache.Spec.t list
@@ -215,3 +214,6 @@ val compile :
        , 'a_value
        , ('max_branching, 'max_branching) Proof.t Async.Deferred.t )
        H3_2.T(Prover).t
+(** This compiles a series of inductive rules defining a set into a proof
+    system for proving membership in that set, with a prover corresponding
+    to each inductive rule. *)
