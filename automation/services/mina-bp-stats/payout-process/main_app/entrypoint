@@ -3,5 +3,7 @@
 # start at daemon
 service atd start
 # schedule scripts initially to run after container starts
-echo "sh /opt/minanet/payout_process/start.sh" | at now + 2 minutes
+sh /opt/minanet/payout_process/calculation_scheduler.sh > calculation_scheduler.log
+sleep 1m 
+sh /opt/minanet/payout_process/validation_scheduler.sh > validation_scheduler.log
 exec "$@"
