@@ -15,7 +15,7 @@ RUN mv $PHP_INI_DIR/php.ini-development $PHP_INI_DIR/php.ini
 COPY ./php.ini $PHP_INI_DIR/conf.d/
 COPY . /var/www/html/
 WORKDIR /var/www/html/
-
+RUN service apache2 restart
 # Use the default production configuration
 EXPOSE 80
 EXPOSE 443
