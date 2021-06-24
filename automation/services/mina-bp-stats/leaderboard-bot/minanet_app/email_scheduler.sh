@@ -1,5 +1,5 @@
 #!/bin/sh
-# runs only once at the time docker starts
+
 current_date_time=$(date +"%Y-%m-%dT%H:%M:%S%z")
 genesis_t=$(cat genesis_time.txt)
 StartDate=$(date --date $genesis_t +"%s")
