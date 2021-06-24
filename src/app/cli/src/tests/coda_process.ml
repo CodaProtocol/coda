@@ -25,7 +25,7 @@ let local_config ?block_production_interval:_ ~is_seed ~peers ~addrs_and_ports
     ~offset ~trace_dir ~max_concurrent_connections ~is_archive_rocksdb
     ~archive_process_location ~runtime_config () =
   let conf_dir =
-    match Sys.getenv "CODA_INTEGRATION_TEST_DIR" with
+    match Sys.getenv "MINA_INTEGRATION_TEST_DIR" with
     | Some dir ->
         dir
         ^/ Network_peer.Peer.Id.to_string
@@ -38,7 +38,7 @@ let local_config ?block_production_interval:_ ~is_seed ~peers ~addrs_and_ports
     not ([%equal: [`Yes | `No | `Unknown]] (Core.Sys.file_exists conf_dir) `No)
   then
     failwithf
-      "cannot configure coda process because directory already exists: %s"
+      "cannot configure Mina process because directory already exists: %s"
       conf_dir () ;
   let config =
     { Coda_worker.Input.addrs_and_ports

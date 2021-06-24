@@ -273,12 +273,12 @@ let start_custom :
   in
   let%bind process =
     keep_trying
+      (* TODO: remove coda-, eventually *)
       (List.filter_opt
-         [ Unix.getenv @@ "CODA_" ^ String.uppercase name ^ "_PATH"
+         [ Unix.getenv @@ "MINA_" ^ String.uppercase name ^ "_PATH"
          ; relative_to_root
          ; Some (Filename.dirname mina_binary_path ^/ name)
          ; Some ("mina-" ^ name)
-         ; Some ("coda-" ^ name)
          ])
       ~f:(fun prog -> Process.create ~stdin:"" ~prog ~args ())
   in
