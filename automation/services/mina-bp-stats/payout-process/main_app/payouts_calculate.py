@@ -9,6 +9,7 @@ from calculate_email import send_mail
 from mail_to_foundation_acc import mail_to_foundation_accounts
 from datetime import datetime, timezone
 from logger_util import logger
+from itertools import groupby
 
 connection_archive = psycopg2.connect(
     host=BaseConfig.POSTGRES_ARCHIVE_HOST,
@@ -42,8 +43,10 @@ def read_staking_json_list():
     file_dict_for_memory = dict()
     for blob in blobs:
         file_dict_for_memory[blob.name] = blob.updated
-    sorted_list = [k for k, v in sorted(file_dict_for_memory.items(), key=lambda p: p[1], reverse=True)]
-    file_name_list_for_memory = [file for file in sorted_list if not file.endswith(".txt")]
+    sorted_list = [k for k, v in sorted(file_dict_for_memory.items(), key=lambda p: p[1], reverse=False)]
+    recent_file = [list(i) for j, i in groupby(sorted_list, lambda a: a.split('-')[1])]
+    recent_file = [recent[-1] for recent in recent_file]
+    file_name_list_for_memory = [file for file in recent_file if str(file).endswith(".json")]
     return file_name_list_for_memory
 
 
@@ -88,16 +91,18 @@ def read_staking_json_for_epoch(epoch_id):
     # convert to string
     ledger_name = ''
     modified_staking_df = pd.DataFrame()
+    file_to_read = read_staking_json_list()
     for blob in blobs:
-        logger.info(blob.name)
-        ledger_name = blob.name
-        json_data_string = blob.download_as_string()
-        json_data_dict = json.loads(json_data_string)
-        staking_df = pd.DataFrame(json_data_dict)
-        modified_staking_df = staking_df[['pk', 'balance', 'delegate']]
-        modified_staking_df['pk'] = modified_staking_df['pk'].astype(str)
-        modified_staking_df['balance'] = modified_staking_df['balance'].astype(float)
-        modified_staking_df['delegate'] = modified_staking_df['delegate'].astype(str)
+        if blob.name in file_to_read:
+            logger.info(blob.name)
+            ledger_name = blob.name
+            json_data_string = blob.download_as_string()
+            json_data_dict = json.loads(json_data_string)
+            staking_df = pd.DataFrame(json_data_dict)
+            modified_staking_df = staking_df[['pk', 'balance', 'delegate']]
+            modified_staking_df['pk'] = modified_staking_df['pk'].astype(str)
+            modified_staking_df['balance'] = modified_staking_df['balance'].astype(float)
+            modified_staking_df['delegate'] = modified_staking_df['delegate'].astype(str)
     return modified_staking_df, ledger_name
 
 
