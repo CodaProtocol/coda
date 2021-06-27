@@ -71,5 +71,5 @@ def second_mail(email_df, epoch_id):
             logger.info(response.body)
             logger.info(response.headers)
         except Exception as e:
-            logger.info(e)
-    print("emails sent: ", count)
+            logger.error(e)
+    logger.info("Calculation: epoch number: {0}, emails sent: {1}".format(epoch_id,count))

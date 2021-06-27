@@ -212,7 +212,8 @@ def main(epoch_no, do_send_email):
                 finally:
                     connection_payout.commit()
                     cursor.close()
-
+            else:
+                logger.warn("No records found in archive db")
         insert_into_audit_table(epoch_no)
         # sending second mail 24 hours left for making payments back to foundations account
         result = epoch_no
@@ -259,7 +260,7 @@ def initialize():
         logger.info(" calculation Audit found for {0}".format(last_epoch))
         count = 1
         while count <= last_epoch:
-            result = main(count, True)
+            result = main(count, False)
             count = count + 1
     return result
 

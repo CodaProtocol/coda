@@ -8,6 +8,7 @@ from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileT
 from logger_util import logger
 
 logger.info('calculate payout email')
+
 connection_payout = psycopg2.connect(
     host=BaseConfig.POSTGRES_PAYOUT_HOST,
     port=BaseConfig.POSTGRES_PAYOUT_PORT,
@@ -31,7 +32,7 @@ def get_block_producer_mail(winner_bpk):
     try:
         cursor.execute(mail_id_sql, (winner_bpk,))
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
+        logger.info("Error: {0} ".format(error))
         cursor.close()
         return 1
     data = cursor.fetchall()
@@ -79,5 +80,5 @@ def send_mail(epoch_id, delegate_record_df):
             logger.info(response.body)
             logger.info(response.headers)
         except Exception as e:
-            logger.info(e)
-    print("emails sent: ", count)
+            logger.error(e)
+    logger.info("Calculation: epoch number: {0}, emails sent: {1}".format(epoch_id,count))

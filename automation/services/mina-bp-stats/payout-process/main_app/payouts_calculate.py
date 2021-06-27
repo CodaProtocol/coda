@@ -79,7 +79,7 @@ def initialize():
     else:
         staking_ledger_available = read_staking_json_list()
         for ledger in staking_ledger_available:
-            result = main(ledger.split('-')[1], True)
+            result = main(ledger.split('-')[1], False)
     return result
 
 
@@ -242,6 +242,8 @@ def main(epoch_no, do_send_email):
             zero_block_producers = delegate_record_df[delegate_record_df['blocks'] == 0]
             zero_block_producers = zero_block_producers[['winner_pub_key']]
             mail_to_foundation_accounts(zero_block_producers, epoch_no)
+    else:
+        logger.warn("Staking ledger not found for epoch number {0}".format(epoch_no))
     return result
 
 
