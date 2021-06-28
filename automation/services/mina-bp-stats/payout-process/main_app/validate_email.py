@@ -24,7 +24,7 @@ def get_block_producer_mail(winner_bpk, conn=connection_leaderboard):
     try:
         cursor.execute(mail_id_sql, (winner_bpk,))
     except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
+        logger.info("Error: {0} ".format(error))
         cursor.close()
         return 1
     data = cursor.fetchall()

@@ -221,6 +221,7 @@ def main(epoch_no, do_send_email):
             email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
             second_mail(email_df, epoch_no)
     else:
+        logger.warn("Staking ledger not found for epoch number {0}".format(epoch_no))
         print(-1)
         sys.exit()
     return result
@@ -253,7 +254,7 @@ def initialize():
     last_epoch = get_last_processed_epoch_from_audit('validation')
     logger.info(last_epoch)
     if last_epoch > 0:
-        logger.info(" validation Audit found for")
+        logger.info(" validation Audit found for epoch {0}".format(last_epoch))
         result = main(last_epoch + 1, True)
     else:
         last_epoch = get_last_processed_epoch_from_audit('calculation')
