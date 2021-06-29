@@ -68,7 +68,7 @@ module Auth_required = struct
             It is good to have "Either" as a separate thing to spare the owner from
             having to make a proof instead of a signature. Both, I'm not sure if there's
             a good justification for. *)
-      [@@deriving sexp, eq, compare, hash, yojson, enum]
+      [@@deriving sexp, equal, compare, hash, yojson, enum]
 
       let to_latest = Fn.id
     end
@@ -277,7 +277,7 @@ module Poly = struct
         ; set_delegate: 'controller
         ; set_permissions: 'controller
         ; set_verification_key: 'controller }
-      [@@deriving sexp, eq, compare, hash, yojson, hlist, fields]
+      [@@deriving sexp, equal, compare, hash, yojson, hlist, fields]
     end
   end]
 
@@ -295,7 +295,7 @@ end
 module Stable = struct
   module V1 = struct
     type t = (bool, Auth_required.Stable.V1.t) Poly.Stable.V1.t
-    [@@deriving sexp, eq, compare, hash, yojson]
+    [@@deriving sexp, equal, compare, hash, yojson]
 
     let to_latest = Fn.id
   end

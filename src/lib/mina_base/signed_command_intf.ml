@@ -155,7 +155,7 @@ module type S = sig
     module Stable : sig
       module Latest : sig
         type nonrec t = private t
-        [@@deriving sexp, eq, bin_io, yojson, version, compare, hash]
+        [@@deriving sexp, equal, bin_io, yojson, version, compare, hash]
 
         include Gen_intf with type t := t
       end

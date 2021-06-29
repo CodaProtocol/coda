@@ -917,18 +917,18 @@ let export_ledger =
         (optional string))
   in
   let ledger_kind =
+    let available_ledgers =
+      [ "staged-ledger"
+      ; "snarked-ledger"
+      ; "staking-epoch-ledger"
+      ; "next-epoch-ledger" ]
+    in
     let t =
       Command.Param.Arg_type.of_alist_exn
-        (List.map
-           [ "staged-ledger"
-           ; "snarked-ledger"
-           ; "staking-epoch-ledger"
-           ; "next-epoch-ledger" ] ~f:(fun s -> (s, s)))
+        (List.map available_ledgers ~f:(fun s -> (s, s)))
     in
-    Command.Param.(
-      anon
-        ( "staged-ledger|snarked-ledger|staking-epoch-ledger|next-epoch-ledger"
-        %: t ))
+    let ledger_args = String.concat ~sep:"|" available_ledgers in
+    Command.Param.(anon (ledger_args %: t))
   in
   let plaintext_flag = Cli_lib.Flag.plaintext in
   let flags = Args.zip3 state_hash_flag plaintext_flag ledger_kind in
@@ -1022,7 +1022,7 @@ let hash_ledger =
          | Error err ->
              Format.eprintf "Could not parse JSON in file %s: %s@" ledger_file
                err ;
-             ignore (exit 1))
+             ignore (exit 1 : 'a Deferred.t))
 
 let currency_in_ledger =
   let open Command.Let_syntax in
@@ -1090,7 +1090,7 @@ let currency_in_ledger =
          | Error err ->
              Format.eprintf "Could not parse JSON in file %s: %s@" ledger_file
                err ;
-             ignore (exit 1))
+             ignore (exit 1 : 'a Deferred.t))
 
 let constraint_system_digests =
   Command.async ~summary:"Print MD5 digest of each SNARK constraint"
@@ -1767,7 +1767,7 @@ let generate_libp2p_keypair =
     let%map_open privkey_path = Cli_lib.Flag.privkey_write_path in
     Cli_lib.Exceptions.handle_nicely
     @@ fun () ->
-    Deferred.ignore
+    Deferred.ignore_m
       (let open Deferred.Let_syntax in
       (* FIXME: I'd like to accumulate messages into this logger and only dump them out in failure paths. *)
       let logger = Logger.null () in

@@ -76,7 +76,7 @@ let get_mina_binary () =
   let open Async in
   let open Deferred.Or_error.Let_syntax in
   let%bind os = Process.run ~prog:"uname" ~args:["-s"] () in
-  if os = "Darwin\n" then
+  if String.equal os "Darwin\n" then
     let open Ctypes in
     let ns_get_executable_path =
       Foreign.foreign "_NSGetExecutablePath"
@@ -226,9 +226,11 @@ let reader_to_strict_pipe_with_logging :
      iterate over it and drop everything. Since Strict_pipe enforces a single
      reader this is safe. *)
   don't_wait_for
-    ( if pipe = `No_pipe then
-      Strict_pipe.Reader.iter client_r ~f:(Fn.const Deferred.unit)
-    else Deferred.unit ) ;
+    ( match pipe with
+    | `No_pipe ->
+        Strict_pipe.Reader.iter client_r ~f:(Fn.const Deferred.unit)
+    | _ ->
+        Deferred.unit ) ;
   client_r
 
 let start_custom :
@@ -289,7 +291,7 @@ let start_custom :
       ; ("args", `List (List.map args ~f:(fun a -> `String a)))
       ; ("pid", `Int (Process.pid process |> Pid.to_int)) ] ;
   Termination.wait_for_process_log_errors ~logger process ~module_:__MODULE__
-    ~location:__LOC__ ;
+    ~location:__LOC__ ~here:[%here] ;
   let%bind () =
     Deferred.map ~f:Or_error.return
     @@ Async.Writer.save lock_path

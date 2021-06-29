@@ -7,7 +7,7 @@ module Payload = Transaction_union_payload
 
 type ('payload, 'pk, 'signature) t_ =
   {payload: 'payload; signer: 'pk; signature: 'signature}
-[@@deriving eq, sexp, hash, hlist]
+[@@deriving equal, sexp, hash, hlist]
 
 type t = (Payload.t, Public_key.t, Signature.t) t_
 

@@ -45,7 +45,7 @@ end) : S = struct
     let now = Now.now () in
     let elap = Time.diff now trust_last_updated in
     let elapsed_time =
-      if elap >= Time.Span.zero then elap else Time.Span.zero
+      if Time.Span.(elap >= zero) then elap else Time.Span.zero
     in
     (* ntpd or a user may have reset the system time, yielding a negative elapsed time.  in that case, clamp the elapsed time to zero*)
     let new_trust = (decay_rate ** Time.Span.to_sec elapsed_time) *. trust in
@@ -74,7 +74,7 @@ end) : S = struct
     { new_record with
       trust= new_trust
     ; banned_until_opt=
-        ( if new_trust <=. -1. then
+        ( if Float.(new_trust <= -1.) then
           Some (Time.add new_record.trust_last_updated Time.Span.day)
         else new_record.banned_until_opt ) }
 

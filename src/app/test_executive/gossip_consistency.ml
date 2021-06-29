@@ -151,7 +151,7 @@ module Make (Inputs : Intf.Test.Inputs_intf) = struct
     [%log info] "gossip_consistency test: consistency ratio = %f" ratio ;
     let threshold = 0.95 in
     let%map () =
-      if ratio < threshold then (
+      if Float.(ratio < threshold) then (
         let result =
           Malleable_error.soft_error_string ~value:()
             (Printf.sprintf

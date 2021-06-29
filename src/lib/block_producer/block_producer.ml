@@ -829,11 +829,12 @@ let run ~logger ~prover ~verifier ~trust_system ~get_completed_work
                    | `Produce_now (data, winner_pk) ->
                        Mina_metrics.(Counter.inc_one Block_producer.slots_won) ;
                        let%map () = generate_genesis_proof_if_needed () in
-                       Interruptible.finally
-                         (Singleton_supervisor.dispatch production_supervisor
-                            (now, data, winner_pk))
-                         ~f:check_next_block_timing
-                       |> ignore
+                       ignore
+                         ( Interruptible.finally
+                             (Singleton_supervisor.dispatch
+                                production_supervisor (now, data, winner_pk))
+                             ~f:check_next_block_timing
+                           : (unit, unit) Interruptible.t )
                    | `Produce (time, data, winner_pk) ->
                        Mina_metrics.(Counter.inc_one Block_producer.slots_won) ;
                        let scheduled_time = time_of_ms time in
@@ -864,11 +865,12 @@ let run ~logger ~prover ~verifier ~trust_system ~get_completed_work
                        Singleton_scheduler.schedule scheduler scheduled_time
                          ~f:(fun () ->
                            ignore
-                             (Interruptible.finally
-                                (Singleton_supervisor.dispatch
-                                   production_supervisor
-                                   (scheduled_time, data, winner_pk))
-                                ~f:check_next_block_timing) ) ;
+                             ( Interruptible.finally
+                                 (Singleton_supervisor.dispatch
+                                    production_supervisor
+                                    (scheduled_time, data, winner_pk))
+                                 ~f:check_next_block_timing
+                               : (unit, unit) Interruptible.t ) ) ;
                        Deferred.return ()) )
       in
       let start () =
@@ -901,8 +903,9 @@ let run ~logger ~prover ~verifier ~trust_system ~get_completed_work
           "Node started before genesis: waiting $time_till_genesis \
            milliseconds before starting block producer" ;
         ignore
-          (Time.Timeout.create time_controller time_till_genesis ~f:(fun _ ->
-               start () )) )
+          ( Time.Timeout.create time_controller time_till_genesis ~f:(fun _ ->
+                start () )
+            : unit Time.Timeout.t ) )
 
 let run_precomputed ~logger ~verifier ~trust_system ~time_controller
     ~frontier_reader ~transition_writer ~precomputed_blocks

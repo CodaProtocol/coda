@@ -3,7 +3,7 @@ open Core_kernel
 module type Inputs_intf = sig
   type proof_elem
 
-  type hash [@@deriving eq]
+  type hash [@@deriving equal]
 
   val hash : hash -> proof_elem -> hash
 end

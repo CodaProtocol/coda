@@ -235,10 +235,10 @@ module type Sync_handler_intf = sig
 
   val get_transition_chain :
        frontier:transition_frontier
-    -> State_hash.t sexp_list
-    -> External_transition.t sexp_list option
+    -> State_hash.t list
+    -> External_transition.t list option
 
-  val best_tip_path : frontier:transition_frontier -> State_hash.t sexp_list
+  val best_tip_path : frontier:transition_frontier -> State_hash.t list
 
   (** Allows a peer to prove to a node that they can bootstrap from transition
       that they have gossiped to the network *)

@@ -18,7 +18,7 @@ module type Scalar_intf = sig
 
   type var
 
-  type t [@@deriving eq, sexp]
+  type t [@@deriving equal, sexp]
 
   val typ : (var, t) typ
 

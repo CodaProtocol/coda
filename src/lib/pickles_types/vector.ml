@@ -452,7 +452,7 @@ module Vector_2 = struct
 
   include T
 
-  let _ =
+  let () =
     let _f : type a. unit -> (a t, a Stable.Latest.t) Type_equal.t =
      fun () -> Type_equal.T
     in
@@ -481,7 +481,7 @@ module Vector_4 = struct
 
   include T
 
-  let _ =
+  let () =
     let _f : type a. unit -> (a t, a Stable.Latest.t) Type_equal.t =
      fun () -> Type_equal.T
     in
@@ -510,7 +510,7 @@ module Vector_8 = struct
 
   include T
 
-  let _ =
+  let () =
     let _f : type a. unit -> (a t, a Stable.Latest.t) Type_equal.t =
      fun () -> Type_equal.T
     in
@@ -539,7 +539,7 @@ module Vector_17 = struct
 
   include T
 
-  let _ =
+  let () =
     let _f : type a. unit -> (a t, a Stable.Latest.t) Type_equal.t =
      fun () -> Type_equal.T
     in
@@ -568,7 +568,7 @@ module Vector_18 = struct
 
   include T
 
-  let _ =
+  let () =
     let _f : type a. unit -> (a t, a Stable.Latest.t) Type_equal.t =
      fun () -> Type_equal.T
     in

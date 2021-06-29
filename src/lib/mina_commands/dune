@@ -7,4 +7,4 @@
    ; libs
    mina_base user_command_input mina_lib mina_version daemon_rpcs node_addrs_and_ports)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_jane ppx_deriving.eq)))
+ (preprocess (pps ppx_coda ppx_version ppx_jane ppx_compare)))

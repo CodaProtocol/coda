@@ -31,7 +31,11 @@ spec:
             memory: 6.0Gi
             cpu: 4
         image: {{ .Values.coda.image }}
+        {{ if $.Values.coda.useCustomEntrypoint -}}
+        command: [{{ $.Values.coda.customEntrypoint }}]
+        {{- else }}
         command: ["bash", "-c"]
+        {{- end }}
         args: [ "sleep 120 && mina internal snark-worker -proof-level full -daemon-address '{{ tpl $.Values.worker.remoteCoordinatorHost . }}:{{ $.Values.worker.remoteCoordinatorPort }}'" ]
         env:
           - name: "RAYON_NUM_THREADS"

@@ -379,7 +379,7 @@ end = struct
               if not (Preferred_heap.mem t.all_preferred p) then (p, k) :: acc
               else acc )
       in
-      (* 
+      (*
          Algorithm:
          - Look at the pending jobs
          - Find all peers who have the best claim to knowing the first job in the queue.
@@ -440,7 +440,9 @@ end = struct
             in
             ((p, List.rev js), Knowledge_summary.score summary) )
       in
-      let useful_exists = List.exists knowledge ~f:(fun (_, s) -> s > 0.) in
+      let useful_exists =
+        List.exists knowledge ~f:(fun (_, s) -> Float.(s > 0.))
+      in
       let best =
         List.max_elt
           (List.filter knowledge ~f:(fun ((p, _), _) ->
@@ -453,7 +455,7 @@ end = struct
       | None ->
           if useful_exists then `Useful_but_busy else `No_peers
       | Some ((p, k), score) ->
-          if score <= 0. then `Stalled else `Useful (p, k)
+          if Float.(score <= 0.) then `Stalled else `Useful (p, k)
 
     type update =
       | Refreshed_peers of {all_peers: Peer.Set.t}
@@ -653,7 +655,8 @@ end = struct
 
   let enqueue t e = Q.enqueue t.pending e
 
-  let enqueue_exn t e = assert (enqueue t e = `Ok)
+  let enqueue_exn t e =
+    assert ([%equal: [`Ok | `Key_already_present]] (enqueue t e) `Ok)
 
   let active_jobs t =
     Q.to_list t.pending
@@ -1029,7 +1032,7 @@ end = struct
     refresh_peers t peers ;
     t
 
-  (* After calling download, if no one else has called within time [max_wait], 
+  (* After calling download, if no one else has called within time [max_wait],
        we flush our queue. *)
   let download t ~key ~attempts : Job.t =
     match (Q.lookup t.pending key, Hashtbl.find t.downloading key) with

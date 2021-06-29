@@ -1,8 +1,0 @@
-(library
- (name marlin_plonk_bindings_tweedle_fq_vector)
- (public_name marlin_plonk_bindings.tweedle_fq.vector)
- (libraries
-   marlin_plonk_bindings_stubs
-   marlin_plonk_bindings_tweedle_fq)
- (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version)))

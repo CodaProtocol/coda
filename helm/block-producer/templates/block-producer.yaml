@@ -172,6 +172,9 @@ spec:
             memory: 8.0Gi
             cpu: 8.0
         image: {{ $.Values.coda.image }}
+        {{ if $.Values.coda.useCustomEntrypoint -}}
+        command: [{{ $.Values.coda.customEntrypoint }}]
+        {{- end }}
         args: [ "daemon",
           "-log-level", {{ $.Values.coda.logLevel }},
           "-log-json",

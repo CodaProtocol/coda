@@ -121,7 +121,7 @@ module Make
         open Impl
 
         module Scalar : sig
-          type t [@@deriving sexp, eq]
+          type t [@@deriving sexp, equal]
 
           type var
 
@@ -330,7 +330,7 @@ module Make
         open Impl
 
         module Scalar : sig
-          type t [@@deriving sexp, eq]
+          type t [@@deriving sexp, equal]
 
           val zero : t
 

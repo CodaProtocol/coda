@@ -76,7 +76,45 @@ let create () =
 
 [%%else]
 
-let create () = Quickcheck.random_value ~seed:`Nondeterministic gen
+let create () : t =
+  let open Js_of_ocaml in
+  let random_bytes_32 =
+    Js.Unsafe.js_expr
+      {js|(function() {
+        var topLevel = (typeof self === 'object' && self.self === self && self) ||
+          (typeof global === 'object' && global.global === global && global) ||
+          this;
+        var b;
+
+        if (topLevel.crypto && topLevel.crypto.getRandomValues) {
+          b = new Uint8Array(32);
+          topLevel.crypto.getRandomValues(b);
+        } else {
+          if (typeof require === 'function') {
+            var crypto = require('crypto');
+            if (!crypto) {
+              throw 'random values not available'
+            }
+            b = crypto.randomBytes(32);
+          } else {
+            throw 'random values not available'
+          }
+        }
+        var res = [];
+        for (var i = 0; i < 32; ++i) {
+          res.push(b[i]);
+        }
+        res[31] &= 0x3f;
+        return res;
+      })|js}
+  in
+  let x : int Js.js_array Js.t = Js.Unsafe.fun_call random_bytes_32 [||] in
+  let byte_undefined () = failwith "byte undefined" in
+  Snarkette.Pasta.Fq.of_bigint
+    (Snarkette.Nat.of_bytes
+       (String.init 32 ~f:(fun i ->
+            Char.of_int_exn (Js.Optdef.get (Js.array_get x i) byte_undefined)
+        )))
 
 [%%endif]
 

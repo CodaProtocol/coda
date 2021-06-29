@@ -73,7 +73,7 @@ let flush t =
       t.flush_job <- None ;
       Deferred.unit )
   in
-  assert (t.flush_job = None) ;
+  assert (Option.is_none t.flush_job) ;
   if DynArray.length t.diff_array > 0 then t.flush_job <- Some (flush_job t)
 
 let create ~(constraint_constants : Genesis_constants.Constraint_constants.t)
@@ -87,7 +87,7 @@ let create ~(constraint_constants : Genesis_constants.Constraint_constants.t)
   in
   let timer =
     Timer.create ~time_controller
-      ~f:(fun () -> if t.flush_job = None then flush t)
+      ~f:(fun () -> if Option.is_none t.flush_job then flush t)
       (max_latency constraint_constants)
   in
   t.timer <- Some timer ;
@@ -97,7 +97,7 @@ let write t ~diffs =
   if t.closed then failwith "attempt to write to diff buffer after closed" ;
   let (`Unprocessed diffs) = Worker.make_immediate_progress t.worker diffs in
   List.iter diffs ~f:(DynArray.add t.diff_array) ;
-  if should_flush t && t.flush_job = None then flush t
+  if should_flush t && Option.is_none t.flush_job then flush t
   else check_for_overflow t
 
 let close_and_finish_copy t =

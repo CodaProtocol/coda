@@ -34,7 +34,7 @@ module Poly = struct
             ; cliff_amount: 'amount
             ; vesting_period: 'slot
             ; vesting_increment: 'amount }
-      [@@deriving sexp, eq, hash, compare, yojson]
+      [@@deriving sexp, equal, hash, compare, yojson]
     end
   end]
 end
@@ -47,7 +47,7 @@ module Stable = struct
       , Balance.Stable.V1.t
       , Amount.Stable.V1.t )
       Poly.Stable.V1.t
-    [@@deriving sexp, eq, hash, compare, yojson]
+    [@@deriving sexp, equal, hash, compare, yojson]
 
     let to_latest = Fn.id
   end
@@ -61,7 +61,7 @@ type ('slot, 'balance, 'amount) tt = ('slot, 'balance, 'amount) Poly.t =
       ; cliff_amount: 'amount
       ; vesting_period: 'slot
       ; vesting_increment: 'amount }
-[@@deriving sexp, eq, hash, compare, yojson]
+[@@deriving sexp, equal, hash, compare, yojson]
 
 module As_record = struct
   type ('bool, 'slot, 'balance, 'amount) t =

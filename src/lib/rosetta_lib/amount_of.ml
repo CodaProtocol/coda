@@ -43,7 +43,7 @@ let coda total =
 
 let token token_id total =
   (* TODO: Should we depend on mina_base so we can refer to Token_id.default instead? *)
-  if token_id = Unsigned.UInt64.of_int 1 then coda total
+  if Unsigned.UInt64.equal token_id (Unsigned.UInt64.of_int 1) then coda total
   else
     { Amount.value= Unsigned.UInt64.to_string total
     ; currency=

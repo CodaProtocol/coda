@@ -20,6 +20,8 @@ module Validate_content = struct
 
   let sexp_of_t _ = sexp_of_unit ()
 
+  let compare _ _ = 0
+
   let __versioned__ = ()
 end
 
@@ -37,7 +39,7 @@ module Raw_versioned__ = struct
         ; current_protocol_version: Protocol_version.Stable.V1.t
         ; proposed_protocol_version_opt: Protocol_version.Stable.V1.t option
         ; mutable validation_callback: Validate_content.t }
-      [@@deriving sexp, fields]
+      [@@deriving compare, sexp, fields]
 
       let to_latest = Fn.id
 
@@ -95,7 +97,8 @@ Raw_versioned__.
   , current_protocol_version
   , proposed_protocol_version_opt
   , validation_callback
-  , set_validation_callback )]
+  , set_validation_callback
+  , compare )]
 
 [%%define_locally
 Stable.Latest.(create, sexp_of_t, t_of_sexp)]

@@ -5,7 +5,7 @@ open Core_kernel
 [%%versioned
 module Stable = struct
   module V1 = struct
-    type t = {major: int; minor: int; patch: int} [@@deriving sexp]
+    type t = {major: int; minor: int; patch: int} [@@deriving compare, sexp]
 
     let to_latest = Fn.id
   end

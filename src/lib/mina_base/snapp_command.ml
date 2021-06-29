@@ -47,7 +47,7 @@ module Party = struct
             ; delegate: 'pk
             ; verification_key: 'vk
             ; permissions: 'perms }
-          [@@deriving compare, eq, sexp, hash, yojson, hlist]
+          [@@deriving compare, equal, sexp, hash, yojson, hlist]
         end
       end]
     end
@@ -66,7 +66,7 @@ module Party = struct
             Set_or_keep.Stable.V1.t
           , Permissions.Stable.V1.t Set_or_keep.Stable.V1.t )
           Poly.Stable.V1.t
-        [@@deriving compare, eq, sexp, hash, yojson]
+        [@@deriving compare, equal, sexp, hash, yojson]
 
         let to_latest = Fn.id
       end
@@ -139,7 +139,7 @@ module Party = struct
         module V1 = struct
           type ('pk, 'update, 'signed_amount) t =
             {pk: 'pk; update: 'update; delta: 'signed_amount}
-          [@@deriving hlist, sexp, eq, yojson, hash, compare]
+          [@@deriving hlist, sexp, equal, yojson, hash, compare]
         end
       end]
     end
@@ -152,7 +152,7 @@ module Party = struct
           , Update.Stable.V1.t
           , (Amount.Stable.V1.t, Sgn.Stable.V1.t) Signed_poly.Stable.V1.t )
           Poly.Stable.V1.t
-        [@@deriving sexp, eq, yojson, hash, compare]
+        [@@deriving sexp, equal, yojson, hash, compare]
 
         let to_latest = Fn.id
       end
@@ -210,7 +210,7 @@ module Party = struct
       module Stable = struct
         module V1 = struct
           type ('body, 'predicate) t = {body: 'body; predicate: 'predicate}
-          [@@deriving hlist, sexp, eq, yojson, hash, compare]
+          [@@deriving hlist, sexp, equal, yojson, hash, compare]
         end
       end]
 
@@ -225,7 +225,7 @@ module Party = struct
         module V1 = struct
           type t =
             (Body.Stable.V1.t, Snapp_predicate.Stable.V1.t) Poly.Stable.V1.t
-          [@@deriving sexp, eq, yojson, hash, compare]
+          [@@deriving sexp, equal, yojson, hash, compare]
 
           let to_latest = Fn.id
         end
@@ -250,7 +250,7 @@ module Party = struct
    if predicates are not too expensive. *)
             , Account_nonce.Stable.V1.t )
             Poly.Stable.V1.t
-          [@@deriving sexp, eq, yojson, hash, compare]
+          [@@deriving sexp, equal, yojson, hash, compare]
 
           let to_latest = Fn.id
         end
@@ -278,7 +278,7 @@ module Party = struct
       module Stable = struct
         module V1 = struct
           type t = (Body.Stable.V1.t, unit) Poly.Stable.V1.t
-          [@@deriving sexp, eq, yojson, hash, compare]
+          [@@deriving sexp, equal, yojson, hash, compare]
 
           let to_latest = Fn.id
         end
@@ -296,7 +296,7 @@ module Party = struct
       module Stable = struct
         module V1 = struct
           type ('data, 'auth) t = {data: 'data; authorization: 'auth}
-          [@@deriving hlist, sexp, eq, yojson, hash, compare]
+          [@@deriving hlist, sexp, equal, yojson, hash, compare]
         end
       end]
     end
@@ -309,7 +309,7 @@ module Party = struct
             ( Predicated.Proved.Stable.V1.t
             , Control.Stable.V1.t )
             Poly.Stable.V1.t
-          [@@deriving sexp, eq, yojson, hash, compare]
+          [@@deriving sexp, equal, yojson, hash, compare]
 
           let to_latest = Fn.id
         end
@@ -324,7 +324,7 @@ module Party = struct
             ( Predicated.Signed.Stable.V1.t
             , Signature.Stable.V1.t )
             Poly.Stable.V1.t
-          [@@deriving sexp, eq, yojson, hash, compare]
+          [@@deriving sexp, equal, yojson, hash, compare]
 
           let to_latest = Fn.id
         end
@@ -336,7 +336,7 @@ module Party = struct
       module Stable = struct
         module V1 = struct
           type t = (Predicated.Empty.Stable.V1.t, unit) Poly.Stable.V1.t
-          [@@deriving sexp, eq, yojson, hash, compare]
+          [@@deriving sexp, equal, yojson, hash, compare]
 
           let to_latest = Fn.id
         end
@@ -354,7 +354,7 @@ module Inner = struct
         ; fee_payment: Other_fee_payer.Stable.V1.t option
         ; one: 'one
         ; two: 'two }
-      [@@deriving sexp, eq, yojson, hash, compare, fields, hlist]
+      [@@deriving sexp, equal, yojson, hash, compare, fields, hlist]
     end
   end]
 end
@@ -384,7 +384,7 @@ module Binable_arg = struct
             ( Party.Authorized.Signed.Stable.V1.t
             , Party.Authorized.Empty.Stable.V1.t option )
             Inner.Stable.V1.t
-      [@@deriving sexp, eq, yojson, hash, compare]
+      [@@deriving sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
 
@@ -426,7 +426,7 @@ module Stable = struct
           ( Party.Authorized.Signed.Stable.V1.t
           , Party.Authorized.Empty.Stable.V1.t option )
           Inner.Stable.V1.t
-    [@@deriving sexp, eq, yojson, hash, compare]
+    [@@deriving sexp, equal, yojson, hash, compare]
 
     include Binable.Of_binable
               (Binable_arg.Stable.V1)
@@ -465,10 +465,10 @@ let token_id (t : t) : Token_id.t =
 let assert_ b lab = if b then Ok () else Or_error.error_string lab
 
 let is_non_neg (x : Amount.Signed.t) : bool =
-  Amount.(equal zero) x.magnitude || x.sgn = Pos
+  Amount.(equal zero) x.magnitude || Sgn.equal x.sgn Pos
 
 let is_non_pos (x : Amount.Signed.t) : bool =
-  Amount.(equal zero) x.magnitude || x.sgn = Neg
+  Amount.(equal zero) x.magnitude || Sgn.equal x.sgn Neg
 
 let is_neg x = not (is_non_neg x)
 
@@ -650,9 +650,9 @@ let as_transfer (t : t) : transfer =
 
 let native_excess t = Option.try_with (fun () -> native_excess_exn t)
 
-(* Currently we ensure that 
+(* Currently we ensure that
 
-   other fee payer is present => native excess is zero 
+   other fee payer is present => native excess is zero
 
    so that there is only one token involved in the fee.
 *)
@@ -697,7 +697,7 @@ module Valid = struct
   [%%versioned
   module Stable = struct
     module V1 = struct
-      type t = Stable.V1.t [@@deriving sexp, eq, yojson, hash, compare]
+      type t = Stable.V1.t [@@deriving sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
     end
@@ -723,7 +723,7 @@ module Payload = struct
 *)
           ; one: 'one
           ; two: 'two }
-        [@@deriving hlist, sexp, eq, yojson, hash, compare]
+        [@@deriving hlist, sexp, equal, yojson, hash, compare]
       end
     end]
 
@@ -745,7 +745,7 @@ module Payload = struct
           , Party.Predicated.Signed.Stable.V1.t
           , Party.Predicated.Signed.Stable.V1.t )
           Inner.Stable.V1.t
-        [@@deriving sexp, eq, yojson, hash, compare]
+        [@@deriving sexp, equal, yojson, hash, compare]
 
         let to_latest = Fn.id
       end
@@ -813,7 +813,7 @@ module Payload = struct
           , Party.Predicated.Proved.Stable.V1.t
           , Party.Predicated.Signed.Stable.V1.t )
           Inner.Stable.V1.t
-        [@@deriving sexp, eq, yojson, hash, compare]
+        [@@deriving sexp, equal, yojson, hash, compare]
 
         let to_latest = Fn.id
       end
@@ -851,7 +851,7 @@ module Payload = struct
           , Party.Predicated.Proved.Stable.V1.t
           , Party.Predicated.Proved.Stable.V1.t )
           Inner.Stable.V1.t
-        [@@deriving sexp, eq, yojson, hash, compare]
+        [@@deriving sexp, equal, yojson, hash, compare]
 
         let to_latest = Fn.id
       end
@@ -887,7 +887,7 @@ module Payload = struct
           | Zero_proved of 'zero
           | One_proved of 'one
           | Two_proved of 'two
-        [@@deriving sexp, eq, yojson, hash, compare]
+        [@@deriving sexp, equal, yojson, hash, compare]
 
         let to_latest = Fn.id
       end
@@ -902,7 +902,7 @@ module Payload = struct
         , One_proved.Stable.V1.t
         , Two_proved.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving sexp, eq, yojson, hash, compare]
+      [@@deriving sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
     end

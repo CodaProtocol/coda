@@ -5,6 +5,6 @@
  (library_flags -linkall)
  (libraries async async_extra digestif mina_metrics core lens non_empty_list pipe_lib sgn state_or_error)
  (preprocess
-  (pps ppx_jane ppx_coda ppx_version ppx_deriving.eq lens.ppx_deriving))
+  (pps ppx_jane ppx_coda ppx_version ppx_compare lens.ppx_deriving))
  (instrumentation (backend bisect_ppx))
  (synopsis "Parallel scan over an infinite stream (incremental map-reduce)"))

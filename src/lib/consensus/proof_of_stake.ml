@@ -466,13 +466,15 @@ module Data = struct
               ~default:
                 ((* TODO: Be smarter so that we don't have to look at the slot before again *)
                  let epoch, slot = Epoch_and_slot.of_time_exn now ~constants in
-                 (epoch, UInt32.(if slot > zero then sub slot one else slot)))
+                 ( epoch
+                 , UInt32.(
+                     if compare slot zero > 0 then sub slot one else slot) ))
         ; last_epoch_delegatee_table= None
         ; epoch_ledger_uuids= old.epoch_ledger_uuids
         ; epoch_ledger_location= old.epoch_ledger_location }
 
     type snapshot_identifier = Staking_epoch_snapshot | Next_epoch_snapshot
-    [@@deriving to_yojson]
+    [@@deriving to_yojson, equal]
 
     let get_snapshot (t : t) id =
       match id with
@@ -957,7 +959,7 @@ module Data = struct
               , Lock_checkpoint.Stable.V1.t
               , Length.Stable.V1.t )
               Poly.Stable.V1.t
-            [@@deriving sexp, compare, eq, hash, yojson]
+            [@@deriving sexp, compare, equal, hash, yojson]
 
             let to_latest = Fn.id
           end
@@ -981,7 +983,7 @@ module Data = struct
               , Lock_checkpoint.Stable.V1.t
               , Length.Stable.V1.t )
               Poly.Stable.V1.t
-            [@@deriving sexp, compare, eq, hash, yojson]
+            [@@deriving sexp, compare, equal, hash, yojson]
 
             let to_latest = Fn.id
           end
@@ -1007,7 +1009,7 @@ module Data = struct
         else {Epoch_ledger.Poly.hash= snarked_ledger_hash; total_currency}
       in
       let staking_data', next_data', epoch_count' =
-        if next_epoch > prev_epoch then
+        if Epoch.(next_epoch > prev_epoch) then
           ( next_to_staking next_data
           , { Poly.seed= next_data.seed
             ; ledger= next_staking_ledger
@@ -1124,8 +1126,11 @@ module Data = struct
               Sub_window.(of_int i < next_relative_sub_window)
             in
             let within_range =
-              if prev_relative_sub_window < next_relative_sub_window then
-                gt_prev_sub_window && lt_next_sub_window
+              if
+                UInt32.compare prev_relative_sub_window
+                  next_relative_sub_window
+                < 0
+              then gt_prev_sub_window && lt_next_sub_window
               else gt_prev_sub_window || lt_next_sub_window
             in
             if same_sub_window then length
@@ -1138,8 +1143,10 @@ module Data = struct
       let min_window_density =
         if
           same_sub_window
-          || Global_slot.slot_number next_global_slot
-             < constants.grace_period_end
+          || UInt32.compare
+               (Global_slot.slot_number next_global_slot)
+               constants.grace_period_end
+             < 0
         then prev_min_window_density
         else Length.min new_window_length prev_min_window_density
       in
@@ -1290,8 +1297,10 @@ module Data = struct
           let min_window_density =
             if
               sub_window_diff = 0
-              || Global_slot.slot_number next_global_slot
-                 < constants.grace_period_end
+              || UInt32.compare
+                   (Global_slot.slot_number next_global_slot)
+                   constants.grace_period_end
+                 < 0
             then prev_min_window_density
             else Length.min new_window_length prev_min_window_density
           in
@@ -1553,7 +1562,7 @@ module Data = struct
             ; block_creator: 'pk
             ; coinbase_receiver: 'pk
             ; supercharge_coinbase: 'bool }
-          [@@deriving sexp, eq, compare, hash, yojson, fields, hlist]
+          [@@deriving sexp, equal, compare, hash, yojson, fields, hlist]
         end
       end]
     end
@@ -1573,7 +1582,7 @@ module Data = struct
             , bool
             , Public_key.Compressed.Stable.V1.t )
             Poly.Stable.V1.t
-          [@@deriving sexp, eq, compare, hash, yojson]
+          [@@deriving sexp, equal, compare, hash, yojson]
 
           let to_latest = Fn.id
         end
@@ -1742,7 +1751,9 @@ module Data = struct
         / constants.checkpoint_window_size_in_slots)
 
     let same_checkpoint_window_unchecked ~constants slot1 slot2 =
-      checkpoint_window slot1 ~constants = checkpoint_window slot2 ~constants
+      UInt32.equal
+        (checkpoint_window slot1 ~constants)
+        (checkpoint_window slot2 ~constants)
 
     let update ~(constants : Constants.t) ~(previous_consensus_state : Value.t)
         ~(consensus_transition : Consensus_transition.t)
@@ -2572,7 +2583,7 @@ module Hooks = struct
     let epoch_is_not_finalized =
       let is_genesis_epoch = Length.equal epoch Length.zero in
       let epoch_is_finalized =
-        consensus_state.next_epoch_data.epoch_length > constants.k
+        Length.(consensus_state.next_epoch_data.epoch_length > constants.k)
       in
       (not epoch_is_finalized) && not is_genesis_epoch
     in
@@ -2655,7 +2666,7 @@ module Hooks = struct
       (* if requested last epoch ledger is equal to the current epoch ledger
          then we don't need make a rpc call to the peers. *)
       if
-        snapshot_id = Staking_epoch_snapshot
+        equal_snapshot_identifier snapshot_id Staking_epoch_snapshot
         && Mina_base.(
              Ledger_hash.equal
                (Frozen_ledger_hash.to_ledger_hash target_ledger_hash)
@@ -2753,12 +2764,13 @@ module Hooks = struct
         sync {snapshot_id= Next_epoch_snapshot; expected_root= next}
 
   let received_within_window ~constants (epoch, slot) ~time_received =
-    let open Time in
     let open Int64 in
-    let ( < ) x y = Pervasives.(compare x y < 0) in
-    let ( >= ) x y = Pervasives.(compare x y >= 0) in
+    let ( < ) x y = compare x y < 0 in
+    let ( >= ) x y = compare x y >= 0 in
     let time_received =
-      of_span_since_epoch (Span.of_ms (Unix_timestamp.to_int64 time_received))
+      Time.(
+        of_span_since_epoch
+          (Span.of_ms (Unix_timestamp.to_int64 time_received)))
     in
     let slot_diff =
       Epoch.diff_in_slots ~constants
@@ -2793,6 +2805,8 @@ module Hooks = struct
         Mina_base.State_hash.equal c1.staking_epoch_data.lock_checkpoint
           c2.staking_epoch_data.lock_checkpoint
       else pred_case c1 c2 || pred_case c2 c1
+
+  type select_status = [`Keep | `Take] [@@deriving equal]
 
   let select ~constants ~existing:existing_with_hash
       ~candidate:candidate_with_hash ~logger =
@@ -3026,7 +3040,8 @@ module Hooks = struct
             ~finish:(fun () -> None)
         in
         let rec find_winning_slot (slot : Slot.t) =
-          if slot >= constants.epoch_size then Deferred.return None
+          if UInt32.compare slot constants.epoch_size >= 0 then
+            Deferred.return None
           else
             match%bind
               Local_state.seen_slot local_state epoch slot |> Deferred.return
@@ -3112,8 +3127,9 @@ module Hooks = struct
 
   let should_bootstrap_len ~(constants : Constants.t) ~existing ~candidate =
     let open UInt32.Infix in
-    candidate - existing
-    > (UInt32.of_int 2 * constants.k) + (constants.delta + UInt32.of_int 1)
+    UInt32.compare (candidate - existing)
+      ((UInt32.of_int 2 * constants.k) + (constants.delta + UInt32.of_int 1))
+    > 0
 
   let should_bootstrap ~(constants : Constants.t) ~existing ~candidate ~logger
       =
@@ -3484,7 +3500,7 @@ let%test_module "Proof of stake tests" =
             Global_slot.to_epoch_and_slot
               previous_consensus_state.curr_global_slot
           in
-          if next_epoch > prev_epoch then
+          if UInt32.compare next_epoch prev_epoch > 0 then
             previous_consensus_state.next_epoch_data.seed
           else previous_consensus_state.staking_epoch_data.seed
         in
@@ -3682,7 +3698,7 @@ let%test_module "Proof of stake tests" =
       in
       let tolerance = 100. in
       (* 100 is a reasonable choice for samples = 1000 and for very low likelihood of failure; this should be recalculated if sample count was to be adjusted *)
-      let within_tolerance = diff < tolerance in
+      let within_tolerance = Float.(diff < tolerance) in
       if not within_tolerance then
         failwithf "actual vs. expected: %d vs %f" actual expected ()
 
@@ -3797,7 +3813,7 @@ let%test_module "Proof of stake tests" =
     let default_slot_fill_rate_delta = 0.15
 
     (** A root epoch of a block refers the epoch from which we can begin
-     *  simulating information for that block. Because we need to simulate 
+     *  simulating information for that block. Because we need to simulate
      *  both the staking epoch and the next staking epoch, the root epoch
      *  is the staking epoch. The root epoch position this function generates
      *  is the epoch number of the staking epoch and the block height the
@@ -4218,12 +4234,14 @@ let%test_module "Proof of stake tests" =
     let is_selected ?(log = false) (a, b) =
       let logger = if log then Logger.create () else Logger.null () in
       let constants = Lazy.force Constants.for_unit_tests in
-      Hooks.select ~constants ~existing:a ~candidate:b ~logger = `Take
+      Hooks.equal_select_status `Take
+        (Hooks.select ~constants ~existing:a ~candidate:b ~logger)
 
     let is_not_selected ?(log = false) (a, b) =
       let logger = if log then Logger.create () else Logger.null () in
       let constants = Lazy.force Constants.for_unit_tests in
-      Hooks.select ~constants ~existing:a ~candidate:b ~logger = `Keep
+      Hooks.equal_select_status `Keep
+        (Hooks.select ~constants ~existing:a ~candidate:b ~logger)
 
     let assert_selected =
       assert_hashed_consensus_state_pair ~assertion:"trigger selection"
@@ -4351,7 +4369,11 @@ let%test_module "Proof of stake tests" =
         ~f:
           (assert_hashed_consensus_state_pair
              ~assertion:"chains do not trigger a selection cycle"
-             ~f:(fun (a, b) -> (select a b, select b a) <> (`Take, `Take)))
+             ~f:(fun (a, b) ->
+               not
+                 ([%equal: Hooks.select_status * Hooks.select_status]
+                    (select a b, select b a)
+                    (`Take, `Take)) ))
 
     (* We define a homogeneous binary relation for consensus states by adapting the binary chain
      * selection rule and extending it to consider equality of chains. From this, we can test

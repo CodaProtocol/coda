@@ -1089,8 +1089,8 @@ let%test_module "test" =
 
       let dummy_constraints () =
         let b = exists Boolean.typ_unchecked ~compute:(fun _ -> true) in
-        let g = exists 
-            Step_main_inputs.Inner_curve.typ ~compute:(fun _ -> 
+        let g = exists
+            Step_main_inputs.Inner_curve.typ ~compute:(fun _ ->
                 Tick.Inner_curve.(to_affine_exn one))
         in
         let _ =

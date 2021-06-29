@@ -550,7 +550,7 @@ end
 
 module Proof_keys = struct
   module Level = struct
-    type t = Full | Check | None [@@deriving bin_io_unversioned, eq]
+    type t = Full | Check | None [@@deriving bin_io_unversioned, equal]
 
     let to_string = function
       | Full ->

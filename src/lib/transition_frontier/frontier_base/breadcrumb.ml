@@ -265,7 +265,7 @@ module For_tests = struct
               sender_account
             |> Or_error.ok_exn
           in
-          assert (status = `Existed) ;
+          assert ([%equal: [`Existed | `Added]] status `Existed) ;
           (Option.value_exn (Ledger.get ledger account_location)).nonce
         in
         let send_amount = Currency.Amount.of_int 1 in

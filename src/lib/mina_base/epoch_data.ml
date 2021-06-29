@@ -18,7 +18,7 @@ module Poly = struct
                  the current state. *)
         ; lock_checkpoint: 'lock_checkpoint
         ; epoch_length: 'length }
-      [@@deriving hlist, sexp, eq, compare, hash, yojson, fields]
+      [@@deriving hlist, sexp, equal, compare, hash, yojson, fields]
     end
   end]
 end
@@ -58,7 +58,7 @@ module Value = struct
         , State_hash.Stable.V1.t
         , Length.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving sexp, compare, eq, hash, yojson]
+      [@@deriving sexp, compare, equal, hash, yojson]
 
       let to_latest = Fn.id
     end

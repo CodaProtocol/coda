@@ -86,6 +86,8 @@ module type Int_s = sig
 
   val ( - ) : t -> t -> t
 
+  val ( > ) : t -> t -> bool
+
   val of_int : int -> t
 
   val to_int : t -> int
@@ -123,9 +125,9 @@ let gen_division_generic (type t) (module M : Int_s with type t = t) (n : t)
              impossible. "
       | head :: rest ->
           (* Going through floating point land may have caused some rounding error. We
-           tack it onto the first result so that the sum of the output is equal to n. 
+           tack it onto the first result so that the sum of the output is equal to n.
          *)
-          if n > total then M.(head + (n - total)) :: rest
+          if M.( > ) n total then M.(head + (n - total)) :: rest
           else M.(head - (total - n)) :: rest )
 
 let gen_division = gen_division_generic (module Int)

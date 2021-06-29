@@ -130,9 +130,12 @@ module Minimal = struct
       State_hash.equal
         (External_transition.Validated.state_hash transition)
         hash ) ;
-    Staged_ledger.Scan_state.check_required_protocol_states t.common.scan_state
-      ~protocol_states:(List.map ~f:snd protocol_states)
-    |> Or_error.ok_exn |> ignore ;
+    ignore
+      ( Staged_ledger.Scan_state.check_required_protocol_states
+          t.common.scan_state
+          ~protocol_states:(List.map ~f:snd protocol_states)
+        |> Or_error.ok_exn
+        : (State_hash.t * Mina_state.Protocol_state.value) list ) ;
     {Limited.transition; protocol_states; common= t.common}
 
   let create ~hash ~scan_state ~pending_coinbase =

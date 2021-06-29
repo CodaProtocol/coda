@@ -77,7 +77,9 @@ let%test_module "network pool test" =
           let pool = Mock_snark_pool.resource_pool network_pool in
           match Mock_snark_pool.Resource_pool.request_proof pool work with
           | Some {proof; fee= _} ->
-              assert (proof = priced_proof.proof)
+              assert (
+                [%equal: Ledger_proof.t One_or_two.t] proof priced_proof.proof
+              )
           | None ->
               failwith "There should have been a proof here" )
 
@@ -142,7 +144,9 @@ let%test_module "network pool test" =
                  | Mock_snark_pool.Resource_pool.Diff.Empty ->
                      assert false
                in
-               assert (List.mem works work ~equal:( = )) ;
+               assert (
+                 List.mem works work
+                   ~equal:Transaction_snark_work.Statement.equal ) ;
                Deferred.unit ) ;
         Deferred.unit
       in

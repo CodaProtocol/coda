@@ -29,7 +29,7 @@ end
 module Stable = struct
   module V1 = struct
     type t = (Field.t, Inner_curve.Scalar.t) Signature_poly.Stable.V1.t
-    [@@deriving sexp, compare, eq, hash]
+    [@@deriving sexp, compare, equal, hash]
 
     type _unused = unit constraint t = Arg.t
 

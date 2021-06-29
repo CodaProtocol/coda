@@ -325,11 +325,11 @@ let create ~logger ~verifier ~time_controller ~directory =
   {logger; verifier; time_controller; directory; instance= None}
 
 let destroy_database_exn t =
-  assert (t.instance = None) ;
+  assert (Option.is_none t.instance) ;
   File_system.remove_dir t.directory
 
 let create_instance_exn t =
-  assert (t.instance = None) ;
+  assert (Option.is_none t.instance) ;
   let instance = Instance.create t in
   t.instance <- Some instance ;
   instance

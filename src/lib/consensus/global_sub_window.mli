@@ -1,4 +1,4 @@
-type t [@@deriving eq]
+type t [@@deriving equal]
 
 val succ : t -> t
 

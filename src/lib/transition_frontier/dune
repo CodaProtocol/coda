@@ -3,4 +3,4 @@
  (public_name transition_frontier)
  (libraries downloader transition_frontier_base transition_frontier_persistent_root transition_frontier_persistent_frontier transition_frontier_full_frontier transition_frontier_extensions ppx_deriving_yojson.runtime)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_jane ppx_coda ppx_version ppx_deriving.eq ppx_deriving_yojson)))
+ (preprocess (pps ppx_jane ppx_coda ppx_version ppx_compare ppx_deriving_yojson)))

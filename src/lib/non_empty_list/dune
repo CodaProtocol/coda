@@ -3,4 +3,4 @@
  (public_name non_empty_list)
  (libraries core_kernel async_kernel)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_jane ppx_deriving.eq)))
+ (preprocess (pps ppx_coda ppx_version ppx_jane ppx_compare)))

@@ -7,13 +7,13 @@ module Git_sha = struct
     [@@@no_toplevel_latest_type]
 
     module V1 = struct
-      type t = string [@@deriving sexp, to_yojson, eq]
+      type t = string [@@deriving sexp, to_yojson, equal]
 
       let to_latest = Fn.id
     end
   end]
 
-  type t = Stable.Latest.t [@@deriving sexp, to_yojson, eq]
+  type t = Stable.Latest.t [@@deriving sexp, to_yojson, equal]
 
   let of_string s = s
 end

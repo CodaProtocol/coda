@@ -45,7 +45,8 @@ end = struct
                 let id = Account.identifier account in
                 ignore
                   ( Dest.get_or_create_account dest id account
-                  |> Or_error.ok_exn ) ) )
+                    |> Or_error.ok_exn
+                    : [`Added | `Existed] * Dest.Location.t ) ) )
       in
       let src_hash = Sparse_ledger.merkle_root src in
       let dest_hash = Dest.merkle_root dest in

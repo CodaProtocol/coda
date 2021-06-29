@@ -132,7 +132,7 @@ module V = struct
    reducing linear combinations to single PLONK positions).
 
    Every internal variable is computable from a finite list of
-   external variables and internal variables. 
+   external variables and internal variables.
 
    Currently, in fact, every internal variable is a linear combination of
    external variables and previously generated internal variables.
@@ -399,7 +399,7 @@ struct
               ; c= coeffs } ) ;
         g
 
-  let finalize t = ignore (finalize_and_get_gates t)
+  let finalize t = ignore (finalize_and_get_gates t : Gates.t)
 
   let accumulate_sorted_terms (c0, i0) terms =
     Sequence.of_list terms
@@ -654,7 +654,7 @@ struct
         | `Var x1, `Var x2 ->
             (* s1 x1 - s2 x2 = 0
           *)
-            if s1 <> s2 then
+            if not (Fp.equal s1 s2) then
               add_generic_constraint ~l:x1 ~r:x2
                 [|s1; Fp.(negate s2); Fp.zero; Fp.zero; Fp.zero|]
                 sys
@@ -675,21 +675,21 @@ struct
             assert (Fp.(equal s1 s2)) )
     | Plonk_constraint.T (Basic {l; r; o; m; c}) ->
         (* 0
-         = l.s * l.x 
-         + r.s * r.x 
-         + o.s * o.x 
+         = l.s * l.x
+         + r.s * r.x
+         + o.s * o.x
          + m * (l.x * r.x)
          + c
-         = 
+         =
            l.s * l.s' * l.x'
-         + r.s * r.s' * r.x' 
-         + o.s * o.s' * o.x' 
+         + r.s * r.s' * r.x'
+         + o.s * o.s' * o.x'
          + m * (l.s' * l.x' * r.s' * r.x')
          + c
-         = 
+         =
            (l.s * l.s') * l.x'
-         + (r.s * r.s') * r.x' 
-         + (o.s * o.s') * o.x' 
+         + (r.s * r.s') * r.x'
+         + (o.s * o.s') * o.x'
          + (m * l.s' * r.s') * l.x' r.x'
          + c
       *)
@@ -704,18 +704,18 @@ struct
           | s', `Var x ->
               (s', Some (Fp.(s * s'), x))
         in
-        (* l.s * l.x 
-         + r.s * r.x 
-         + o.s * o.x 
+        (* l.s * l.x
+         + r.s * r.x
+         + o.s * o.x
          + m * (l.x * r.x)
          + c
-         = 
+         =
            l.s * l.s' * l.x'
-         + r.s * r.x 
-         + o.s * o.x 
+         + r.s * r.x
+         + o.s * o.x
          + m * (l.x * r.x)
          + c
-         = 
+         =
         *)
         let l_s', l = red_pr l in
         let r_s', r = red_pr r in

@@ -67,13 +67,13 @@ module Node = struct
         Malleable_error.return ()
       else Malleable_error.return ()
     in
-    let%bind _ = run_in_container node "./start.sh" in
+    let%bind _ = run_in_container node "/start.sh" in
     Malleable_error.return ()
 
   let stop node =
     let open Malleable_error.Let_syntax in
     let%bind _ = run_in_container node "ps aux" in
-    let%bind _ = run_in_container node "./stop.sh" in
+    let%bind _ = run_in_container node "/stop.sh" in
     let%bind _ = run_in_container node "ps aux" in
     return ()
 
@@ -524,7 +524,8 @@ let initialize ~logger network =
     let%bind pod_statuses = get_pod_statuses () in
     (* TODO: detect "bad statuses" (eg CrashLoopBackoff) and terminate early *)
     let bad_pod_statuses =
-      List.filter pod_statuses ~f:(fun (_, status) -> status <> "Running")
+      List.filter pod_statuses ~f:(fun (_, status) ->
+          not (String.equal status "Running") )
     in
     if List.is_empty bad_pod_statuses then return ()
     else if n < max_polls then

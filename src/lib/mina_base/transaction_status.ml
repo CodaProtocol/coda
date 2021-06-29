@@ -27,7 +27,7 @@ module Failure = struct
         | Snapp_account_not_present
         | Update_not_permitted
         | Incorrect_nonce
-      [@@deriving sexp, yojson, eq, compare, enum]
+      [@@deriving sexp, yojson, equal, compare, enum]
 
       let to_latest = Fn.id
     end
@@ -176,7 +176,7 @@ module Failure = struct
         ; snapp_account_not_present: 'bool
         ; update_not_permitted: 'bool
         ; incorrect_nonce: 'bool }
-      [@@deriving hlist, eq, sexp, compare]
+      [@@deriving hlist, equal, sexp, compare]
 
       let map ~f
           { predicate
@@ -228,9 +228,9 @@ module Failure = struct
       ; snapp_account_not_present: 'bool
       ; update_not_permitted: 'bool
       ; incorrect_nonce: 'bool }
-    [@@deriving eq, sexp, compare]
+    [@@deriving equal, sexp, compare]
 
-    type t = bool poly [@@deriving eq, sexp, compare]
+    type t = bool poly [@@deriving equal, sexp, compare]
 
     let get t = function
       | Predicate ->
@@ -684,7 +684,7 @@ module Balance_data = struct
         { fee_payer_balance: Currency.Balance.Stable.V1.t option
         ; source_balance: Currency.Balance.Stable.V1.t option
         ; receiver_balance: Currency.Balance.Stable.V1.t option }
-      [@@deriving sexp, yojson, eq, compare]
+      [@@deriving sexp, yojson, equal, compare]
 
       let to_latest = Fn.id
     end
@@ -701,7 +701,7 @@ module Coinbase_balance_data = struct
       type t =
         { coinbase_receiver_balance: Currency.Balance.Stable.V1.t
         ; fee_transfer_receiver_balance: Currency.Balance.Stable.V1.t option }
-      [@@deriving sexp, yojson, eq, compare]
+      [@@deriving sexp, yojson, equal, compare]
 
       let to_latest = Fn.id
     end
@@ -740,7 +740,7 @@ module Fee_transfer_balance_data = struct
       type t =
         { receiver1_balance: Currency.Balance.Stable.V1.t
         ; receiver2_balance: Currency.Balance.Stable.V1.t option }
-      [@@deriving sexp, yojson, eq, compare]
+      [@@deriving sexp, yojson, equal, compare]
 
       let to_latest = Fn.id
     end
@@ -779,7 +779,7 @@ module Internal_command_balance_data = struct
       type t =
         | Coinbase of Coinbase_balance_data.Stable.V1.t
         | Fee_transfer of Fee_transfer_balance_data.Stable.V1.t
-      [@@deriving sexp, yojson, eq, compare]
+      [@@deriving sexp, yojson, equal, compare]
 
       let to_latest = Fn.id
     end
@@ -796,7 +796,7 @@ module Auxiliary_data = struct
         ; receiver_account_creation_fee_paid:
             Currency.Amount.Stable.V1.t option
         ; created_token: Token_id.Stable.V1.t option }
-      [@@deriving sexp, yojson, eq, compare]
+      [@@deriving sexp, yojson, equal, compare]
 
       let to_latest = Fn.id
     end
@@ -814,7 +814,7 @@ module Stable = struct
     type t =
       | Applied of Auxiliary_data.Stable.V1.t * Balance_data.Stable.V1.t
       | Failed of Failure.Stable.V1.t * Balance_data.Stable.V1.t
-    [@@deriving sexp, yojson, eq, compare]
+    [@@deriving sexp, yojson, equal, compare]
 
     let to_latest = Fn.id
   end

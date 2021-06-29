@@ -9,4 +9,4 @@ let put ?(options = []) t filename =
   let subcommand = ["s3"; "cp"] in
   let args = subcommand @ [filename; t] @ options in
   let result = Process.run ~prog:"aws" ~args () in
-  result |> Deferred.Result.ignore
+  result |> Deferred.Result.ignore_m

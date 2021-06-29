@@ -4,10 +4,10 @@ module Balance = Currency.Balance
 module Account = struct
   (* want bin_io, not available with Account.t *)
   type t = Mina_base.Account.Stable.Latest.t
-  [@@deriving bin_io_unversioned, sexp, eq, compare, hash, yojson]
+  [@@deriving bin_io_unversioned, sexp, equal, compare, hash, yojson]
 
   type key = Mina_base.Account.Key.Stable.Latest.t
-  [@@deriving bin_io_unversioned, sexp, eq, compare, hash]
+  [@@deriving bin_io_unversioned, sexp, equal, compare, hash]
 
   (* use Account items needed *)
   let empty = Mina_base.Account.empty
@@ -40,7 +40,7 @@ module Receipt = Mina_base.Receipt
 
 module Hash = struct
   module T = struct
-    type t = Md5.t [@@deriving sexp, hash, compare, bin_io_unversioned, eq]
+    type t = Md5.t [@@deriving sexp, hash, compare, bin_io_unversioned, equal]
 
     let to_string = Md5.to_hex
 
@@ -138,7 +138,7 @@ module Key = struct
   module Stable = struct
     module V1 = struct
       type t = Mina_base.Account.Key.Stable.V1.t
-      [@@deriving sexp, eq, compare, hash]
+      [@@deriving sexp, equal, compare, hash]
 
       let to_latest = Fn.id
     end
@@ -165,7 +165,7 @@ module Account_id = struct
   module Stable = struct
     module V1 = struct
       type t = Mina_base.Account_id.Stable.V1.t
-      [@@deriving sexp, eq, compare, hash]
+      [@@deriving sexp, equal, compare, hash]
 
       let to_latest = Fn.id
     end

@@ -16,7 +16,7 @@ module Stable = struct
     type t =
       | Token_owned of {disable_new_accounts: bool}
       | Not_owned of {account_disabled: bool}
-    [@@deriving compare, eq, sexp, hash, yojson]
+    [@@deriving compare, equal, sexp, hash, yojson]
 
     let to_latest = Fn.id
   end

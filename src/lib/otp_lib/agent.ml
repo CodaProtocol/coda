@@ -50,9 +50,10 @@ let%test_module "Agent" =
       on_update read_only_agent ~f:(fun _ -> is_touched := true) ;
       let new_value = intial_value + 2 in
       update agent new_value ;
+      let equal = [%equal: int * [`Same | `Different]] in
       !is_touched
       && 1 = num_subscribers agent
       && 0 = num_subscribers read_only_agent
-      && (new_value, `Different) = get read_only_agent
-      && (new_value, `Different) = get agent
+      && equal (new_value, `Different) (get read_only_agent)
+      && equal (new_value, `Different) (get agent)
   end )

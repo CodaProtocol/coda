@@ -908,7 +908,7 @@ let online_broadcaster ~constraint_constants time_controller received_messages
       let%map () = Broadcast_pipe.Writer.write online_writer `Online in
       Block_time.Timeout.cancel time_controller old_timeout () ;
       setup_timer ~constraint_constants time_controller online_writer )
-  |> Deferred.ignore |> don't_wait_for ;
+  |> Deferred.ignore_m |> don't_wait_for ;
   online_reader
 
 let wrap_rpc_data_in_envelope conn data =
@@ -1263,7 +1263,9 @@ let create (config : Config.t)
          don't_wait_for
            (let%map initial_peers = Gossip_net.Any.peers gossip_net in
             if List.is_empty initial_peers && not config.is_seed then (
-              [%log fatal] "Failed to connect to any initial peers" ;
+              [%log fatal]
+                "Failed to connect to any initial peers, possible chain id \
+                 mismatch" ;
               raise No_initial_peers )) )) ;
   (* TODO: Think about buffering:
         I.e., what do we do when too many messages are coming in, or going out.

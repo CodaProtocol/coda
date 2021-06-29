@@ -17,7 +17,7 @@ open Import
 [%%versioned:
 module Stable : sig
   module V1 : sig
-    type t [@@deriving sexp, eq, hash, compare, yojson]
+    type t [@@deriving sexp, equal, hash, compare, yojson]
   end
 end]
 

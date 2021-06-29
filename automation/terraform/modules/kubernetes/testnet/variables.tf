@@ -46,6 +46,16 @@ variable "coda_image" {
   default = "codaprotocol/coda-daemon:0.0.13-beta-master-99d1e1f"
 }
 
+variable "use_custom_entrypoint" {
+  type    = bool
+  default = false
+}
+
+variable "custom_entrypoint" {
+  type    = string
+  default = ""
+}
+
 variable "coda_archive_image" {
   type    = string
   default = ""

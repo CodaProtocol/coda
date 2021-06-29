@@ -323,7 +323,7 @@ module Balance = struct
                end )
       ; db_block_identifier_and_balance_info=
           (fun ~block_query ~address ->
-            let () = ignore (block_query, address) in
+            ignore ((block_query, address) : Block_query.t * string) ;
             let balance_info : Balance_info.t =
               {liquid_balance= 0L; total_balance= 0L}
             in

@@ -4,7 +4,7 @@ open Core_kernel
 module Stable = struct
   module V1 = struct
     type 'a t = {a: 'a; b: 'a; c: 'a}
-    [@@deriving sexp, eq, compare, hash, yojson, hlist, fields]
+    [@@deriving sexp, equal, compare, hash, yojson, hlist, fields]
   end
 end]
 
@@ -18,7 +18,7 @@ let map {a; b; c} ~f = {a= f a; b= f b; c= f c}
 let map2 t1 t2 ~f = {a= f t1.a t2.a; b= f t1.b t2.b; c= f t1.c t2.c}
 
 module Label = struct
-  type t = A | B | C [@@deriving eq]
+  type t = A | B | C [@@deriving equal]
 
   let all = [A; B; C]
 end

@@ -8,7 +8,7 @@ module At_most_two = struct
 
     module V1 = struct
       type 'a t = Zero | One of 'a option | Two of ('a * 'a option) option
-      [@@deriving sexp, yojson]
+      [@@deriving compare, sexp, yojson]
     end
   end]
 
@@ -16,7 +16,7 @@ module At_most_two = struct
     | Zero
     | One of 'a option
     | Two of ('a * 'a option) option
-  [@@deriving sexp, yojson]
+  [@@deriving compare, sexp, yojson]
 
   let increase t ws =
     match (t, ws) with
@@ -40,12 +40,12 @@ module At_most_one = struct
     [@@@no_toplevel_latest_type]
 
     module V1 = struct
-      type 'a t = Zero | One of 'a option [@@deriving sexp, yojson]
+      type 'a t = Zero | One of 'a option [@@deriving compare, sexp, yojson]
     end
   end]
 
   type 'a t = 'a Stable.Latest.t = Zero | One of 'a option
-  [@@deriving sexp, yojson]
+  [@@deriving compare, sexp, yojson]
 
   let increase t ws =
     match (t, ws) with
@@ -63,13 +63,14 @@ module Ft = struct
     [@@@no_toplevel_latest_type]
 
     module V1 = struct
-      type t = Coinbase.Fee_transfer.Stable.V1.t [@@deriving sexp, yojson]
+      type t = Coinbase.Fee_transfer.Stable.V1.t
+      [@@deriving compare, sexp, yojson]
 
       let to_latest = Fn.id
     end
   end]
 
-  type t = Stable.Latest.t [@@deriving sexp, yojson]
+  type t = Stable.Latest.t [@@deriving compare, sexp, yojson]
 end
 
 module Pre_diff_two = struct
@@ -85,7 +86,7 @@ module Pre_diff_two = struct
         ; internal_command_balances:
             Transaction_status.Internal_command_balance_data.Stable.V1.t list
         }
-      [@@deriving sexp, yojson]
+      [@@deriving compare, sexp, yojson]
     end
   end]
 
@@ -95,7 +96,7 @@ module Pre_diff_two = struct
     ; coinbase: Ft.t At_most_two.t
     ; internal_command_balances:
         Transaction_status.Internal_command_balance_data.t list }
-  [@@deriving sexp, yojson]
+  [@@deriving compare, sexp, yojson]
 end
 
 module Pre_diff_one = struct
@@ -111,7 +112,7 @@ module Pre_diff_one = struct
         ; internal_command_balances:
             Transaction_status.Internal_command_balance_data.Stable.V1.t list
         }
-      [@@deriving sexp, yojson]
+      [@@deriving compare, sexp, yojson]
     end
   end]
 
@@ -121,7 +122,7 @@ module Pre_diff_one = struct
     ; coinbase: Ft.t At_most_one.t
     ; internal_command_balances:
         Transaction_status.Internal_command_balance_data.t list }
-  [@@deriving sexp, yojson]
+  [@@deriving compare, sexp, yojson]
 end
 
 module Pre_diff_with_at_most_two_coinbase = struct
@@ -134,13 +135,13 @@ module Pre_diff_with_at_most_two_coinbase = struct
         ( Transaction_snark_work.Stable.V1.t
         , User_command.Stable.V1.t With_status.Stable.V1.t )
         Pre_diff_two.Stable.V1.t
-      [@@deriving sexp, yojson]
+      [@@deriving compare, sexp, yojson]
 
       let to_latest = Fn.id
     end
   end]
 
-  type t = Stable.Latest.t [@@deriving sexp, yojson]
+  type t = Stable.Latest.t [@@deriving compare, sexp, yojson]
 end
 
 module Pre_diff_with_at_most_one_coinbase = struct
@@ -153,13 +154,13 @@ module Pre_diff_with_at_most_one_coinbase = struct
         ( Transaction_snark_work.Stable.V1.t
         , User_command.Stable.V1.t With_status.Stable.V1.t )
         Pre_diff_one.Stable.V1.t
-      [@@deriving sexp, yojson]
+      [@@deriving compare, sexp, yojson]
 
       let to_latest = Fn.id
     end
   end]
 
-  type t = Stable.Latest.t [@@deriving sexp, yojson]
+  type t = Stable.Latest.t [@@deriving compare, sexp, yojson]
 end
 
 module Diff = struct
@@ -171,13 +172,13 @@ module Diff = struct
       type t =
         Pre_diff_with_at_most_two_coinbase.Stable.V1.t
         * Pre_diff_with_at_most_one_coinbase.Stable.V1.t option
-      [@@deriving sexp, yojson]
+      [@@deriving compare, sexp, yojson]
 
       let to_latest = Fn.id
     end
   end]
 
-  type t = Stable.Latest.t [@@deriving sexp, yojson]
+  type t = Stable.Latest.t [@@deriving compare, sexp, yojson]
 end
 
 [%%versioned
@@ -185,33 +186,34 @@ module Stable = struct
   [@@@no_toplevel_latest_type]
 
   module V1 = struct
-    type t = {diff: Diff.Stable.V1.t} [@@deriving sexp, yojson]
+    type t = {diff: Diff.Stable.V1.t} [@@deriving compare, sexp, yojson]
 
     let to_latest = Fn.id
   end
 end]
 
-type t = Stable.Latest.t = {diff: Diff.t} [@@deriving sexp, yojson, fields]
+type t = Stable.Latest.t = {diff: Diff.t}
+[@@deriving compare, sexp, yojson, fields]
 
 module With_valid_signatures_and_proofs = struct
   type pre_diff_with_at_most_two_coinbase =
     ( Transaction_snark_work.Checked.t
     , User_command.Valid.t With_status.t )
     Pre_diff_two.t
-  [@@deriving sexp, to_yojson]
+  [@@deriving compare, sexp, to_yojson]
 
   type pre_diff_with_at_most_one_coinbase =
     ( Transaction_snark_work.Checked.t
     , User_command.Valid.t With_status.t )
     Pre_diff_one.t
-  [@@deriving sexp, to_yojson]
+  [@@deriving compare, sexp, to_yojson]
 
   type diff =
     pre_diff_with_at_most_two_coinbase
     * pre_diff_with_at_most_one_coinbase option
-  [@@deriving sexp, to_yojson]
+  [@@deriving compare, sexp, to_yojson]
 
-  type t = {diff: diff} [@@deriving sexp, to_yojson]
+  type t = {diff: diff} [@@deriving compare, sexp, to_yojson]
 
   let empty_diff : t =
     { diff=
@@ -257,20 +259,20 @@ module With_valid_signatures = struct
     ( Transaction_snark_work.t
     , User_command.Valid.t With_status.t )
     Pre_diff_two.t
-  [@@deriving sexp, to_yojson]
+  [@@deriving compare, sexp, to_yojson]
 
   type pre_diff_with_at_most_one_coinbase =
     ( Transaction_snark_work.t
     , User_command.Valid.t With_status.t )
     Pre_diff_one.t
-  [@@deriving sexp, to_yojson]
+  [@@deriving compare, sexp, to_yojson]
 
   type diff =
     pre_diff_with_at_most_two_coinbase
     * pre_diff_with_at_most_one_coinbase option
-  [@@deriving sexp, to_yojson]
+  [@@deriving compare, sexp, to_yojson]
 
-  type t = {diff: diff} [@@deriving sexp, to_yojson]
+  type t = {diff: diff} [@@deriving compare, sexp, to_yojson]
 
   let coinbase
       ~(constraint_constants : Genesis_constants.Constraint_constants.t)

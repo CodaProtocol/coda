@@ -24,7 +24,7 @@ module Stable = struct
       ; emul1_comm: 'comm
       ; emul2_comm: 'comm
       ; emul3_comm: 'comm }
-    [@@deriving sexp, eq, compare, hash, yojson, hlist, fields]
+    [@@deriving sexp, equal, compare, hash, yojson, hlist, fields]
   end
 end]
 

@@ -46,7 +46,7 @@ module Vector = struct
 
     let empty = zero
 
-    let get t i = (t lsr i) land one = one
+    let get t i = equal ((t lsr i) land one) one
 
     let set t i b = if b then t lor (one lsl i) else t land lognot (one lsl i)
   end
@@ -59,7 +59,7 @@ module Vector = struct
 
     let empty = zero
 
-    let get t i = (t lsr i) land one = one
+    let get t i = equal ((t lsr i) land one) one
 
     let set t i b = if b then t lor (one lsl i) else t land lognot (one lsl i)
   end

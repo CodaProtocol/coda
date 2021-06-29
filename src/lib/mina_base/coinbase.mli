@@ -8,7 +8,7 @@ module Stable : sig
       { receiver: Public_key.Compressed.Stable.V1.t
       ; amount: Currency.Amount.Stable.V1.t
       ; fee_transfer: Fee_transfer.Stable.V1.t option }
-    [@@deriving sexp, bin_io, compare, eq, version, hash, yojson]
+    [@@deriving sexp, bin_io, compare, equal, version, hash, yojson]
   end
 
   module Latest = V1
@@ -19,7 +19,7 @@ type t = Stable.Latest.t = private
   { receiver: Public_key.Compressed.t
   ; amount: Currency.Amount.t
   ; fee_transfer: Fee_transfer.t option }
-[@@deriving sexp, compare, eq, hash, yojson]
+[@@deriving sexp, compare, equal, hash, yojson]
 
 include Codable.Base58_check_intf with type t := t
 

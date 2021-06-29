@@ -29,7 +29,7 @@ open Core_kernel
 module Stable = struct
   module V1 = struct
     type 'f t = Shifted_value of 'f
-    [@@deriving sexp, compare, eq, yojson, hash]
+    [@@deriving sexp, compare, equal, yojson, hash]
   end
 end]
 

@@ -511,13 +511,13 @@ module Make (Rpc_intf : Mina_base.Rpc_intf.Rpc_interface_intf) :
                 List.filter !ban_configuration.banned_peers ~f:(fun p ->
                     not (Peer.equal p banned_peer) ) } ;
           Mina_net2.set_connection_gating_config net2 !ban_configuration
-          |> Deferred.ignore ) ;
+          |> Deferred.ignore_m ) ;
         (let%bind net2 = !net2_ref in
          ban_configuration :=
            { !ban_configuration with
              banned_peers= banned_peer :: !ban_configuration.banned_peers } ;
          Mina_net2.set_connection_gating_config net2 !ban_configuration)
-        |> Deferred.ignore
+        |> Deferred.ignore_m
       in
       let%map () =
         Deferred.List.iter (Trust_system.peer_statuses config.trust_system)

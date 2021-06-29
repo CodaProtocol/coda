@@ -54,7 +54,7 @@ type t =
   ; constraint_constants: Genesis_constants.Constraint_constants.t
   ; consensus_constants: Consensus.Constants.t
   ; time_controller: Block_time.Controller.t }
-[@@deriving sexp_of]
+[@@deriving sexp_of, equal, compare]
 
 module Command_error = struct
   type t =
@@ -1104,7 +1104,7 @@ let%test_module _ =
                 [%test_eq:
                   Transaction_hash.User_command_with_valid_signature.t
                   Sequence.t] dropped' (Sequence.singleton cmd) ;
-                [%test_eq: t] pool pool''
+                [%test_eq: t] ~equal pool pool''
             | _ ->
                 failwith "should've succeeded" )
 

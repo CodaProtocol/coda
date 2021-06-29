@@ -209,7 +209,7 @@ module Job_view = struct
 end
 
 module Hash = struct
-  type t = Digestif.SHA256.t [@@deriving eq]
+  type t = Digestif.SHA256.t [@@deriving equal]
 end
 
 (**A single tree with number of leaves = max_base_jobs = 2**transaction_capacity_log_2 *)
@@ -766,6 +766,8 @@ module T = struct
   module Binable_arg = struct
     [%%versioned
     module Stable = struct
+      [@@@no_toplevel_latest_type]
+
       module V1 = struct
         type ('merge, 'base) t =
           { trees:
@@ -1448,7 +1450,8 @@ let assert_job_count t t' ~completed_job_count ~base_job_count ~value_emitted =
     done_before +. completed_job_count -. jobs_from_delete_tree
   in
   assert (
-    todo_after =. expected_todo_after && done_after =. expected_done_after )
+    Float.equal todo_after expected_todo_after
+    && Float.equal done_after expected_done_after )
 
 let test_update t ~data ~completed_jobs =
   let result_opt, t' = update ~data ~completed_jobs t |> Or_error.ok_exn in
@@ -1490,8 +1493,9 @@ let%test_module "test" =
                       ((List.sum (module Int) x ~f:Fn.id, x), List.rev xs) )
             in
             assert (
-              Option.value ~default:expected_result result_opt
-              = expected_result ) ;
+              [%equal: int * int list]
+                (Option.value ~default:expected_result result_opt)
+                expected_result ) ;
             (remaining_expected_results, t') )
       in
       ()
@@ -1522,8 +1526,9 @@ let%test_module "test" =
             (max_base_jobs, List.init max_base_jobs ~f:(fun _ -> 1))
           in
           assert (
-            Option.value ~default:expected_result result_opt = expected_result
-          ) ;
+            [%equal: int * int list]
+              (Option.value ~default:expected_result result_opt)
+              expected_result ) ;
           state := t' )
   end )
 
@@ -1726,8 +1731,9 @@ let%test_module "scans" =
               in
               let buf = Bin_prot.Common.create_buf sz in
               ignore
-                (State.Stable.Latest.bin_write_t Int64.bin_write_t
-                   Int64.bin_write_t buf ~pos:0 s) ;
+                ( State.Stable.Latest.bin_write_t Int64.bin_write_t
+                    Int64.bin_write_t buf ~pos:0 s
+                  : int ) ;
               let deserialized =
                 State.Stable.Latest.bin_read_t Int64.bin_read_t
                   Int64.bin_read_t ~pos_ref:(ref 0) buf
@@ -1793,7 +1799,7 @@ let%test_module "scans" =
                   let%bind v = fill_some_zeros Int64.zero s in
                   do_one_next := true ;
                   let acc = !s.acc |> Option.value_exn in
-                  assert (fst acc <> fst old_acc) ;
+                  assert (not ([%equal: int64] (fst acc) (fst old_acc))) ;
                   (* eventually we'll emit the acc+1 element *)
                   let%map _ = fill_some_zeros v s in
                   let acc_plus_one = !s.acc |> Option.value_exn in
@@ -1849,7 +1855,7 @@ let%test_module "scans" =
                   (List.init n ~f:(fun i -> Int64.of_int i))
                   ~init:Int64.zero ~f:Int64.( + )
               in
-              assert (after_3n = expected) )
+              assert ([%equal: int64] after_3n expected) )
       end )
 
     let%test_module "scan (concat) over strings" =
@@ -1898,6 +1904,6 @@ let%test_module "scans" =
                   (List.init n ~f:(fun i -> Int.to_string i ^ ","))
                   ~init:"" ~f:String.( ^ )
               in
-              assert (after_42n = expected) )
+              assert (String.equal after_42n expected) )
       end )
   end )

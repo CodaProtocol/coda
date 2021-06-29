@@ -30,7 +30,7 @@ let create a =
          Pipe.Consumer.values_sent_downstream consumer ;
          let%bind () =
            Deferred.List.iter ~how:`Parallel inner_pipes ~f:(fun p ->
-               Deferred.ignore @@ Pipe.downstream_flushed p )
+               Deferred.ignore_m @@ Pipe.downstream_flushed p )
          in
          if Ivar.is_full !downstream_flushed_v then
            [%log' error (Logger.create ())] "Ivar.fill bug is here!" ;

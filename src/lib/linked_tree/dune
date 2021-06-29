@@ -2,7 +2,7 @@
  (name linked_tree)
  (public_name linked_tree)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version ppx_jane ppx_deriving.eq))
+ (preprocess (pps ppx_version ppx_jane ppx_compare))
  (libraries
    core
    mina_numbers

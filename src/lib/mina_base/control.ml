@@ -17,7 +17,7 @@ module Stable = struct
           { signature: Signature.Stable.V1.t
           ; proof: Pickles.Side_loaded.Proof.Stable.V1.t }
       | None_given
-    [@@deriving sexp, eq, yojson, hash, compare]
+    [@@deriving sexp, equal, yojson, hash, compare]
 
     let to_latest = Fn.id
   end
@@ -33,7 +33,7 @@ module Stable = struct
       | Signature of Signature.Stable.V1.t
       | Both of {signature: Signature.Stable.V1.t; proof: unit}
       | None_given
-    [@@deriving sexp, eq, yojson, hash, compare]
+    [@@deriving sexp, equal, yojson, hash, compare]
 
     let to_latest = Fn.id
   end

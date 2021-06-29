@@ -18,7 +18,7 @@ open Core_kernel
 type t = ..
 
 (** An identifier for a structured log event. *)
-type id [@@deriving eq, yojson, sexp]
+type id [@@deriving equal, yojson, sexp]
 
 (** Create an identifier for a structured log event.
     This is for internal use by the [@@deriving register_event] ppx.

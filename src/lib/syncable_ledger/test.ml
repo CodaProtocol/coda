@@ -125,9 +125,10 @@ struct
                      (fun q -> seen_queries := q :: !seen_queries)
                      ~logger ~trust_system ;
                  desired_root := Ledger.merkle_root l3 ;
-                 Sync_ledger.new_goal lsync !desired_root ~data:()
-                   ~equal:(fun () () -> true)
-                 |> ignore ;
+                 ignore
+                   ( Sync_ledger.new_goal lsync !desired_root ~data:()
+                       ~equal:(fun () () -> true)
+                     : [`New | `Repeat | `Update_data] ) ;
                  Deferred.unit )
                else
                  let%bind answ_opt =
@@ -230,8 +231,9 @@ module Db = struct
         let currency_balance = Currency.Balance.of_int balance in
         List.iter account_ids ~f:(fun aid ->
             let account = Account.create aid currency_balance in
-            get_or_create_account ledger aid account
-            |> Or_error.ok_exn |> ignore ) ;
+            ignore
+              ( get_or_create_account ledger aid account |> Or_error.ok_exn
+                : [`Added | `Existed] * Location.t ) ) ;
         (ledger, account_ids)
     end
 
@@ -337,7 +339,7 @@ module Mask = struct
               Maskable.get_or_create_account maskable account_id account
               |> Or_error.ok_exn
             in
-            assert (action = `Added) ) ;
+            assert ([%equal: [`Added | `Existed]] action `Added) ) ;
         let mask = Mask.create ~depth:Input.depth () in
         let attached_mask = Maskable.register_mask maskable mask in
         (* On the mask, all the children will have different values *)

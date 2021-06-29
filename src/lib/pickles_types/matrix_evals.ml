@@ -5,7 +5,7 @@ module H_list = Snarky_backendless.H_list
 module Stable = struct
   module V1 = struct
     type 'a t = {row: 'a; col: 'a; value: 'a; rc: 'a}
-    [@@deriving sexp, eq, compare, hash, yojson, hlist, fields]
+    [@@deriving sexp, equal, compare, hash, yojson, hlist, fields]
   end
 end]
 

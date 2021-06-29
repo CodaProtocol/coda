@@ -102,9 +102,9 @@ module Step = struct
                   generate_keypair ~exposing:[typ] main )
             in
             Timer.clock __LOC__ ;
-            let _ =
-              Key_cache.Sync.write cache s_p (Lazy.force k_p) (Keypair.pk r)
-            in
+            ignore
+              ( Key_cache.Sync.write cache s_p (Lazy.force k_p) (Keypair.pk r)
+                : unit Or_error.t ) ;
             (r, `Generated_something) )
     in
     let vk =
@@ -119,7 +119,7 @@ module Step = struct
          | Error _e ->
              let pk, c = Lazy.force pk in
              let vk = Keypair.vk pk in
-             let _ = Key_cache.Sync.write cache s_v k_v vk in
+             ignore (Key_cache.Sync.write cache s_v k_v vk : unit Or_error.t) ;
              (vk, c))
     in
     (pk, vk)
@@ -199,7 +199,9 @@ module Wrap = struct
                Common.time "wrapkeygen" (fun () ->
                    generate_keypair ~exposing:[typ] main )
              in
-             let _ = Key_cache.Sync.write cache s_p k (Keypair.pk r) in
+             ignore
+               ( Key_cache.Sync.write cache s_p k (Keypair.pk r)
+                 : unit Or_error.t ) ;
              (r, `Generated_something))
     in
     let vk =
@@ -261,7 +263,7 @@ module Wrap = struct
                    (let open Marlin_plonk_bindings.Pasta_fq_index in
                    {constraints= domain_d1_size pk.index}) }
              in
-             let _ = Key_cache.Sync.write cache s_v k_v vk in
+             ignore (Key_cache.Sync.write cache s_v k_v vk : unit Or_error.t) ;
              let _vk = Key_cache.Sync.read cache s_v k_v in
              (vk, `Generated_something))
     in

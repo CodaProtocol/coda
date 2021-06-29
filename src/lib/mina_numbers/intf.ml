@@ -163,7 +163,7 @@ module type UInt32 = sig
   module Stable : sig
     module V1 : sig
       type t = Unsigned_extended.UInt32.t
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, equal, compare, hash, yojson]
     end
   end]
 
@@ -179,7 +179,7 @@ module type UInt64 = sig
   module Stable : sig
     module V1 : sig
       type t = Unsigned_extended.UInt64.t
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, equal, compare, hash, yojson]
     end
   end]
 

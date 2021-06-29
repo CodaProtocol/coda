@@ -1,6 +1,6 @@
 open Core
 
-type t = Left | Right [@@deriving sexp, eq]
+type t = Left | Right [@@deriving sexp, equal]
 
 let of_bool = function false -> Left | true -> Right
 

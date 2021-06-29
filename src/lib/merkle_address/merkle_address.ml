@@ -42,6 +42,8 @@ let of_tuple (length, string) = slice (bitstring_of_string string) 0 length
 module Binable_arg = struct
   [%%versioned
   module Stable = struct
+    [@@@no_toplevel_latest_type]
+
     module V1 = struct
       type t = int * string
 
@@ -141,12 +143,13 @@ let of_int_exn ~ledger_depth index =
   if index >= 1 lsl ledger_depth then failwith "Index is too large"
   else
     let buf = create_bitstring ledger_depth in
-    Sequence.range ~stride:(-1) ~start:`inclusive ~stop:`inclusive
-      (ledger_depth - 1) 0
-    |> Sequence.fold ~init:index ~f:(fun i pos ->
-           Bitstring.put buf pos (i % 2) ;
-           i / 2 )
-    |> ignore ;
+    ignore
+      ( Sequence.range ~stride:(-1) ~start:`inclusive ~stop:`inclusive
+          (ledger_depth - 1) 0
+        |> Sequence.fold ~init:index ~f:(fun i pos ->
+               Bitstring.put buf pos (i % 2) ;
+               i / 2 )
+        : int ) ;
     buf
 
 let dirs_from_root t =
@@ -275,7 +278,7 @@ module Make_test (Input : sig
 end) =
 struct
   let%test "the merkle root should have no path" =
-    dirs_from_root (root ()) = []
+    List.is_empty (dirs_from_root (root ()))
 
   let%test_unit "parent_exn(child_exn(node)) = node" =
     Quickcheck.test ~sexp_of:[%sexp_of: Direction.t List.t * Direction.t]

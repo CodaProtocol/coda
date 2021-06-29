@@ -5,6 +5,6 @@
  (inline_tests)
  (libraries core_kernel logger)
  (preprocess
-  (pps ppx_jane ppx_deriving.eq ppx_deriving_yojson ppx_version))
+  (pps ppx_jane ppx_compare ppx_deriving_yojson ppx_version))
  (instrumentation (backend bisect_ppx))
  (synopsis "sparse Ledger implementation"))

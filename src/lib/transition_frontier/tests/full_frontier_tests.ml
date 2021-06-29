@@ -49,8 +49,10 @@ let%test_module "Full_frontier tests" =
     let add_breadcrumb frontier breadcrumb =
       let diffs = Full_frontier.calculate_diffs frontier breadcrumb in
       ignore
-        (Full_frontier.apply_diffs frontier diffs ~has_long_catchup_job:false
-           ~enable_epoch_ledger_sync:`Disabled)
+        ( Full_frontier.apply_diffs frontier diffs ~has_long_catchup_job:false
+            ~enable_epoch_ledger_sync:`Disabled
+          : [ `New_root_and_diffs_with_mutants of
+              Root_identifier.t option * Diff.Full.With_mutant.t list ] )
 
     let add_breadcrumbs frontier = List.iter ~f:(add_breadcrumb frontier)
 
@@ -188,9 +190,10 @@ let%test_module "Full_frontier tests" =
                   in
                   List.iter (State_hash.Set.to_list required_state_hashes)
                     ~f:(fun hash ->
-                      Full_frontier.For_tests.find_protocol_state_exn frontier
-                        hash
-                      |> ignore ) ) ) )
+                      ignore
+                        ( Full_frontier.For_tests.find_protocol_state_exn
+                            frontier hash
+                          : Mina_state.Protocol_state.value ) ) ) ) )
 
     let%test_unit "The length of the longest branch should never be greater \
                    than max_length" =

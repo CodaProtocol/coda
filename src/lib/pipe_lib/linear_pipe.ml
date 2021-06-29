@@ -14,7 +14,9 @@ let wrap_reader reader = {Reader.pipe= reader; has_reader= false}
 
 let force_write_maybe_drop_head ~capacity writer reader x =
   if Pipe.length reader.Reader.pipe > capacity then
-    ignore (Pipe.read_now reader.Reader.pipe) ;
+    ignore
+      ( Pipe.read_now reader.Reader.pipe
+        : [`Eof | `Nothing_available | `Ok of 'a] ) ;
   Pipe.write_without_pushback writer x
 
 let create_reader ~close_on_exception f =

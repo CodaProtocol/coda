@@ -3,4 +3,4 @@
  (public_name coda_runtime_config)
  (libraries core_kernel currency ppx_dhall_type mina_numbers)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_custom_printf ppx_sexp_conv ppx_let ppx_deriving_yojson ppx_dhall_type ppx_version ppx_deriving.eq)))
+ (preprocess (pps ppx_custom_printf ppx_sexp_conv ppx_let ppx_deriving_yojson ppx_dhall_type ppx_version ppx_compare)))

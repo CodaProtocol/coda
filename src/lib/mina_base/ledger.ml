@@ -42,14 +42,13 @@ module Ledger_inner = struct
     module Stable = struct
       module V1 = struct
         type t = Ledger_hash.Stable.V1.t
-        [@@deriving sexp, compare, hash, eq, yojson]
+        [@@deriving sexp, compare, hash, equal, yojson]
 
         type _unused = unit constraint t = Arg.t
 
         let to_latest = Fn.id
 
-        include Hashable.Make_binable (Arg) [@@deriving
-                                              sexp, compare, hash, eq, yojson]
+        include Hashable.Make_binable (Arg)
 
         let to_string = Ledger_hash.to_string
 
@@ -66,7 +65,7 @@ module Ledger_inner = struct
     [%%versioned
     module Stable = struct
       module V1 = struct
-        type t = Account.Stable.V1.t [@@deriving eq, compare, sexp]
+        type t = Account.Stable.V1.t [@@deriving equal, compare, sexp]
 
         let to_latest = Fn.id
 
@@ -249,7 +248,7 @@ module Ledger_inner = struct
     let action, _ =
       get_or_create_account t account_id account |> Or_error.ok_exn
     in
-    if action = `Existed then
+    if [%equal: [`Existed | `Added]] action `Existed then
       failwith
         (sprintf
            !"Could not create a new account with pk \

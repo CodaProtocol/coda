@@ -23,7 +23,7 @@ type t =
   | Mint_tokens
   | Fee_transfer
   | Coinbase
-[@@deriving enum, eq, sexp]
+[@@deriving enum, equal, sexp]
 
 let to_string = function
   | Payment ->
@@ -44,7 +44,7 @@ let gen =
       Option.value_exn (of_enum i) )
 
 module Bits = struct
-  type t = bool * bool * bool [@@deriving eq]
+  type t = bool * bool * bool [@@deriving equal]
 
   let of_int i : t =
     let test_mask mask = i land mask = mask in
@@ -92,7 +92,7 @@ module Unpacked = struct
       ; is_fee_transfer: 'bool
       ; is_coinbase: 'bool
       ; is_user_command: 'bool }
-    [@@deriving eq, hlist]
+    [@@deriving equal, hlist]
 
     [%%ifdef
     consensus_mechanism]
@@ -106,7 +106,7 @@ module Unpacked = struct
     [%%endif]
   end
 
-  type t = bool Poly.t [@@deriving eq]
+  type t = bool Poly.t [@@deriving equal]
 
   (* An invalid value with all types empty. Do not use directly. *)
   let empty : t =
@@ -331,22 +331,22 @@ let%test_module "predicates" =
     let one_of xs t = List.mem xs ~equal t
 
     let%test_unit "is_payment" =
-      test_predicate Unpacked.is_payment (( = ) Payment)
+      test_predicate Unpacked.is_payment (equal Payment)
 
     let%test_unit "is_stake_delegation" =
-      test_predicate Unpacked.is_stake_delegation (( = ) Stake_delegation)
+      test_predicate Unpacked.is_stake_delegation (equal Stake_delegation)
 
     let%test_unit "is_create_account" =
-      test_predicate Unpacked.is_create_account (( = ) Create_account)
+      test_predicate Unpacked.is_create_account (equal Create_account)
 
     let%test_unit "is_mint_tokens" =
-      test_predicate Unpacked.is_mint_tokens (( = ) Mint_tokens)
+      test_predicate Unpacked.is_mint_tokens (equal Mint_tokens)
 
     let%test_unit "is_fee_transfer" =
-      test_predicate Unpacked.is_fee_transfer (( = ) Fee_transfer)
+      test_predicate Unpacked.is_fee_transfer (equal Fee_transfer)
 
     let%test_unit "is_coinbase" =
-      test_predicate Unpacked.is_coinbase (( = ) Coinbase)
+      test_predicate Unpacked.is_coinbase (equal Coinbase)
 
     let%test_unit "is_user_command" =
       test_predicate Unpacked.is_user_command

@@ -15,7 +15,7 @@ open Crypto_params
 [%%versioned
 module Stable = struct
   module V1 = struct
-    type t = string [@@deriving sexp, eq, compare, hash]
+    type t = string [@@deriving sexp, equal, compare, hash]
 
     let to_latest = Fn.id
 
@@ -204,7 +204,7 @@ let%test_module "user_command_memo" =
         String.init (max_digestible_string_length + 1) ~f:(fun _ -> '\xFF')
       in
       try
-        let _ = create_by_digesting_string_exn s in
+        let (_ : t) = create_by_digesting_string_exn s in
         false
       with Too_long_digestible_string -> true
 
@@ -216,7 +216,7 @@ let%test_module "user_command_memo" =
     let%test "memo from too-long string" =
       let s = String.init (max_input_length + 1) ~f:(fun _ -> '\xFF') in
       try
-        let _ = create_from_string_exn s in
+        let (_ : t) = create_from_string_exn s in
         false
       with Too_long_user_memo_input -> true
 

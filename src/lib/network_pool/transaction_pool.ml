@@ -50,7 +50,7 @@ module Diff_versioned = struct
   (* We defer do any checking on signed-commands until the call to
    [add_from_gossip_gossip_exn].
 
-   The real solution would be to have more explicit queueing to make sure things don't happen out of order, factor 
+   The real solution would be to have more explicit queueing to make sure things don't happen out of order, factor
    [add_from_gossip_gossip_exn] into [check_from_gossip_exn] (which just does
    the checks) and [set_from_gossip_exn] (which just does the mutating the pool),
    and do the same for snapp commands as well.
@@ -660,8 +660,9 @@ struct
               [ ( "cmd"
                 , Transaction_hash.User_command_with_valid_signature.to_yojson
                     cmd ) ] ;
-          Hashtbl.find_and_remove t.locally_generated_uncommitted cmd |> ignore
-      ) ;
+          ignore
+            ( Hashtbl.find_and_remove t.locally_generated_uncommitted cmd
+              : (Time.t * [`Batch of int]) option ) ) ;
       t.pool <- pool ;
       Deferred.unit
 
@@ -1459,36 +1460,37 @@ let%test_module _ =
 
     let pool_max_size = 25
 
-    let _ =
+    let () =
       Core.Backtrace.elide := false ;
       Async.Scheduler.set_record_backtraces true
 
     (** Assert the invariants of the locally generated command tracking system.
     *)
     let assert_locally_generated (pool : Test.Resource_pool.t) =
-      let _ =
-        Hashtbl.merge pool.locally_generated_committed
-          pool.locally_generated_uncommitted ~f:(fun ~key -> function
-          | `Both ((committed, _), (uncommitted, _)) ->
-              failwithf
-                !"Command \
-                  %{sexp:Transaction_hash.User_command_with_valid_signature.t} \
-                  in both locally generated committed and uncommitted with \
-                  times %s and %s"
-                key (Time.to_string committed)
-                (Time.to_string uncommitted)
-                ()
-          | `Left cmd ->
-              Some cmd
-          | `Right cmd ->
-              (* Locally generated uncommitted transactions should be in the
+      ignore
+        ( Hashtbl.merge pool.locally_generated_committed
+            pool.locally_generated_uncommitted ~f:(fun ~key -> function
+            | `Both ((committed, _), (uncommitted, _)) ->
+                failwithf
+                  !"Command \
+                    %{sexp:Transaction_hash.User_command_with_valid_signature.t} \
+                    in both locally generated committed and uncommitted with \
+                    times %s and %s"
+                  key (Time.to_string committed)
+                  (Time.to_string uncommitted)
+                  ()
+            | `Left cmd ->
+                Some cmd
+            | `Right cmd ->
+                (* Locally generated uncommitted transactions should be in the
                  pool, so long as we're not in the middle of updating it. *)
-              assert (
-                Indexed_pool.member pool.pool
-                  (Transaction_hash.User_command.of_checked key) ) ;
-              Some cmd )
-      in
-      ()
+                assert (
+                  Indexed_pool.member pool.pool
+                    (Transaction_hash.User_command.of_checked key) ) ;
+                Some cmd )
+          : ( Transaction_hash.User_command_with_valid_signature.t
+            , Time.t * [`Batch of int] )
+            Hashtbl.t )
 
     let setup_test () =
       let tf, best_tip_diff_w = Mock_transition_frontier.create () in
@@ -2280,10 +2282,10 @@ let%test_module _ =
           (* When transactions expire from rebroadcast pool they are gone. This
              doesn't affect the main pool.
           *)
-          let _ =
-            Test.Resource_pool.get_rebroadcastable pool
-              ~has_timed_out:(Fn.const `Timed_out)
-          in
+          ignore
+            ( Test.Resource_pool.get_rebroadcastable pool
+                ~has_timed_out:(Fn.const `Timed_out)
+              : User_command.t list list ) ;
           assert_pool_txs (List.drop local_cmds' 4 @ remote_cmds') ;
           assert_rebroadcastable pool [] ;
           Deferred.unit )

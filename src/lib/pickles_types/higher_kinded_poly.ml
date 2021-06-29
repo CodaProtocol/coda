@@ -318,20 +318,22 @@ let%test_module "Higher_kinded_poly" =
 
     let poly_ints_5 = List.map ~f:Poly_int_5.to_poly ints
 
+    let ints_equal = [%equal: int list]
+
     let%test "P1 round-trips" =
-      ints = List.map ~f:Poly_int_1.of_poly poly_ints_1
+      ints_equal ints (List.map ~f:Poly_int_1.of_poly poly_ints_1)
 
     let%test "P2 round-trips" =
-      ints = List.map ~f:Poly_int_2.of_poly poly_ints_2
+      ints_equal ints (List.map ~f:Poly_int_2.of_poly poly_ints_2)
 
     let%test "P3 round-trips" =
-      ints = List.map ~f:Poly_int_3.of_poly poly_ints_3
+      ints_equal ints (List.map ~f:Poly_int_3.of_poly poly_ints_3)
 
     let%test "P4 round-trips" =
-      ints = List.map ~f:Poly_int_4.of_poly poly_ints_4
+      ints_equal ints (List.map ~f:Poly_int_4.of_poly poly_ints_4)
 
     let%test "P5 round-trips" =
-      ints = List.map ~f:Poly_int_5.of_poly poly_ints_5
+      ints_equal ints (List.map ~f:Poly_int_5.of_poly poly_ints_5)
 
     module Poly_option = P1.T (Option)
 
@@ -340,7 +342,8 @@ let%test_module "Higher_kinded_poly" =
     let poly_options = List.map ~f:Poly_option.to_poly options
 
     let%test "P1.T(Option) round-trips" =
-      options = List.map ~f:Poly_option.of_poly poly_options
+      [%equal: int option list] options
+        (List.map ~f:Poly_option.of_poly poly_options)
 
     module Ignore_1 = struct
       type ('a, _) t = 'a * unit
@@ -365,6 +368,7 @@ let%test_module "Higher_kinded_poly" =
     let ignore_1s_and_2s = ignore_1s @ ignore_2s
 
     let%test "Mixing of distinct unifiable types" =
-      num_unit_tuples @ num_unit_tuples
-      = List.map ~f:Poly_ignore_1.of_poly ignore_1s_and_2s
+      [%equal: (int * unit) list]
+        (num_unit_tuples @ num_unit_tuples)
+        (List.map ~f:Poly_ignore_1.of_poly ignore_1s_and_2s)
   end )

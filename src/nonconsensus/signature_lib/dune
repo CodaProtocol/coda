@@ -12,11 +12,12 @@
    random_oracle_nonconsensus
    mina_signature_kind
    snark_params_nonconsensus
+   js_of_ocaml
    yojson)
  (preprocessor_deps ../../config.mlh)
  (preprocess
   (pps ppx_coda ppx_version ppx_optcomp ppx_sexp_conv
-       ppx_custom_printf ppx_bin_prot ppx_hash ppx_compare ppx_deriving.eq ppx_deriving_yojson
+       ppx_custom_printf ppx_bin_prot ppx_hash ppx_compare ppx_compare ppx_deriving_yojson
        ppx_inline_test ppx_let))
  (instrumentation (backend bisect_ppx))
  (synopsis "Schnorr signatures using the tick and tock curves"))

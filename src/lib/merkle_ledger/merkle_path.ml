@@ -3,11 +3,11 @@ open Core_kernel
 module type S = sig
   type hash
 
-  type elem = [`Left of hash | `Right of hash] [@@deriving sexp]
+  type elem = [`Left of hash | `Right of hash] [@@deriving sexp, equal]
 
   val elem_hash : elem -> hash
 
-  type t = elem list [@@deriving sexp]
+  type t = elem list [@@deriving sexp, equal]
 
   val implied_root : t -> hash -> hash
 
@@ -15,15 +15,15 @@ module type S = sig
 end
 
 module Make (Hash : sig
-  type t [@@deriving sexp]
+  type t [@@deriving sexp, equal]
 
   val merge : height:int -> t -> t -> t
 end) : S with type hash := Hash.t = struct
-  type elem = [`Left of Hash.t | `Right of Hash.t] [@@deriving sexp]
+  type elem = [`Left of Hash.t | `Right of Hash.t] [@@deriving sexp, equal]
 
   let elem_hash = function `Left h | `Right h -> h
 
-  type t = elem list [@@deriving sexp]
+  type t = elem list [@@deriving sexp, equal]
 
   let implied_root (t : t) leaf_hash =
     List.fold t ~init:(leaf_hash, 0) ~f:(fun (acc, height) elem ->
@@ -37,5 +37,6 @@ end) : S with type hash := Hash.t = struct
         (acc, height + 1) )
     |> fst
 
-  let check_path t leaf_hash root_hash = implied_root t leaf_hash = root_hash
+  let check_path t leaf_hash root_hash =
+    Hash.equal (implied_root t leaf_hash) root_hash
 end

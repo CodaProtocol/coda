@@ -66,7 +66,7 @@ module type Account_id = sig
 end
 
 module type Balance = sig
-  type t [@@deriving eq]
+  type t [@@deriving equal]
 
   val zero : t
 
@@ -74,7 +74,7 @@ module type Balance = sig
 end
 
 module type Account = sig
-  type t [@@deriving bin_io, eq, sexp, compare]
+  type t [@@deriving bin_io, equal, sexp, compare]
 
   type token_id
 
@@ -94,7 +94,7 @@ module type Account = sig
 end
 
 module type Hash = sig
-  type t [@@deriving bin_io, compare, eq, sexp, yojson]
+  type t [@@deriving bin_io, compare, equal, sexp, yojson]
 
   val to_string : t -> string
 

@@ -8,13 +8,13 @@ module Poly : sig
     ; receiver_pk: 'public_key
     ; token_id: 'token_id
     ; amount: 'amount }
-  [@@deriving eq, sexp, hash, yojson]
+  [@@deriving equal, sexp, hash, yojson]
 
   module Stable :
     sig
       module V1 : sig
         type nonrec ('pk, 'tid, 'amount) t
-        [@@deriving bin_io, eq, sexp, hash, yojson, version]
+        [@@deriving bin_io, equal, sexp, hash, yojson, version]
       end
 
       module Latest = V1
@@ -30,7 +30,7 @@ module Stable : sig
       , Token_id.Stable.V1.t
       , Currency.Amount.Stable.V1.t )
       Poly.Stable.V1.t
-    [@@deriving compare, eq, sexp, hash, compare, yojson]
+    [@@deriving compare, equal, sexp, hash, compare, yojson]
   end
 end]
 

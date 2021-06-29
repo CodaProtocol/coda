@@ -344,8 +344,11 @@ let sexp_of_existential t = Sexp.Atom (existential_to_string t)
 module Existentially_comparable = Comparable.Make (struct
   type t = existential [@@deriving sexp]
 
-  (* polymorphic compare should be safe to use here as the variants in ['a t] are shallow *)
-  let compare = Pervasives.compare
+  (* We can't derive a comparison for the GADTs in ['a t], so fall back to
+     polymorphic comparison. This should be safe to use here as the variants in
+     ['a t] are shallow.
+  *)
+  let compare = Poly.compare
 end)
 
 module Map = Existentially_comparable.Map

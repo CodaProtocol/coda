@@ -29,7 +29,7 @@
  (preprocess (pps
                graphql_ppx
                ppx_coda
-               ppx_deriving.eq
+               ppx_compare
                ppx_deriving.show
                ppx_deriving_yojson
                ppx_inline_test

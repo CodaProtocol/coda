@@ -16,7 +16,7 @@ open Snark_params_nonconsensus
 module Stable : sig
   module V1 : sig
     type t = Field.t * Inner_curve.Scalar.t
-    [@@deriving sexp, eq, compare, hash]
+    [@@deriving sexp, equal, compare, hash]
 
     include Codable.S with type t := t
   end

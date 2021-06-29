@@ -36,5 +36,5 @@ let%test_unit "Logger.Dumb_logrotate rotates logs when expected" =
            ~max_size ~num_rotate) ;
     run_test ~last_size:0 ~rotations:0 ~rotation_expected:false
   with exn ->
-    ignore (Unix.system ("rm -rf " ^ directory)) ;
+    ignore (Unix.system ("rm -rf " ^ directory) : Unix.Exit_or_signal.t) ;
     raise exn

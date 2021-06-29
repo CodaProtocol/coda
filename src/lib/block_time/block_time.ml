@@ -12,7 +12,8 @@ module Time = struct
   [%%versioned
   module Stable = struct
     module V1 = struct
-      type t = UInt64.Stable.V1.t [@@deriving sexp, compare, eq, hash, yojson]
+      type t = UInt64.Stable.V1.t
+      [@@deriving sexp, compare, equal, hash, yojson]
 
       let to_latest = Fn.id
 
@@ -35,6 +36,12 @@ module Time = struct
     time_offsets]
 
     type t = unit -> Time.Span.t [@@deriving sexp]
+
+    (* NB: All instances are identical by construction (see basic below). *)
+    let equal _ _ = true
+
+    (* NB: All instances are identical by construction (see basic below). *)
+    let compare _ _ = 0
 
     let time_offset = ref None
 
@@ -87,7 +94,7 @@ module Time = struct
 
     [%%else]
 
-    type t = unit [@@deriving sexp]
+    type t = unit [@@deriving sexp, equal, compare]
 
     let create () = ()
 
@@ -133,7 +140,7 @@ module Time = struct
     module Stable = struct
       module V1 = struct
         type t = UInt64.Stable.V1.t
-        [@@deriving sexp, compare, eq, hash, yojson]
+        [@@deriving sexp, compare, equal, hash, yojson]
 
         let to_latest = Fn.id
       end

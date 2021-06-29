@@ -24,7 +24,7 @@ module Stable = struct
       | Set_delegate of
           { delegator: Public_key.Compressed.Stable.V1.t
           ; new_delegate: Public_key.Compressed.Stable.V1.t }
-    [@@deriving compare, eq, sexp, hash, yojson]
+    [@@deriving compare, equal, sexp, hash, yojson]
 
     let to_latest = Fn.id
   end

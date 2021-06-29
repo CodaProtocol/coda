@@ -1,5 +1,0 @@
-(executable
- (name test)
- (libraries marlin_plonk_bindings_tweedle_fq_urs)
- (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version)))

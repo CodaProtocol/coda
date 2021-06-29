@@ -1,7 +1,0 @@
-(library
- (name marlin_plonk_bindings_bigint_384)
- (public_name marlin_plonk_bindings.bigint_384)
- (libraries marlin_plonk_bindings_stubs)
- (instrumentation (backend bisect_ppx))
- (inline_tests)
- (preprocess (pps ppx_version ppx_inline_test)))

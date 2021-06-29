@@ -367,7 +367,8 @@ let run_test () : unit Deferred.t =
             let sender_pk = Public_key.compress keypair.public_key in
             let receiver =
               List.random_element_exn
-                (List.filter pks ~f:(fun pk -> not (pk = sender_pk)))
+                (List.filter pks ~f:(fun pk ->
+                     not (Public_key.Compressed.equal pk sender_pk) ))
             in
             send_payment_update_balance_sheet keypair.private_key sender_pk
               receiver (f_amount i) acc
@@ -466,8 +467,9 @@ let run_test () : unit Deferred.t =
           let%map () =
             wait_until_cond
               ~f:(fun t ->
-                blockchain_length t
-                > Length.add blockchain_length' wait_till_length )
+                Length.(
+                  blockchain_length t
+                  > Length.add blockchain_length' wait_till_length) )
               ~timeout_min:
                 ( (Length.to_int consensus_constants.delta + 1 + 8)
                   * ( ( Block_time.Span.to_ms
@@ -478,8 +480,9 @@ let run_test () : unit Deferred.t =
                 |> Float.of_int )
           in
           assert (
-            blockchain_length coda
-            > Length.add blockchain_length' wait_till_length )
+            Length.(
+              blockchain_length coda
+              > Length.add blockchain_length' wait_till_length) )
         else if with_check then
           let%bind _ =
             test_multiple_payments other_accounts

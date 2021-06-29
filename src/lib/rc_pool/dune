@@ -5,6 +5,6 @@
  (inline_tests)
  (libraries snark_params core_kernel)
  (preprocess
-  (pps ppx_version ppx_jane ppx_deriving.eq))
+  (pps ppx_version ppx_jane ppx_compare))
  (instrumentation (backend bisect_ppx))
  (synopsis "A pool for reference-counting large things"))

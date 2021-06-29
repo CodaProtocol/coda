@@ -2,7 +2,7 @@
  (name snarky_curves)
  (public_name snarky_curves)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version ppx_snarky ppx_jane ppx_deriving.eq))
+ (preprocess (pps ppx_version ppx_snarky ppx_jane ppx_compare))
  (libraries
    snarky_field_extensions
    snarky.backendless

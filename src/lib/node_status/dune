@@ -7,7 +7,7 @@
    mina_networking
  )
  (preprocess
-  (pps ppx_version ppx_deriving.eq ppx_deriving.enum ppx_deriving.ord
+  (pps ppx_version ppx_compare ppx_deriving.enum ppx_deriving.ord
        ppx_base ppx_bench ppx_let ppx_sexp_conv ppx_bin_prot))
  (instrumentation (backend bisect_ppx))
  (synopsis "Get node status from other nodes"))

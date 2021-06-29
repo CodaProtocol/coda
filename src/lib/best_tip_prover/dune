@@ -2,5 +2,5 @@
  (name best_tip_prover)
  (public_name best_tip_prover)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_jane ppx_deriving.eq))
+ (preprocess (pps ppx_coda ppx_version ppx_jane ppx_compare))
  (libraries core_kernel mina_intf mina_base transition_frontier consensus transition_chain_prover))

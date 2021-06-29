@@ -1,7 +1,7 @@
 module type Unchecked = sig
   type scalar
 
-  type t [@@deriving eq, bin_io]
+  type t [@@deriving equal, bin_io]
 
   val ( * ) : scalar -> t -> t
 

@@ -12,7 +12,7 @@ module UInt64 : sig
   module Stable : sig
     module V1 : sig
       type t = Unsigned.UInt64.t
-      [@@deriving bin_io, sexp, hash, compare, eq, yojson, version]
+      [@@deriving bin_io, sexp, hash, compare, equal, yojson, version]
     end
 
     module Latest = V1
@@ -31,7 +31,7 @@ module UInt32 : sig
   module Stable : sig
     module V1 : sig
       type t = Unsigned.UInt32.t
-      [@@deriving bin_io, sexp, hash, compare, eq, yojson, version]
+      [@@deriving bin_io, sexp, hash, compare, equal, yojson, version]
     end
 
     module Latest = V1

@@ -1,11 +1,11 @@
 open Core
 open Snark_params.Tick
 
-type t [@@deriving sexp, eq, compare, hash, yojson]
+type t [@@deriving sexp, equal, compare, hash, yojson]
 
 include Hashable with type t := t
 
-type value [@@deriving sexp, eq, compare, hash]
+type value [@@deriving sexp, equal, compare, hash]
 
 type var
 
@@ -25,7 +25,7 @@ val genesis :
 module Stable : sig
   module V1 : sig
     type nonrec t = t
-    [@@deriving bin_io, sexp, eq, compare, hash, yojson, version]
+    [@@deriving bin_io, sexp, equal, compare, hash, yojson, version]
   end
 
   module Latest : module type of V1
@@ -37,7 +37,7 @@ module Aux_hash : sig
   module Stable : sig
     module V1 : sig
       type nonrec t = t
-      [@@deriving bin_io, sexp, eq, compare, hash, yojson, version]
+      [@@deriving bin_io, sexp, equal, compare, hash, yojson, version]
     end
 
     module Latest : module type of V1

@@ -64,7 +64,7 @@ module Time_queue = struct
               match Heap.top t.pending_actions with
               | None ->
                   return ()
-              | Some (_, at) when t.curr_time >= at ->
+              | Some (_, at) when Time.Span.(t.curr_time >= at) ->
                   let%bind () = do_next_action () in
                   loop ()
               | Some _ ->
@@ -144,7 +144,7 @@ end)
 struct
   module Token = Int
 
-  type tok = Token.t [@@deriving eq, sexp]
+  type tok = Token.t [@@deriving equal, sexp]
 
   type message = Message.t
 
@@ -221,14 +221,14 @@ struct
 end
 
 module type Trivial_peer_intf = sig
-  type t = int [@@deriving eq, hash, compare, sexp, yojson]
+  type t = int [@@deriving equal, hash, compare, sexp, yojson]
 
   include Hashable.S with type t := t
 end
 
 module Trivial_peer : Trivial_peer_intf = struct
   module T = struct
-    type t = int [@@deriving eq, hash, compare, sexp, yojson]
+    type t = int [@@deriving equal, hash, compare, sexp, yojson]
   end
 
   include Hashable.Make (T)
@@ -238,7 +238,7 @@ end
 module type S = functor
   (State :sig
           
-          type t [@@deriving eq, sexp, yojson]
+          type t [@@deriving equal, sexp, yojson]
         end)
   (Message :sig
             
@@ -302,7 +302,7 @@ module type S = functor
 end
 
 module Make (State : sig
-  type t [@@deriving eq, sexp, yojson]
+  type t [@@deriving equal, sexp, yojson]
 end) (Message : sig
   type t
 end)
@@ -463,7 +463,7 @@ let%test_module "Distributed_dsl" =
 
     module State = struct
       type t = Start | Wait_msg | Sent_msg | Got_msg of int | Timeout
-      [@@deriving eq, sexp, yojson]
+      [@@deriving equal, sexp, yojson]
     end
 
     module Message = struct

@@ -18,8 +18,9 @@ module T = struct
 
   let add_entry t ~ledger_hash ~ledger =
     (* add ledger, increment ref count *)
-    ignore (Hashtbl.add t.ledgers ~key:ledger_hash ~data:ledger) ;
-    ignore (Hashtbl.incr t.counts ledger_hash)
+    ignore
+      (Hashtbl.add t.ledgers ~key:ledger_hash ~data:ledger : [`Duplicate | `Ok]) ;
+    ignore (Hashtbl.incr t.counts ledger_hash : view)
 
   let remove_entry t ~ledger_hash =
     (* decrement ref count, remove ledger if count is 0 *)

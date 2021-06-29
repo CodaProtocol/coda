@@ -7,6 +7,6 @@
  (libraries core mina_numbers logger snark_params snark_bits unsigned_extended timeout_lib)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_hash ppx_let
-                  ppx_coda ppx_version ppx_deriving_yojson ppx_bin_prot ppx_compare ppx_sexp_conv ppx_deriving.eq ppx_optcomp
+                  ppx_coda ppx_version ppx_deriving_yojson ppx_bin_prot ppx_compare ppx_sexp_conv ppx_compare ppx_optcomp
                   ppx_inline_test))
  (synopsis "Block time"))

@@ -1,6 +1,7 @@
 open Pickles_types
 
-type t = (Nat.N2.n, Nat.N2.n) Pickles.Proof.t [@@deriving sexp, yojson]
+type t = (Nat.N2.n, Nat.N2.n) Pickles.Proof.t
+[@@deriving sexp, compare, yojson]
 
 val blockchain_dummy : t
 

@@ -10,7 +10,7 @@ module Tree = struct
         | Account of 'account
         | Hash of 'hash
         | Node of 'hash * ('hash, 'account) t * ('hash, 'account) t
-      [@@deriving eq, sexp, to_yojson]
+      [@@deriving equal, sexp, to_yojson]
     end
   end]
 
@@ -18,7 +18,7 @@ module Tree = struct
     | Account of 'account
     | Hash of 'hash
     | Node of 'hash * ('hash, 'account) t * ('hash, 'account) t
-  [@@deriving eq, sexp, to_yojson]
+  [@@deriving equal, sexp, to_yojson]
 end
 
 module T = struct
@@ -85,7 +85,7 @@ let of_hash ~depth ~next_available_token h =
   {T.indexes= []; depth; tree= Hash h; next_available_token}
 
 module Make (Hash : sig
-  type t [@@deriving eq, sexp, to_yojson, compare]
+  type t [@@deriving equal, sexp, to_yojson, compare]
 
   val merge : height:int -> t -> t -> t
 end) (Token_id : sig
@@ -95,9 +95,9 @@ end) (Token_id : sig
 
   val max : t -> t -> t
 end) (Account_id : sig
-  type t [@@deriving eq, sexp, to_yojson]
+  type t [@@deriving equal, sexp, to_yojson]
 end) (Account : sig
-  type t [@@deriving eq, sexp, to_yojson]
+  type t [@@deriving equal, sexp, to_yojson]
 
   val data_hash : t -> Hash.t
 
@@ -312,7 +312,7 @@ let%test_module "sparse-ledger-test" =
     module Account = struct
       module T = struct
         type t = {name: string; favorite_number: int}
-        [@@deriving bin_io, eq, sexp, to_yojson]
+        [@@deriving bin_io, equal, sexp, to_yojson]
       end
 
       include T
@@ -331,7 +331,7 @@ let%test_module "sparse-ledger-test" =
     end
 
     module Account_id = struct
-      type t = string [@@deriving sexp, eq, to_yojson]
+      type t = string [@@deriving sexp, equal, to_yojson]
     end
 
     include Make (Hash) (Token_id) (Account_id) (Account)

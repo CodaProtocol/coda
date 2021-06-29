@@ -18,7 +18,7 @@ open Snark_params_nonconsensus
 module Stable = struct
   module V1 = struct
     type t = Sgn_type.Sgn.Stable.V1.t = Pos | Neg
-    [@@deriving sexp, hash, compare, eq, yojson]
+    [@@deriving sexp, hash, compare, equal, yojson]
 
     let to_latest = Fn.id
   end

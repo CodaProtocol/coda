@@ -7,7 +7,7 @@ module Poly : sig
   module Stable : sig
     module V1 : sig
       type ('slot_number, 'slots_per_epoch) t
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, equal, compare, hash, yojson]
     end
   end]
 end
@@ -19,7 +19,7 @@ module Stable : sig
       ( Mina_numbers.Global_slot.Stable.V1.t
       , Mina_numbers.Length.Stable.V1.t )
       Poly.Stable.V1.t
-    [@@deriving compare, eq, sexp, hash, yojson]
+    [@@deriving compare, equal, sexp, hash, yojson]
   end
 end]
 

@@ -20,7 +20,7 @@ let main ~config_file ~genesis_dir ~proof_level () =
     | None ->
         return Runtime_config.default
   in
-  Deferred.Or_error.ok_exn @@ Deferred.Or_error.ignore
+  Deferred.Or_error.ok_exn @@ Deferred.Or_error.ignore_m
   @@ Genesis_ledger_helper.init_from_config_file ?genesis_dir
        ~logger:(Logger.create ()) ~proof_level config
 

@@ -58,7 +58,7 @@ module Coding = struct
     let len1 = len_to_string @@ Array.length t.field_elements in
     let fields =
       (* We only support 32byte fields *)
-      let _ =
+      let () =
         match t.field_elements with
         | [|x; _|] ->
             assert (String.length (string_of_field x) = 32)
@@ -318,6 +318,7 @@ let%test_module "random_oracle input" =
       Quickcheck.test ~trials:300 (gen_input ())
         ~f:(fun (size_in_bits, input) ->
           let bits = to_bits ~unpack:Fn.id input in
+          let bools_equal = [%equal: bool list] in
           (* Fields are accumulated at the front, check them first. *)
           let bitstring_bits =
             Array.fold ~init:bits input.field_elements ~f:(fun bits field ->
@@ -325,7 +326,7 @@ let%test_module "random_oracle input" =
                          element.
                   *)
                 let field_bits, rest = List.split_n bits size_in_bits in
-                assert (field_bits = field) ;
+                assert (bools_equal field_bits field) ;
                 rest )
           in
           (* Bits come after. *)
@@ -336,7 +337,7 @@ let%test_module "random_oracle input" =
                 let bitstring_bits, rest =
                   List.split_n bits (List.length bitstring)
                 in
-                assert (bitstring_bits = bitstring) ;
+                assert (bools_equal bitstring_bits bitstring) ;
                 rest )
           in
           (* All bits should have been consumed. *)
@@ -358,7 +359,7 @@ let%test_module "random_oracle input" =
                 | [] ->
                     failwith "Too few field elements"
                 | field :: rest ->
-                    assert (field = input_field) ;
+                    assert ([%equal: bool list] field input_field) ;
                     rest )
           in
           (* Check that the remaining fields have the correct size. *)
@@ -395,7 +396,7 @@ let%test_module "random_oracle input" =
                 (* Consume the next bit from the next input bitstring, and the
                    next bit from the next packed field. They must match.
                 *)
-                assert (bi = bp) ;
+                assert (Bool.equal bi bp) ;
                 go
                   (input_bitstring :: input_bitstrings)
                   (packed_field :: packed_fields)

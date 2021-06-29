@@ -6,7 +6,7 @@ module Stable = struct
   module V1 = struct
     type t =
       {fee: Currency.Fee.Stable.V1.t; prover: Public_key.Compressed.Stable.V1.t}
-    [@@deriving sexp, yojson, eq, compare]
+    [@@deriving sexp, yojson, equal, compare]
 
     let to_latest = Fn.id
   end
@@ -20,7 +20,7 @@ module Digest = struct
   [%%versioned_binable
   module Stable = struct
     module V1 = struct
-      type t = string [@@deriving sexp, hash, compare, eq, yojson]
+      type t = string [@@deriving sexp, hash, compare, equal, yojson]
 
       let to_latest = Fn.id
 

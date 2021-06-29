@@ -132,7 +132,7 @@ let iter_lines_prefixed_with input_channel output_channel ~prefix ~on_hit
       match state with
       | Start_of_line ->
           let next_state =
-            if Bytes.unsafe_get input_buffer i = prefix then
+            if Char.equal (Bytes.unsafe_get input_buffer i) prefix then
               Processable_line {line_start_pos= i; previous_elements= []}
             else (
               on_miss () ;
@@ -140,7 +140,7 @@ let iter_lines_prefixed_with input_channel output_channel ~prefix ~on_hit
           in
           `Continue next_state
       | Processable_line _ | Unprocessable_line _ ->
-          if Bytes.unsafe_get input_buffer i = '\n' then `Extract
+          if Char.equal (Bytes.unsafe_get input_buffer i) '\n' then `Extract
           else `Continue state
   in
   let rec parse_loop ~buf_len i state =
@@ -167,7 +167,8 @@ let iter_lines_prefixed_with input_channel output_channel ~prefix ~on_hit
 (* TODO: check for common filter errors (e.g. invalid level provided) *)
 let main timezone_str interpolation_config filter_str =
   let filter =
-    if filter_str = "" then Result.ok_or_failwith (Filter.Parser.parse "true")
+    if String.is_empty filter_str then
+      Result.ok_or_failwith (Filter.Parser.parse "true")
     else
       let error s =
         eprintf !"ERROR PARSING FILTER: %s\n%!" s ;
@@ -185,7 +186,7 @@ let main timezone_str interpolation_config filter_str =
   (* let filter = Result.ok_or_failwith (Filter.Parser.parse "true") in *)
   (* let filter = Result.ok_or_failwith (Filter.Parser.parse ".level === \"Info\"") in *)
   let timezone =
-    if timezone_str = "" then find_timezone ()
+    if String.is_empty timezone_str then find_timezone ()
     else Time.Zone.of_string timezone_str
   in
   iter_lines_prefixed_with In_channel.stdin stdout ~prefix:'{'

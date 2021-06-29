@@ -2,7 +2,7 @@
  (name transition_router)
  (public_name transition_router)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_jane ppx_deriving.eq))
+ (preprocess (pps ppx_coda ppx_version ppx_jane ppx_compare))
  (libraries
    core
    async

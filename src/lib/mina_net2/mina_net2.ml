@@ -7,7 +7,7 @@ open Network_peer
 module Timeout = Timeout_lib.Core_time_ns
 
 module Validation_callback = struct
-  type validation_result = [`Accept | `Reject | `Ignore]
+  type validation_result = [`Accept | `Reject | `Ignore] [@@deriving equal]
 
   type t = {expiration: Time_ns.t option; signal: validation_result Ivar.t}
 
@@ -688,10 +688,6 @@ module Helper = struct
               ; ("party", `String (name_participant who_closed)) ] ;
           stream.state
         in
-        (* replace with [%derive.eq : [`Us|`Them]] when it is supported.*)
-        let us_them_eq a b =
-          match (a, b) with `Us, `Us | `Them, `Them -> true | _, _ -> false
-        in
         let release () =
           match Hashtbl.find_and_remove net.streams stream.idx with
           | Some _ ->
@@ -706,7 +702,8 @@ module Helper = struct
            | FullyOpen ->
                HalfClosed who_closed
            | HalfClosed other ->
-               if us_them_eq other who_closed then ignore (double_close ())
+               if [%equal: [`Us | `Them]] other who_closed then
+                 ignore (double_close () : stream_state)
                else release () ;
                FullyClosed
            | FullyClosed ->
@@ -934,9 +931,10 @@ module Helper = struct
                        dropping message."
                       ~metadata:[("topic", `String sub.topic)]
                   else
-                    Strict_pipe.Writer.write sub.write_pipe
-                      (wrap m.sender data)
-                    |> ignore
+                    ignore
+                      ( Strict_pipe.Writer.write sub.write_pipe
+                          (wrap m.sender data)
+                        : unit Deferred.t )
               | Error e ->
                   ( match sub.on_decode_failure with
                   | `Ignore ->
@@ -1448,7 +1446,7 @@ let listening_addrs net =
     shutdown. Replace kill invocation with an RPC. *)
 let shutdown (net : net) =
   net.finished <- true ;
-  Deferred.ignore (Child_processes.kill net.subprocess)
+  Deferred.ignore_m (Child_processes.kill net.subprocess)
 
 module Stream = struct
   type t = Helper.stream
@@ -1479,7 +1477,7 @@ module Protocol_handler = struct
 
   let close_connections (net : net) for_protocol =
     Hashtbl.filter_inplace net.streams ~f:(fun stream ->
-        if stream.protocol <> for_protocol then true
+        if not (String.equal stream.protocol for_protocol) then true
         else (
           don't_wait_for
             (* TODO: this probably needs to be more thorough than a reset. Also force the write pipe closed? *)
@@ -1721,7 +1719,8 @@ let create ~all_peers_seen_metric ~on_unexpected_termination ~logger ~pids
           let v = Or_error.try_with (fun () -> Yojson.Safe.from_string line) in
           ( match
               Or_error.map v ~f:(fun v ->
-                  if member "upcall" v = `Null then Helper.handle_response t v
+                  if Yojson.Safe.equal (member "upcall" v) `Null then
+                    Helper.handle_response t v
                   else Helper.handle_upcall t v )
             with
           | Ok (Ok ()) ->
@@ -1970,7 +1969,7 @@ let%test_module "coda network tests" =
         (* give time for [a] to notice the reset finish. *)
         let%bind () = after (Time.Span.of_sec 1.) in
         let msg = Queue.to_list msg |> String.concat in
-        assert (msg = testmsg) ;
+        assert (String.equal msg testmsg) ;
         assert !handler_finished ;
         let%bind () = Protocol_handler.close echo_handler in
         let%map () = shutdown () in

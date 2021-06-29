@@ -3,7 +3,7 @@ open Async_kernel
 open Pipe_lib
 
 module type Peer_intf = sig
-  type t [@@deriving eq, hash, compare, sexp, yojson]
+  type t [@@deriving equal, hash, compare, sexp, yojson]
 
   include Hashable.S with type t := t
 end
@@ -23,7 +23,7 @@ end
 module type Timer_intf = sig
   type t
 
-  type tok [@@deriving eq]
+  type tok [@@deriving equal]
 
   val wait : t -> Time.Span.t -> tok * [`Cancelled | `Finished] Deferred.t
 
@@ -113,7 +113,7 @@ end
 module type F = functor
   (State :sig
           
-          type t [@@deriving eq, sexp, yojson]
+          type t [@@deriving equal, sexp, yojson]
         end)
   (Message :sig
             

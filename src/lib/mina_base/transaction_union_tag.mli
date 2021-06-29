@@ -17,7 +17,7 @@ type t =
   | Mint_tokens
   | Fee_transfer
   | Coinbase
-[@@deriving enum, eq, sexp]
+[@@deriving enum, equal, sexp]
 
 val to_string : t -> string
 

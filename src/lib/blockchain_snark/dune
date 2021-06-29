@@ -6,6 +6,6 @@
             transaction_snark bignum_bigint consensus)
  (inline_tests)
  (preprocess
-  (pps ppx_snarky ppx_coda ppx_version ppx_jane ppx_deriving.eq))
+  (pps ppx_snarky ppx_coda ppx_version ppx_jane ppx_compare))
  (instrumentation (backend bisect_ppx))
  (synopsis "blockchain state transition snarking library"))

@@ -7,7 +7,7 @@ module Stable = struct
     type t =
       { token_owner_pk: Public_key.Compressed.Stable.V1.t
       ; disable_new_accounts: bool }
-    [@@deriving compare, eq, sexp, hash, yojson]
+    [@@deriving compare, equal, sexp, hash, yojson]
 
     let to_latest = Fn.id
   end

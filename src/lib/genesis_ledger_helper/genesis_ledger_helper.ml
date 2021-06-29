@@ -169,7 +169,7 @@ module Ledger = struct
       | Accounts accounts, _ ->
           search_local_and_s3 ~other_data:(accounts_hash accounts) "accounts"
       | Hash hash, None ->
-          assert (Some hash = config.hash) ;
+          assert ([%equal: string option] (Some hash) config.hash) ;
           return None
       | _, Some name ->
           search_local_and_s3 name )
@@ -397,7 +397,7 @@ module Ledger = struct
                   let%bind () =
                     Deferred.Or_error.try_with ~here:[%here] (fun () ->
                         Sys.remove link_name )
-                    |> Deferred.ignore
+                    |> Deferred.ignore_m
                   in
                   (* Add a symlink from the named path to the hash path. *)
                   let%map () = Unix.symlink ~target:tar_path ~link_name in
@@ -480,13 +480,13 @@ end
    one generated at compile-time.
 *)
 module Base_hash : sig
-  type t [@@deriving eq, yojson]
+  type t [@@deriving equal, yojson]
 
   val create : id:Pickles.Verification_key.Id.t -> state_hash:State_hash.t -> t
 
   val to_string : t -> string
 end = struct
-  type t = string [@@deriving eq, yojson]
+  type t = string [@@deriving equal, yojson]
 
   let to_string = Fn.id
 

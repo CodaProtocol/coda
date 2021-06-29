@@ -45,7 +45,6 @@ Pipeline.build
         name = "DaemonUnitTest"
       },
     steps = [
-      buildTestCmd "dev" "src/lib" Size.XLarge,
-      buildTestCmd "nonconsensus_medium_curves" "src/nonconsensus" Size.Large
+      buildTestCmd "dev" "src/lib" Size.XLarge
     ]
   }

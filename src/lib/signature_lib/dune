@@ -18,6 +18,6 @@
  (instrumentation (backend bisect_ppx))
  (preprocess (pps
                ppx_snarky ppx_coda ppx_version ppx_custom_printf ppx_optcomp ppx_sexp_conv
-               ppx_bin_prot ppx_hash ppx_compare ppx_deriving.eq ppx_deriving_yojson
+               ppx_bin_prot ppx_hash ppx_compare ppx_compare ppx_deriving_yojson
                ppx_inline_test ppx_let))
  (synopsis "Schnorr signatures using the tick and tock curves"))

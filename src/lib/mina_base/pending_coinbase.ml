@@ -74,9 +74,7 @@ module Coinbase_data = struct
 end
 
 module Stack_id : sig
-  (* using %%versioned: here results in unused variable errors for versions,
-     deserialize_binary_opt
-  *)
+  (* using %%versioned here results in unused definitions *)
   module Stable : sig
     module V1 : sig
       type t [@@deriving bin_io, sexp, to_yojson, compare, version]
@@ -85,7 +83,7 @@ module Stack_id : sig
     module Latest = V1
   end
 
-  type t = Stable.Latest.t [@@deriving sexp, compare, eq, to_yojson]
+  type t = Stable.Latest.t [@@deriving sexp, compare, equal, to_yojson]
 
   val of_int : int -> t
 
@@ -117,7 +115,7 @@ end = struct
 end
 
 module type Data_hash_intf = sig
-  type t = private Field.t [@@deriving sexp, compare, eq, yojson, hash]
+  type t = private Field.t [@@deriving sexp, compare, equal, yojson, hash]
 
   type var
 
@@ -240,7 +238,7 @@ module State_stack = struct
     module Stable = struct
       module V1 = struct
         type 'stack_hash t = {init: 'stack_hash; curr: 'stack_hash}
-        [@@deriving sexp, eq, compare, hash, yojson, hlist]
+        [@@deriving sexp, compare, hash, yojson, equal, hlist]
       end
     end]
   end
@@ -249,7 +247,7 @@ module State_stack = struct
   module Stable = struct
     module V1 = struct
       type t = Stack_hash.Stable.V1.t Poly.Stable.V1.t
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, compare, hash, equal, yojson]
 
       let to_latest = Fn.id
     end
@@ -396,7 +394,7 @@ module Update = struct
           | Update_one
           | Update_two_coinbase_in_first
           | Update_two_coinbase_in_second
-        [@@deriving sexp, to_yojson]
+        [@@deriving equal, sexp, to_yojson]
 
         let to_latest = Fn.id
       end
@@ -496,7 +494,7 @@ module Stack_versioned = struct
       module V1 = struct
         type ('data_stack, 'state_stack) t =
           {data: 'data_stack; state: 'state_stack}
-        [@@deriving eq, yojson, hash, sexp, compare]
+        [@@deriving yojson, hash, sexp, equal, compare]
       end
     end]
   end
@@ -506,7 +504,7 @@ module Stack_versioned = struct
     module V1 = struct
       type t =
         (Coinbase_stack.Stable.V1.t, State_stack.Stable.V1.t) Poly.Stable.V1.t
-      [@@deriving eq, yojson, hash, sexp, compare]
+      [@@deriving equal, yojson, hash, sexp, compare]
 
       let to_latest = Fn.id
     end
@@ -518,7 +516,7 @@ module Hash_versioned = struct
   module Stable = struct
     module V1 = struct
       type t = Hash_builder.Stable.V1.t
-      [@@deriving eq, compare, sexp, yojson, hash]
+      [@@deriving equal, compare, sexp, yojson, hash]
 
       let to_latest = Fn.id
     end
@@ -568,7 +566,7 @@ module T = struct
       [@@deriving yojson, hash, sexp, compare, hlist]
     end
 
-    type t = Stack_versioned.t [@@deriving yojson, eq, compare, sexp, hash]
+    type t = Stack_versioned.t [@@deriving yojson, equal, compare, sexp, hash]
 
     type _unused = unit constraint t = (Coinbase_stack.t, State_stack.t) Poly.t
 
@@ -697,7 +695,7 @@ module T = struct
   end
 
   module Hash = struct
-    type t = Hash_builder.t [@@deriving eq, compare, sexp, yojson, hash]
+    type t = Hash_builder.t [@@deriving equal, compare, sexp, yojson, hash]
 
     type _unused = unit constraint t = Hash_versioned.t
 
@@ -1465,7 +1463,7 @@ let%test_unit "Checked_tree = Unchecked_tree after pop" =
       in
       assert (Hash.equal (merkle_root unchecked) checked_merkle_root) ;
       (*deleting the coinbase stack we just created. therefore if there was no update then don't try to delete*)
-      let proof_emitted = not (action = Update.Action.Update_none) in
+      let proof_emitted = not Update.Action.(equal action Update_none) in
       let unchecked_after_pop =
         if proof_emitted then
           remove_coinbase_stack ~depth unchecked |> Or_error.ok_exn |> snd

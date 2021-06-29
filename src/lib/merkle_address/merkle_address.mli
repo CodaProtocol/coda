@@ -1,11 +1,11 @@
 open Core_kernel
 
-type t [@@deriving sexp, hash, eq, compare, to_yojson]
+type t [@@deriving sexp, hash, equal, compare, to_yojson]
 
 module Stable : sig
   module V1 : sig
     type nonrec t = t
-    [@@deriving sexp, bin_io, hash, eq, compare, to_yojson, version]
+    [@@deriving sexp, bin_io, hash, equal, compare, to_yojson, version]
   end
 
   module Latest : module type of V1

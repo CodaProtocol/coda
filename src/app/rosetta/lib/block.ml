@@ -65,7 +65,7 @@ module Op = User_command_info.Op
 module Internal_command_info = struct
   module Kind = struct
     type t = [`Coinbase | `Fee_transfer | `Fee_transfer_via_coinbase]
-    [@@deriving eq, to_yojson]
+    [@@deriving equal, to_yojson]
   end
 
   type t =
@@ -98,8 +98,8 @@ module Internal_command_info = struct
             ; {Op.label= `Fee_payer_dec; related_to= Some `Fee_receiver_inc} ]
       in
       Op_build.build
-        ~a_eq:[%eq: [`Coinbase_inc | `Fee_payer_dec | `Fee_receiver_inc]] ~plan
-        ~f:(fun ~related_operations ~operation_identifier op ->
+        ~a_eq:[%equal: [`Coinbase_inc | `Fee_payer_dec | `Fee_receiver_inc]]
+        ~plan ~f:(fun ~related_operations ~operation_identifier op ->
           (* All internal commands succeed if they're in blocks *)
           let status = Some (Operation_statuses.name `Success) in
           match op.label with
@@ -634,7 +634,8 @@ module Specific = struct
       in
       let coinbase_receiver =
         List.find block_info.internal_info ~f:(fun info ->
-            info.Internal_command_info.kind = `Coinbase )
+            Internal_command_info.Kind.equal info.Internal_command_info.kind
+              `Coinbase )
         |> Option.map ~f:(fun cmd -> cmd.Internal_command_info.receiver)
       in
       let%map internal_transactions =

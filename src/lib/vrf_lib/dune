@@ -8,7 +8,7 @@
   (pps
     h_list.ppx
     ppx_bench
-    ppx_deriving.eq
+    ppx_compare
     ppx_jane
     ppx_version))
  (instrumentation (backend bisect_ppx))

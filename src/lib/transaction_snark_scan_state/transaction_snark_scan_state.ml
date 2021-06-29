@@ -286,7 +286,7 @@ module Make_statement_scanner
     (M : Monad_with_Or_error_intf) (Verifier : sig
         type t
 
-        val verify : verifier:t -> P.t list -> sexp_bool M.Or_error.t
+        val verify : verifier:t -> P.t list -> bool M.Or_error.t
     end) =
 struct
   module Fold = Parallel_scan.State.Make_foldable (Monad.Ident)

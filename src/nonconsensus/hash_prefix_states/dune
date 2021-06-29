@@ -6,6 +6,6 @@
  (libraries hash_prefixes mina_compile_config_nonconsensus random_oracle_nonconsensus mina_signature_kind)
  (preprocessor_deps ../../config.mlh)
  (preprocess
-  (pps ppx_version ppx_optcomp ppx_deriving.eq ppx_deriving_yojson ppx_inline_test))
+  (pps ppx_version ppx_optcomp ppx_compare ppx_deriving_yojson ppx_inline_test))
  (instrumentation (backend bisect_ppx))
  (synopsis "Values corresponding to the internal state of the Pedersen hash function on the prefixes used in Coda"))

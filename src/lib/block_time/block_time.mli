@@ -15,7 +15,7 @@ module Time : sig
   include Hashable.S with type t := t
 
   module Controller : sig
-    type t [@@deriving sexp]
+    type t [@@deriving sexp, equal, compare]
 
     val create : t -> t
 
@@ -51,7 +51,7 @@ module Time : sig
     [@@@no_toplevel_latest_type]
 
     module V1 : sig
-      type nonrec t = t [@@deriving sexp, compare, eq, hash, yojson]
+      type nonrec t = t [@@deriving sexp, compare, equal, hash, yojson]
 
       include Hashable.S with type t := t
     end
@@ -82,12 +82,12 @@ module Time : sig
   end
 
   module Span : sig
-    type t [@@deriving sexp, compare, yojson]
+    type t [@@deriving sexp, compare, equal, yojson]
 
     module Stable : sig
       module V1 : sig
         type nonrec t = t
-        [@@deriving bin_io, eq, sexp, compare, hash, yojson, version]
+        [@@deriving bin_io, equal, sexp, compare, hash, yojson, version]
       end
     end
 

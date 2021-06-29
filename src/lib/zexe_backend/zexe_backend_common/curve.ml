@@ -39,7 +39,7 @@ end
 module type Field_intf = sig
   module Stable : sig
     module Latest : sig
-      type t [@@deriving bin_io, eq, sexp, compare, yojson, hash]
+      type t [@@deriving bin_io, equal, sexp, compare, yojson, hash]
     end
   end
 
@@ -97,7 +97,7 @@ struct
         module T = struct
           type t = BaseField.Stable.Latest.t * BaseField.Stable.Latest.t
           [@@deriving
-            version {asserted}, eq, bin_io, sexp, compare, yojson, hash]
+            version {asserted}, equal, bin_io, sexp, compare, yojson, hash]
         end
 
         include T

@@ -209,90 +209,91 @@ let profile (module T : Transaction_snark.S) sparse_ledger0
 let check_base_snarks sparse_ledger0 (transitions : Transaction.Valid.t list)
     preeval =
   let constraint_constants = Genesis_constants.Constraint_constants.compiled in
-  let _ =
-    let sok_message =
-      Sok_message.create ~fee:Currency.Fee.zero
-        ~prover:
-          Public_key.(compress (of_private_key_exn (Private_key.create ())))
-    in
-    let txn_state_view = Lazy.force curr_state_view in
-    List.fold transitions ~init:sparse_ledger0 ~f:(fun sparse_ledger t ->
-        let next_available_token_before =
-          Sparse_ledger.next_available_token sparse_ledger
-        in
-        let sparse_ledger' =
-          Sparse_ledger.apply_transaction_exn ~constraint_constants
-            ~txn_state_view sparse_ledger (Transaction.forget t)
-        in
-        let next_available_token_after =
-          Sparse_ledger.next_available_token sparse_ledger'
-        in
-        let coinbase_stack_target =
-          pending_coinbase_stack_target (Transaction.forget t)
-            Pending_coinbase.Stack.empty
-        in
-        let () =
-          Transaction_snark.check_transaction ?preeval ~constraint_constants
-            ~sok_message
-            ~source:(Sparse_ledger.merkle_root sparse_ledger)
-            ~target:(Sparse_ledger.merkle_root sparse_ledger')
-            ~init_stack:Pending_coinbase.Stack.empty
-            ~next_available_token_before ~next_available_token_after
-            ~pending_coinbase_stack_state:
-              { source= Pending_coinbase.Stack.empty
-              ; target= coinbase_stack_target }
-            ~snapp_account1:None ~snapp_account2:None
-            { Transaction_protocol_state.Poly.block_data= Lazy.force state_body
-            ; transaction= t }
-            (unstage (Sparse_ledger.handler sparse_ledger))
-        in
-        sparse_ledger' )
-  in
+  ignore
+    ( let sok_message =
+        Sok_message.create ~fee:Currency.Fee.zero
+          ~prover:
+            Public_key.(compress (of_private_key_exn (Private_key.create ())))
+      in
+      let txn_state_view = Lazy.force curr_state_view in
+      List.fold transitions ~init:sparse_ledger0 ~f:(fun sparse_ledger t ->
+          let next_available_token_before =
+            Sparse_ledger.next_available_token sparse_ledger
+          in
+          let sparse_ledger' =
+            Sparse_ledger.apply_transaction_exn ~constraint_constants
+              ~txn_state_view sparse_ledger (Transaction.forget t)
+          in
+          let next_available_token_after =
+            Sparse_ledger.next_available_token sparse_ledger'
+          in
+          let coinbase_stack_target =
+            pending_coinbase_stack_target (Transaction.forget t)
+              Pending_coinbase.Stack.empty
+          in
+          let () =
+            Transaction_snark.check_transaction ?preeval ~constraint_constants
+              ~sok_message
+              ~source:(Sparse_ledger.merkle_root sparse_ledger)
+              ~target:(Sparse_ledger.merkle_root sparse_ledger')
+              ~init_stack:Pending_coinbase.Stack.empty
+              ~next_available_token_before ~next_available_token_after
+              ~pending_coinbase_stack_state:
+                { source= Pending_coinbase.Stack.empty
+                ; target= coinbase_stack_target }
+              ~snapp_account1:None ~snapp_account2:None
+              { Transaction_protocol_state.Poly.block_data=
+                  Lazy.force state_body
+              ; transaction= t }
+              (unstage (Sparse_ledger.handler sparse_ledger))
+          in
+          sparse_ledger' )
+      : Sparse_ledger.t ) ;
   "Base constraint system satisfied"
 
 let generate_base_snarks_witness sparse_ledger0
     (transitions : Transaction.Valid.t list) preeval =
   let constraint_constants = Genesis_constants.Constraint_constants.compiled in
-  let _ =
-    let sok_message =
-      Sok_message.create ~fee:Currency.Fee.zero
-        ~prover:
-          Public_key.(compress (of_private_key_exn (Private_key.create ())))
-    in
-    let txn_state_view = Lazy.force curr_state_view in
-    List.fold transitions ~init:sparse_ledger0 ~f:(fun sparse_ledger t ->
-        let next_available_token_before =
-          Sparse_ledger.next_available_token sparse_ledger
-        in
-        let sparse_ledger' =
-          Sparse_ledger.apply_transaction_exn ~constraint_constants
-            ~txn_state_view sparse_ledger (Transaction.forget t)
-        in
-        let next_available_token_after =
-          Sparse_ledger.next_available_token sparse_ledger'
-        in
-        let coinbase_stack_target =
-          pending_coinbase_stack_target (Transaction.forget t)
-            Pending_coinbase.Stack.empty
-        in
-        let () =
-          Transaction_snark.generate_transaction_witness ?preeval
-            ~constraint_constants ~sok_message
-            ~source:(Sparse_ledger.merkle_root sparse_ledger)
-            ~target:(Sparse_ledger.merkle_root sparse_ledger')
-            ~init_stack:Pending_coinbase.Stack.empty
-            ~next_available_token_before ~next_available_token_after
-            ~pending_coinbase_stack_state:
-              { Transaction_snark.Pending_coinbase_stack_state.source=
-                  Pending_coinbase.Stack.empty
-              ; target= coinbase_stack_target }
-            ~snapp_account1:None ~snapp_account2:None
-            { Transaction_protocol_state.Poly.transaction= t
-            ; block_data= Lazy.force state_body }
-            (unstage (Sparse_ledger.handler sparse_ledger))
-        in
-        sparse_ledger' )
-  in
+  ignore
+    ( let sok_message =
+        Sok_message.create ~fee:Currency.Fee.zero
+          ~prover:
+            Public_key.(compress (of_private_key_exn (Private_key.create ())))
+      in
+      let txn_state_view = Lazy.force curr_state_view in
+      List.fold transitions ~init:sparse_ledger0 ~f:(fun sparse_ledger t ->
+          let next_available_token_before =
+            Sparse_ledger.next_available_token sparse_ledger
+          in
+          let sparse_ledger' =
+            Sparse_ledger.apply_transaction_exn ~constraint_constants
+              ~txn_state_view sparse_ledger (Transaction.forget t)
+          in
+          let next_available_token_after =
+            Sparse_ledger.next_available_token sparse_ledger'
+          in
+          let coinbase_stack_target =
+            pending_coinbase_stack_target (Transaction.forget t)
+              Pending_coinbase.Stack.empty
+          in
+          let () =
+            Transaction_snark.generate_transaction_witness ?preeval
+              ~constraint_constants ~sok_message
+              ~source:(Sparse_ledger.merkle_root sparse_ledger)
+              ~target:(Sparse_ledger.merkle_root sparse_ledger')
+              ~init_stack:Pending_coinbase.Stack.empty
+              ~next_available_token_before ~next_available_token_after
+              ~pending_coinbase_stack_state:
+                { Transaction_snark.Pending_coinbase_stack_state.source=
+                    Pending_coinbase.Stack.empty
+                ; target= coinbase_stack_target }
+              ~snapp_account1:None ~snapp_account2:None
+              { Transaction_protocol_state.Poly.transaction= t
+              ; block_data= Lazy.force state_body }
+              (unstage (Sparse_ledger.handler sparse_ledger))
+          in
+          sparse_ledger' )
+      : Sparse_ledger.t ) ;
   "Base constraint system satisfied"
 
 let run profiler num_transactions repeats preeval =

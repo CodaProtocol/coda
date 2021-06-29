@@ -11,7 +11,7 @@ module Auth_required : sig
   module Stable : sig
     module V1 : sig
       type t = None | Either | Proof | Signature | Both | Impossible
-      [@@deriving sexp, eq, compare, hash, yojson, enum]
+      [@@deriving sexp, equal, compare, hash, yojson, enum]
     end
   end]
 
@@ -53,7 +53,7 @@ module Poly : sig
         ; set_delegate: 'controller
         ; set_permissions: 'controller
         ; set_verification_key: 'controller }
-      [@@deriving sexp, eq, compare, hash, yojson, hlist, fields]
+      [@@deriving sexp, equal, compare, hash, yojson, hlist, fields]
     end
   end]
 end
@@ -62,7 +62,7 @@ end
 module Stable : sig
   module V1 : sig
     type t = (bool, Auth_required.Stable.V1.t) Poly.Stable.V1.t
-    [@@deriving sexp, eq, compare, hash, yojson]
+    [@@deriving sexp, equal, compare, hash, yojson]
   end
 end]
 

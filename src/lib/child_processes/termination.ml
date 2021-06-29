@@ -59,7 +59,7 @@ let check_terminated_child (t : t) child_pid logger =
 (** wait for a [process], which may resolve immediately or in a Deferred.t,
     log any errors, attributing the source to the provided [module] and [location]
 *)
-let wait_for_process_log_errors ~logger process ~module_ ~location =
+let wait_for_process_log_errors ~logger process ~module_ ~location ~here =
   (* Handle implicit raciness in the wait syscall by calling [Process.wait]
      early, so that its value will be correctly cached when we actually need
      it.
@@ -70,7 +70,7 @@ let wait_for_process_log_errors ~logger process ~module_ ~location =
            elsewhere on exit.
         *)
         let waiting =
-          Monitor.try_with ~run:`Now
+          Monitor.try_with ~here ~run:`Now
             ~rest:
               (`Call
                 (fun exn ->

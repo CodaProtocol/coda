@@ -4,7 +4,7 @@ module Pc_array = struct
   [%%versioned
   module Stable = struct
     module V1 = struct
-      type 'a t = 'a array [@@deriving compare, sexp, yojson, eq]
+      type 'a t = 'a array [@@deriving compare, sexp, yojson, equal]
 
       let hash_fold_t f s a = List.hash_fold_t f s (Array.to_list a)
     end
@@ -31,7 +31,7 @@ module Evals = struct
         ; g_1: 'a
         ; g_2: 'a
         ; g_3: 'a }
-      [@@deriving fields, sexp, compare, yojson, hash, eq]
+      [@@deriving fields, sexp, compare, yojson, hash, equal]
     end
   end]
 
@@ -181,7 +181,7 @@ module Openings = struct
           ; z_2: 'fq
           ; delta: 'g
           ; sg: 'g }
-        [@@deriving sexp, compare, yojson, hash, eq, hlist]
+        [@@deriving sexp, compare, yojson, hash, equal, hlist]
       end
     end]
 
@@ -202,7 +202,7 @@ module Openings = struct
             'fqv Evals.Stable.V1.t
             * 'fqv Evals.Stable.V1.t
             * 'fqv Evals.Stable.V1.t }
-      [@@deriving sexp, compare, yojson, hash, eq, hlist]
+      [@@deriving sexp, compare, yojson, hash, equal, hlist]
     end
   end]
 
@@ -232,7 +232,7 @@ module Poly_comm = struct
     module Stable = struct
       module V1 = struct
         type 'g t = 'g Pc_array.Stable.V1.t
-        [@@deriving sexp, compare, yojson, hash, eq]
+        [@@deriving sexp, compare, yojson, hash, equal]
       end
     end]
 
@@ -261,7 +261,7 @@ module Messages = struct
             'fq
             * ( 'g With_degree_bound.Stable.V1.t
               * 'g Without_degree_bound.Stable.V1.t ) }
-      [@@deriving sexp, compare, yojson, fields, hash, eq, hlist]
+      [@@deriving sexp, compare, yojson, fields, hash, equal, hlist]
     end
   end]
 
@@ -303,7 +303,7 @@ module Proof = struct
       type ('g, 'fq, 'fqv) t =
         { messages: ('g, 'fq) Messages.Stable.V1.t
         ; openings: ('g, 'fq, 'fqv) Openings.Stable.V1.t }
-      [@@deriving sexp, compare, yojson, hash, eq]
+      [@@deriving sexp, compare, yojson, hash, equal]
     end
   end]
 end

@@ -33,7 +33,7 @@ end
 
 module Make
     (Impl : Snarky_backendless.Snark_intf.S) (Scalar : sig
-        type t [@@deriving eq, sexp]
+        type t [@@deriving equal, sexp]
 
         val random : unit -> t
 

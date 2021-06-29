@@ -1842,7 +1842,7 @@ let setup_server ~metrics_server_port ~constraint_constants ~logger
           | Ok () ->
               () )
       |> don't_wait_for ;
-      Deferred.ignore
+      Deferred.ignore_m
       @@ Tcp.Server.create
            ~on_handler_error:
              (`Call

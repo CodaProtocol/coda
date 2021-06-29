@@ -13,7 +13,7 @@ module Pc_array = struct
   [%%versioned
   module Stable = struct
     module V1 = struct
-      type 'a t = 'a array [@@deriving compare, sexp, yojson, eq]
+      type 'a t = 'a array [@@deriving compare, sexp, yojson, equal]
 
       let hash_fold_t f s a = List.hash_fold_t f s (Array.to_list a)
     end
@@ -28,7 +28,7 @@ module Evals = struct
     module V1 = struct
       type 'a t =
         {l: 'a; r: 'a; o: 'a; z: 'a; t: 'a; f: 'a; sigma1: 'a; sigma2: 'a}
-      [@@deriving fields, sexp, compare, yojson, hash, eq]
+      [@@deriving fields, sexp, compare, yojson, hash, equal]
     end
   end]
 
@@ -93,7 +93,7 @@ module Openings = struct
           ; z_2: 'fq
           ; delta: 'g
           ; sg: 'g }
-        [@@deriving sexp, compare, yojson, hash, eq, hlist]
+        [@@deriving sexp, compare, yojson, hash, equal, hlist]
       end
     end]
 
@@ -111,7 +111,7 @@ module Openings = struct
       type ('g, 'fq, 'fqv) t =
         { proof: ('g, 'fq) Bulletproof.Stable.V1.t
         ; evals: 'fqv Evals.Stable.V1.t * 'fqv Evals.Stable.V1.t }
-      [@@deriving sexp, compare, yojson, hash, eq, hlist]
+      [@@deriving sexp, compare, yojson, hash, equal, hlist]
     end
   end]
 
@@ -133,7 +133,7 @@ module Poly_comm = struct
       module V1 = struct
         type 'g_opt t =
           {unshifted: 'g_opt Pc_array.Stable.V1.t; shifted: 'g_opt}
-        [@@deriving sexp, compare, yojson, hlist, hash, eq]
+        [@@deriving sexp, compare, yojson, hlist, hash, equal]
       end
     end]
 
@@ -186,7 +186,7 @@ module Poly_comm = struct
     module Stable = struct
       module V1 = struct
         type 'g t = 'g Pc_array.Stable.V1.t
-        [@@deriving sexp, compare, yojson, hash, eq]
+        [@@deriving sexp, compare, yojson, hash, equal]
       end
     end]
 
@@ -206,7 +206,7 @@ module Messages = struct
         ; o_comm: 'g Without_degree_bound.Stable.V1.t
         ; z_comm: 'g Without_degree_bound.Stable.V1.t
         ; t_comm: 'g_opt With_degree_bound.Stable.V1.t }
-      [@@deriving sexp, compare, yojson, fields, hash, eq, hlist]
+      [@@deriving sexp, compare, yojson, fields, hash, equal, hlist]
     end
   end]
 
@@ -234,7 +234,7 @@ module Proof = struct
       type ('g, 'g_opt, 'fq, 'fqv) t =
         { messages: ('g, 'g_opt) Messages.Stable.V1.t
         ; openings: ('g, 'fq, 'fqv) Openings.Stable.V1.t }
-      [@@deriving sexp, compare, yojson, hash, eq]
+      [@@deriving sexp, compare, yojson, hash, equal]
     end
   end]
 end
@@ -246,7 +246,7 @@ module Shifts = struct
       type 'field t =
             'field Marlin_plonk_bindings_types.Plonk_verification_shifts.t =
         {r: 'field; o: 'field}
-      [@@deriving sexp, compare, yojson, hash, eq]
+      [@@deriving sexp, compare, yojson, hash, equal]
     end
   end]
 

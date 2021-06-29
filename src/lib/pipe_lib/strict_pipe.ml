@@ -266,7 +266,9 @@ module Writer = struct
               [%log warn]
                 ~metadata:[("pipe_name", `String my_name)]
                 "Dropping message on pipe $pipe_name" ;
-            ignore (Pipe.read_now writer.strict_reader.reader) ;
+            ignore
+              ( Pipe.read_now writer.strict_reader.reader
+                : [`Eof | `Nothing_available | `Ok of 'a] ) ;
             Pipe.write_without_pushback writer.writer data )
           ~normal_return:()
     | Buffered (`Capacity capacity, `Overflow (Call f)) ->

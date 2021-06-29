@@ -40,7 +40,7 @@ let token_id_of_account (account : Account_identifier.t) =
   |> Result.ok
 
 module Op = struct
-  type 'a t = {label: 'a; related_to: 'a option} [@@deriving eq]
+  type 'a t = {label: 'a; related_to: 'a option} [@@deriving equal]
 
   module T (M : Monad.S2) = struct
     let build ~a_eq ~plan ~f =
@@ -99,7 +99,7 @@ module Kind = struct
     | `Create_token
     | `Create_token_account
     | `Mint_tokens ]
-  [@@deriving yojson, eq, sexp, compare]
+  [@@deriving yojson, equal, sexp, compare]
 end
 
 module Account_creation_fees_paid = struct
@@ -107,12 +107,12 @@ module Account_creation_fees_paid = struct
     | By_no_one
     | By_fee_payer of Unsigned_extended.UInt64.t
     | By_receiver of Unsigned_extended.UInt64.t
-  [@@deriving eq, to_yojson, sexp, compare]
+  [@@deriving equal, to_yojson, sexp, compare]
 end
 
 module Failure_status = struct
   type t = [`Applied of Account_creation_fees_paid.t | `Failed of string]
-  [@@deriving eq, to_yojson, sexp, compare]
+  [@@deriving equal, to_yojson, sexp, compare]
 end
 
 type t =
@@ -127,7 +127,7 @@ type t =
   ; amount: Unsigned_extended.UInt64.t option
   ; hash: string
   ; failure_status: Failure_status.t option }
-[@@deriving to_yojson, eq, sexp, compare]
+[@@deriving to_yojson, equal, sexp, compare]
 
 module Partial = struct
   type t =

@@ -82,8 +82,9 @@ module Instance = struct
     with_file (Locations.root_identifier t.factory.directory) `Write ~size
       ~f:(fun buf ->
         ignore
-          (Root_identifier.Stable.Latest.bin_write_t buf ~pos:0
-             new_root_identifier) )
+          ( Root_identifier.Stable.Latest.bin_write_t buf ~pos:0
+              new_root_identifier
+            : int ) )
 
   (* defaults to genesis *)
   let load_root_identifier t =
@@ -111,7 +112,7 @@ let create ~logger ~directory ~ledger_depth =
   {directory; logger; instance= None; ledger_depth}
 
 let create_instance_exn t =
-  assert (t.instance = None) ;
+  assert (Option.is_none t.instance) ;
   let instance = Instance.create t in
   t.instance <- Some instance ;
   instance
@@ -123,14 +124,16 @@ let with_instance_exn t ~f =
 
 let reset_to_genesis_exn t ~precomputed_values =
   let open Deferred.Let_syntax in
-  assert (t.instance = None) ;
+  assert (Option.is_none t.instance) ;
   let%map () = File_system.remove_dir t.directory in
   with_instance_exn t ~f:(fun instance ->
       ignore
-        (Ledger_transfer.transfer_accounts
-           ~src:
-             (Lazy.force (Precomputed_values.genesis_ledger precomputed_values))
-           ~dest:(Instance.snarked_ledger instance)) ;
+        ( Ledger_transfer.transfer_accounts
+            ~src:
+              (Lazy.force
+                 (Precomputed_values.genesis_ledger precomputed_values))
+            ~dest:(Instance.snarked_ledger instance)
+          : Ledger.Db.t Or_error.t ) ;
       Instance.set_root_identifier instance
         (genesis_root_identifier
            ~genesis_state_hash:

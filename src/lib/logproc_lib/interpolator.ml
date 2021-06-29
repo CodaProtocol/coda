@@ -35,7 +35,7 @@ let parser =
   let message =
     many1
       (choice
-         [ (take_while1 (not_f (( = ) '$')) >>| fun x -> `Raw x)
+         [ (take_while1 (not_f (Char.equal '$')) >>| fun x -> `Raw x)
          ; (interpolation >>| fun x -> `Interpolate x) ])
   in
   message <* end_of_input

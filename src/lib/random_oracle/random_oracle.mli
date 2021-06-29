@@ -13,7 +13,7 @@ open Snark_params_nonconsensus
 module Input = Random_oracle_input
 
 module State : sig
-  type 'a t [@@deriving eq, sexp, compare]
+  type 'a t [@@deriving equal, sexp, compare]
 
   val map : 'a t -> f:('a -> 'b) -> 'b t
 

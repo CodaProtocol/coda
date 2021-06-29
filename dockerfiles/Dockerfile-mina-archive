@@ -13,6 +13,9 @@ RUN echo "Building image with version $deb_version"
 COPY scripts/archive-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+COPY --chown=${UID} scripts/puppeteer/* /
+RUN chmod +x /mina_daemon_puppeteer.py /find_puppeteer.sh /start.sh /stop.sh
+
 # Workaround terrible postgresql package requirements with man
 RUN mkdir /usr/share/man/man7 /usr/share/man/man1
 

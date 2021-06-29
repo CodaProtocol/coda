@@ -8,6 +8,6 @@
             sync_status)
  (inline_tests)
  (preprocess
-  (pps ppx_coda ppx_compare ppx_hash ppx_version ppx_inline_test ppx_deriving.eq ppx_deriving.make ppx_deriving_yojson ppx_optcomp ppx_bin_prot ppx_sexp_conv ppx_fields_conv ppx_let ppx_register_event ppx_custom_printf))
+  (pps ppx_coda ppx_compare ppx_hash ppx_version ppx_inline_test ppx_compare ppx_deriving.make ppx_deriving_yojson ppx_optcomp ppx_bin_prot ppx_sexp_conv ppx_fields_conv ppx_let ppx_register_event ppx_custom_printf))
  (instrumentation (backend bisect_ppx))
  (synopsis "Networking layer for coda"))

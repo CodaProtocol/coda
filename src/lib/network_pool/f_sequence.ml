@@ -23,6 +23,39 @@ module Digit = struct
     | Three : 'e * 'e * 'e -> (addable, removable, 'e) t
     | Four : 'e * 'e * 'e * 'e -> (not_addable, removable, 'e) t
 
+  (* Can't derive compare on GADTs, instead we provide an explicit instance. *)
+  let compare (type add_x rem_x add_y rem_y) cmp_e (x : (add_x, rem_x, 'e) t)
+      (y : (add_y, rem_y, 'e) t) =
+    let fallthrough ~f = function 0 -> f () | n -> n in
+    match (x, y) with
+    | One x, One y ->
+        cmp_e x y
+    | One _, _ ->
+        -1
+    | _, One _ ->
+        1
+    | Two (x1, x2), Two (y1, y2) ->
+        fallthrough (cmp_e x1 y1) ~f:(fun () -> cmp_e x2 y2)
+    | Two _, _ ->
+        -1
+    | _, Two _ ->
+        1
+    | Three (x1, x2, x3), Three (y1, y2, y3) ->
+        fallthrough (cmp_e x1 y1) ~f:(fun () ->
+            fallthrough (cmp_e x2 y2) ~f:(fun () -> cmp_e x3 y3) )
+    | Three _, _ ->
+        -1
+    | _, Three _ ->
+        1
+    | Four (x1, x2, x3, x4), Four (y1, y2, y3, y4) ->
+        fallthrough (cmp_e x1 y1) ~f:(fun () ->
+            fallthrough (cmp_e x2 y2) ~f:(fun () ->
+                fallthrough (cmp_e x3 y3) ~f:(fun () -> cmp_e x4 y4) ) )
+    | Four _, _ ->
+        .
+    | _, Four _ ->
+        .
+
   (* "Eliminators" dispatching on addability/removability. You could achieve
       the same effect more directly using or-patterns, but the code that
       makes the typechecker understand existentials under or-patterns isn't
@@ -302,6 +335,7 @@ module Node = struct
       implemented here.
   *)
   type 'e t = Two of int * 'e * 'e | Three of int * 'e * 'e * 'e
+  [@@deriving equal, compare]
 
   (** Extract the cached measurement *)
   let measure : 'e t -> int =
@@ -345,6 +379,36 @@ type 'e t =
           parent. The top level has 'es, the next level has 'e Node.ts, the next
           has 'e Node.t Node.ts and so on. As you go deeper, the breadth
           increases exponentially. *)
+
+(* Can't derive compare for GADTs.. *)
+let rec compare : type e. (e -> e -> int) -> e t -> e t -> int =
+ fun cmp_e x y ->
+  match (x, y) with
+  | Empty, Empty ->
+      0
+  | Empty, _ ->
+      -1
+  | _, Empty ->
+      1
+  | Single x, Single y ->
+      cmp_e x y
+  | Single _, _ ->
+      -1
+  | _, Single _ ->
+      1
+  | Deep (i, pre_x, mid_x, suff_x), Deep (j, pre_y, mid_y, suff_y) ->
+      let cmp = Int.compare i j in
+      if cmp <> 0 then cmp
+      else
+        let cmp = Digit.compare cmp_e pre_x pre_y in
+        if cmp <> 0 then cmp
+        else
+          let cmp = Lazy.compare (compare (Node.compare cmp_e)) mid_x mid_y in
+          if cmp <> 0 then cmp else Digit.compare cmp_e suff_x suff_y
+  | Deep _, _ ->
+      .
+  | _, Deep _ ->
+      .
 
 (* About measurements: in the paper they define finger trees more generally than
    this implementation. Given a monoid m, a measurement function for elements

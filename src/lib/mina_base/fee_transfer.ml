@@ -9,7 +9,7 @@ module Single = struct
         { receiver_pk: Public_key.Compressed.Stable.V1.t
         ; fee: Currency.Fee.Stable.V1.t
         ; fee_token: Token_id.Stable.V1.t }
-      [@@deriving sexp, compare, eq, yojson, hash]
+      [@@deriving sexp, compare, equal, yojson, hash]
 
       let to_latest = Fn.id
 
@@ -57,7 +57,7 @@ end
 module Stable = struct
   module V1 = struct
     type t = Single.Stable.V1.t One_or_two.Stable.V1.t
-    [@@deriving sexp, compare, eq, yojson, hash]
+    [@@deriving sexp, compare, equal, yojson, hash]
 
     let to_latest = Fn.id
   end

@@ -2,7 +2,7 @@
  (name snarky_verifier)
  (public_name snarky_verifier)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version ppx_jane h_list.ppx ppx_deriving.eq))
+ (preprocess (pps ppx_version ppx_jane h_list.ppx ppx_compare))
  (libraries
    sgn_type
    snarky_curves

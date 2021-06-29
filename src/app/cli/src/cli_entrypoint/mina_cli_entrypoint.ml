@@ -299,8 +299,8 @@ let setup_daemon logger =
   and libp2p_peer_list_file =
     flag "--peer-list-file" ~aliases:["peer-list-file"]
       ~doc:
-        "/ip4/IPADDR/tcp/PORT/p2p/PEERID initial \"bootstrap\" peers for \
-         discovery inside a file delimited by new-lines (\\n)"
+        "PATH path to a file containing \"bootstrap\" peers for discovery, \
+         one multiaddress per line"
       (optional string)
   and seed_peer_list_url =
     flag "--peer-list-url" ~aliases:["peer-list-url"]
@@ -847,7 +847,7 @@ let setup_daemon logger =
       Option.iter
         ~f:(fun password ->
           match Sys.getenv Secrets.Keypair.env with
-          | Some env_pass when env_pass <> password ->
+          | Some env_pass when not (String.equal env_pass password) ->
               [%log warn]
                 "$envkey environment variable doesn't match value provided on \
                  command-line or daemon.json. Using value from $envkey"

@@ -166,13 +166,13 @@ module Make (Inputs : Inputs_intf) :
 
   let set_bin mdb location bin_size bin_write v =
     let buf = Bigstring.create (bin_size v) in
-    ignore (bin_write buf ~pos:0 v) ;
+    ignore (bin_write buf ~pos:0 v : int) ;
     set_raw mdb location buf
 
   let set_bin_batch mdb bin_size bin_write locations_vs =
     let create_buf (loc, v) =
       let buf = Bigstring.create (bin_size v) in
-      ignore (bin_write buf ~pos:0 v) ;
+      ignore (bin_write buf ~pos:0 v : int) ;
       (loc, buf)
     in
     let locs_bufs = List.map locations_vs ~f:create_buf in
@@ -310,7 +310,7 @@ module Make (Inputs : Inputs_intf) :
       let token_buf =
         Bin_prot.Common.create_buf (Token_id.Stable.Latest.bin_size_t tid)
       in
-      ignore (Token_id.Stable.Latest.bin_write_t token_buf ~pos:0 tid) ;
+      ignore (Token_id.Stable.Latest.bin_write_t token_buf ~pos:0 tid : int) ;
       (Location.serialize ~ledger_depth (next_available_key ()), token_buf)
 
     let set_next_available mdb tid =
@@ -331,7 +331,7 @@ module Make (Inputs : Inputs_intf) :
         let pk_buf =
           Bin_prot.Common.create_buf (Key.Stable.Latest.bin_size_t pk)
         in
-        ignore (Key.Stable.Latest.bin_write_t pk_buf ~pos:0 pk) ;
+        ignore (Key.Stable.Latest.bin_write_t pk_buf ~pos:0 pk : int) ;
         (Location.serialize ~ledger_depth (build_location tid), pk_buf)
 
       let get mdb token_id =
@@ -373,7 +373,7 @@ module Make (Inputs : Inputs_intf) :
       let tokens_buf =
         Bin_prot.Common.create_buf (Token_id.Set.bin_size_t tids)
       in
-      ignore (Token_id.Set.bin_write_t tokens_buf ~pos:0 tids) ;
+      ignore (Token_id.Set.bin_write_t tokens_buf ~pos:0 tids : int) ;
       (Location.serialize ~ledger_depth (build_location pk), tokens_buf)
 
     let get_opt mdb pk =
@@ -517,7 +517,7 @@ module Make (Inputs : Inputs_intf) :
                 (Token_id.next (Account_id.token_id aid)) ) )
       in
       let next_available_token_change =
-        if new_next_available_token > next_available_token then
+        if Token_id.(new_next_available_token > next_available_token) then
           [ Tokens.next_available_kv ~ledger_depth:mdb.depth
               new_next_available_token ]
         else []

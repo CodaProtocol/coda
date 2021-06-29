@@ -1,9 +1,9 @@
 module type S = sig
-  type t [@@deriving eq, sexp]
+  type t [@@deriving equal, sexp]
 
   module Stable : sig
     module V1 : sig
-      type nonrec t = t [@@deriving bin_io, eq, sexp]
+      type nonrec t = t [@@deriving bin_io, equal, sexp]
     end
 
     module Latest : module type of V1

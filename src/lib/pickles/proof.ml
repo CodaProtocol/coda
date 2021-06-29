@@ -285,7 +285,7 @@ module Branching_2 = struct
     include T.Repr
 
     (* Force the typechecker to verify that these types are equal. *)
-    let _ =
+    let () =
       let _f : unit -> (t, Stable.Latest.t) Type_equal.t =
        fun () -> Type_equal.T
       in
@@ -355,7 +355,7 @@ module Branching_max = struct
     include T.Repr
 
     (* Force the typechecker to verify that these types are equal. *)
-    let _ =
+    let () =
       let _f : unit -> (t, Stable.Latest.t) Type_equal.t =
        fun () -> Type_equal.T
       in

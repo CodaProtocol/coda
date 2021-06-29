@@ -9,14 +9,14 @@ let services =
   [ {uri= "http://api.ipify.org"; body_handler= Fn.id}
   ; {uri= "http://bot.whatismyipaddress.com"; body_handler= Fn.id}
   ; { uri= "http://ifconfig.co/ip"
-    ; body_handler= String.rstrip ~drop:(fun c -> c = '\n') } ]
+    ; body_handler= String.rstrip ~drop:(Char.equal '\n') } ]
 
 let ip_service_result {uri; body_handler} ~logger =
   match%map
     Monitor.try_with ~here:[%here] (fun () ->
         let%bind resp, body = Client.get (Uri.of_string uri) in
         let%map body = Body.to_string body in
-        if resp.status = `OK then Some (body_handler body) else None )
+        match resp.status with `OK -> Some (body_handler body) | _ -> None )
   with
   | Ok v ->
       v

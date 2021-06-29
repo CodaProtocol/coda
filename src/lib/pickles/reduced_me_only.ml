@@ -50,7 +50,7 @@ module Dlog_based = struct
       Wrap_bp_vec.t
     [@@deriving sexp, compare, yojson, hash, equal]
 
-    let _ =
+    let () =
       let _f : unit -> (t, Stable.Latest.t) Type_equal.t =
        fun () -> Type_equal.T
       in

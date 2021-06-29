@@ -35,7 +35,7 @@ module Make (Inputs : Inputs_intf) :
   end)
 
   module Merkle_list_verifier = Merkle_list_verifier.Make (struct
-    type hash = State_hash.t [@@deriving eq]
+    type hash = State_hash.t [@@deriving equal]
 
     type proof_elem = State_body_hash.t
 

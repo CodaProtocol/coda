@@ -49,4 +49,4 @@ let atomic_write (c : 'a Controller.t) location data =
 let store_with_checksum (type a) (c : a Controller.t) location (data : a) =
   atomic_write c location data >>| fun t -> t.Checked_data.checksum
 
-let store c location data = atomic_write c location data |> Deferred.ignore
+let store c location data = atomic_write c location data |> Deferred.ignore_m

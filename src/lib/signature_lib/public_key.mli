@@ -21,7 +21,7 @@ include Codable.S with type t := t
 module Stable : sig
   module V1 : sig
     type nonrec t = t
-    [@@deriving bin_io, sexp, compare, eq, hash, yojson, version]
+    [@@deriving bin_io, sexp, compare, equal, hash, yojson, version]
   end
 
   module Latest = V1
@@ -64,7 +64,8 @@ module Compressed : sig
 
   module Stable : sig
     module V1 : sig
-      type nonrec t = t [@@deriving sexp, bin_io, eq, compare, hash, version]
+      type nonrec t = t
+      [@@deriving sexp, bin_io, equal, compare, hash, version]
 
       include Codable.S with type t := t
     end

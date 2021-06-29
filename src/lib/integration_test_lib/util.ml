@@ -54,7 +54,8 @@ let rec prompt_continue prompt_string =
   let%bind () = Writer.flushed (Lazy.force Writer.stdout) in
   let c = Option.value_exn In_channel.(input_char stdin) in
   print_newline () ;
-  if c = 'y' || c = 'Y' then Deferred.unit else prompt_continue prompt_string
+  if Char.equal c 'y' || Char.equal c 'Y' then Deferred.unit
+  else prompt_continue prompt_string
 
 module Make (Engine : Intf.Engine.S) = struct
   let pub_key_of_node node =

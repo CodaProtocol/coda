@@ -3,4 +3,4 @@
  (public_name transaction_snark_work)
  (libraries core_kernel mina_base ledger_proof one_or_two transaction_snark)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_jane ppx_version ppx_deriving.eq ppx_deriving_yojson)))
+ (preprocess (pps ppx_jane ppx_version ppx_compare ppx_deriving_yojson)))

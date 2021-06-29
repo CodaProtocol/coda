@@ -24,7 +24,7 @@ module Poly = struct
         ; epoch_duration: 'timespan
         ; delta_duration: 'timespan
         ; genesis_state_timestamp: 'time }
-      [@@deriving eq, ord, hash, sexp, to_yojson, hlist]
+      [@@deriving equal, compare, hash, sexp, to_yojson, hlist]
     end
   end]
 end
@@ -37,7 +37,7 @@ module Stable = struct
       , Block_time.Stable.V1.t
       , Block_time.Span.Stable.V1.t )
       Poly.Stable.V1.t
-    [@@deriving eq, ord, hash, sexp, to_yojson]
+    [@@deriving equal, ord, hash, sexp, to_yojson]
 
     let to_latest = Fn.id
   end
@@ -213,7 +213,7 @@ let create' (type a b c)
   end in
   let delta_duration = Slot.duration_ms * (delta + M.one) in
   let num_days = 3. in
-  assert (num_days < 14.) ;
+  assert (Float.(num_days < 14.)) ;
   (* We forgo updating the min density for the first [num_days] days (or epoch, whichever comes first)
       of the network's operation. The reasoning is as follows:
 

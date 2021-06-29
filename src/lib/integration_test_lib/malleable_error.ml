@@ -17,7 +17,7 @@ module Hard_fail = struct
     { (* Most of the time, there is only one hard error, but we can have multiple when joining lists of monads (concurrency) *)
       hard_errors: Test_error.internal_error Error_accumulator.t
     ; soft_errors: Test_error.internal_error Error_accumulator.t }
-  [@@deriving eq, sexp_of, compare]
+  [@@deriving equal, sexp_of, compare]
 
   (* INVARIANT: hard_errors should always have at least 1 error *)
   let check_invariants {hard_errors; _} =
@@ -43,7 +43,7 @@ module Result_accumulator = struct
   type 'a t =
     { computation_result: 'a
     ; soft_errors: Test_error.internal_error Error_accumulator.t }
-  [@@deriving eq, sexp_of, compare]
+  [@@deriving equal, sexp_of, compare]
 
   let create computation_result soft_errors = {computation_result; soft_errors}
 

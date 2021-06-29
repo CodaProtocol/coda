@@ -29,7 +29,7 @@ module type S = sig
   module Path : Merkle_path.S with type hash := hash
 
   module Location : sig
-    type t [@@deriving sexp, compare, hash, eq]
+    type t [@@deriving sexp, compare, hash, equal]
   end
 
   include

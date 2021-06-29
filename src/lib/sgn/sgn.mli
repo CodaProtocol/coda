@@ -16,7 +16,7 @@ open Snark_params_nonconsensus
 module Stable : sig
   module V1 : sig
     type t = Sgn_type.Sgn.Stable.V1.t = Pos | Neg
-    [@@deriving sexp, hash, compare, eq, yojson]
+    [@@deriving sexp, hash, compare, equal, yojson]
   end
 end]
 

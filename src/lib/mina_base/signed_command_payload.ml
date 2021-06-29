@@ -37,7 +37,7 @@ module Common = struct
           ; nonce: 'nonce
           ; valid_until: 'global_slot
           ; memo: 'memo }
-        [@@deriving compare, eq, sexp, hash, yojson, hlist]
+        [@@deriving compare, equal, sexp, hash, yojson, hlist]
       end
     end]
   end
@@ -56,7 +56,7 @@ module Common = struct
         , Global_slot.Stable.V1.t
         , Memo.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving compare, eq, sexp, hash, yojson]
+      [@@deriving compare, equal, sexp, hash, yojson]
 
       let to_latest = Fn.id
     end
@@ -76,7 +76,7 @@ module Common = struct
           , Global_slot.Stable.V1.t
           , Memo.Stable.V1.t )
           Poly.Stable.V1.t
-        [@@deriving compare, eq, sexp, hash, yojson]
+        [@@deriving compare, equal, sexp, hash, yojson]
 
         let to_latest = Fn.id
       end
@@ -91,7 +91,7 @@ module Common = struct
   module Stable = struct
     module V1 = struct
       type t = Binable_arg.Stable.V1.t
-      [@@deriving compare, eq, sexp, hash, yojson]
+      [@@deriving compare, equal, sexp, hash, yojson]
 
       include Binable.Of_binable
                 (Binable_arg.Stable.V1)
@@ -224,7 +224,7 @@ module Body = struct
         | Create_new_token of New_token_payload.Stable.V1.t
         | Create_token_account of New_account_payload.Stable.V1.t
         | Mint_tokens of Minting_payload.Stable.V1.t
-      [@@deriving compare, eq, sexp, hash, yojson]
+      [@@deriving compare, equal, sexp, hash, yojson]
 
       let to_latest = Fn.id
     end
@@ -253,7 +253,7 @@ module Body = struct
         | Create_new_token of New_token_payload.Stable.V1.t
         | Create_token_account of New_account_payload.Stable.V1.t
         | Mint_tokens of Minting_payload.Stable.V1.t
-      [@@deriving compare, eq, sexp, hash, yojson]
+      [@@deriving compare, equal, sexp, hash, yojson]
 
       include Binable.Of_binable
                 (Binable_arg.Stable.V1)
@@ -405,7 +405,7 @@ module Poly = struct
   module Stable = struct
     module V1 = struct
       type ('common, 'body) t = {common: 'common; body: 'body}
-      [@@deriving eq, sexp, hash, yojson, compare, hlist]
+      [@@deriving equal, sexp, hash, yojson, compare, hlist]
 
       let of_latest common_latest body_latest {common; body} =
         let open Result.Let_syntax in
@@ -419,7 +419,7 @@ end
 module Stable = struct
   module V1 = struct
     type t = (Common.Stable.V1.t, Body.Stable.V1.t) Poly.Stable.V1.t
-    [@@deriving compare, eq, sexp, hash, yojson]
+    [@@deriving compare, equal, sexp, hash, yojson]
 
     let to_latest = Fn.id
   end

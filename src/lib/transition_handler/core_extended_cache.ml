@@ -234,7 +234,7 @@ let keep_one ?(destruct = ignore) f =
   () ;
   fun x ->
     match !v with
-    | Some (x', y) when x' = x ->
+    | Some (x', y) when Poly.( = ) x' x ->
         Memoized.return y
     | _ ->
         Option.iter !v ~f:(fun (_, y) -> Result.iter ~f:destruct y) ;

@@ -31,7 +31,7 @@ module Closed_interval = struct
   module Stable = struct
     module V1 = struct
       type 'a t = {lower: 'a; upper: 'a}
-      [@@deriving sexp, eq, compare, hash, yojson, hlist]
+      [@@deriving sexp, equal, compare, hash, yojson, hlist]
     end
   end]
 
@@ -150,7 +150,7 @@ module Numeric = struct
   module Stable = struct
     module V1 = struct
       type 'a t = 'a Closed_interval.Stable.V1.t Or_ignore.Stable.V1.t
-      [@@deriving sexp, eq, yojson, hash, compare]
+      [@@deriving sexp, equal, yojson, hash, compare]
     end
   end]
 
@@ -347,7 +347,7 @@ module Account = struct
           ; public_key: 'pk
           ; delegate: 'pk
           ; state: 'field Snapp_state.V.Stable.V1.t }
-        [@@deriving hlist, sexp, eq, yojson, hash, compare]
+        [@@deriving hlist, sexp, equal, yojson, hash, compare]
       end
     end]
   end
@@ -362,7 +362,7 @@ module Account = struct
         , Public_key.Compressed.Stable.V1.t Eq_data.Stable.V1.t
         , F.Stable.V1.t Eq_data.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving sexp, eq, yojson, hash, compare]
+      [@@deriving sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
     end
@@ -525,7 +525,7 @@ module Protocol_state = struct
           , State_hash.Stable.V1.t Hash.Stable.V1.t
           , Length.Stable.V1.t Numeric.Stable.V1.t )
           Poly.Stable.V1.t
-        [@@deriving sexp, eq, yojson, hash, compare]
+        [@@deriving sexp, equal, yojson, hash, compare]
 
         let to_latest = Fn.id
       end
@@ -589,7 +589,7 @@ module Protocol_state = struct
              , 'amount
              , 'epoch_data )
              t =
-          { (* TODO: 
+          { (* TODO:
              We should include staged ledger hash again! It only changes once per
              block. *)
             snarked_ledger_hash: 'snarked_ledger_hash
@@ -612,7 +612,7 @@ module Protocol_state = struct
           ; global_slot_since_genesis: 'global_slot
           ; staking_epoch_data: 'epoch_data
           ; next_epoch_data: 'epoch_data }
-        [@@deriving hlist, sexp, eq, yojson, hash, compare, fields]
+        [@@deriving hlist, sexp, equal, yojson, hash, compare, fields]
       end
     end]
   end
@@ -630,7 +630,7 @@ module Protocol_state = struct
         , Currency.Amount.Stable.V1.t Numeric.Stable.V1.t
         , Epoch_data.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving sexp, eq, yojson, hash, compare]
+      [@@deriving sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
     end
@@ -690,7 +690,7 @@ module Protocol_state = struct
             , Length.Stable.V1.t )
             Epoch_data.Poly.Stable.V1.t )
           Poly.Stable.V1.t
-        [@@deriving sexp, eq, yojson, hash, compare]
+        [@@deriving sexp, equal, yojson, hash, compare]
 
         let to_latest = Fn.id
       end
@@ -964,7 +964,7 @@ module Account_type = struct
   module Stable = struct
     module V1 = struct
       type t = User | Snapp | None | Any
-      [@@deriving sexp, eq, yojson, hash, compare]
+      [@@deriving sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
     end
@@ -1068,7 +1068,7 @@ module Other = struct
           { predicate: 'account
           ; account_transition: 'account_transition
           ; account_vk: 'vk }
-        [@@deriving hlist, sexp, eq, yojson, hash, compare]
+        [@@deriving hlist, sexp, equal, yojson, hash, compare]
       end
     end]
   end
@@ -1081,7 +1081,7 @@ module Other = struct
         , Account_state.Stable.V1.t Transition.Stable.V1.t
         , F.Stable.V1.t Hash.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving sexp, eq, yojson, hash, compare]
+      [@@deriving sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
     end
@@ -1132,7 +1132,7 @@ module Poly = struct
         ; other: 'other
         ; fee_payer: 'pk
         ; protocol_state_predicate: 'protocol_state }
-      [@@deriving hlist, sexp, eq, yojson, hash, compare]
+      [@@deriving hlist, sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
     end
@@ -1153,7 +1153,7 @@ module Stable = struct
       , Other.Stable.V1.t
       , Public_key.Compressed.Stable.V1.t Eq_data.Stable.V1.t )
       Poly.Stable.V1.t
-    [@@deriving sexp, eq, yojson, hash, compare]
+    [@@deriving sexp, equal, yojson, hash, compare]
 
     let to_latest = Fn.id
   end
@@ -1202,7 +1202,7 @@ let check ({self_predicate; other; fee_payer; protocol_state_predicate} : t)
         match other_account.snapp with
         | None ->
             assert_
-              (other.account_vk = Ignore)
+              ([%equal: _ Or_ignore.t] other.account_vk Ignore)
               "other_account_vk must be ignore for user account"
         | Some snapp ->
             Hash.(check ~label:"other_account_vk" Tc.field)

@@ -3,7 +3,7 @@
 [%%versioned:
 module Stable : sig
   module V1 : sig
-    type t [@@deriving sexp]
+    type t [@@deriving compare, sexp]
   end
 end]
 

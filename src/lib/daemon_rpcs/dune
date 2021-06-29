@@ -6,7 +6,7 @@
  (libraries core async mina_base user_command_input mina_networking ppx_deriving_yojson.runtime yojson
             perf_histograms consensus sync_status transaction_inclusion_status node_addrs_and_ports cli_lib)
  (preprocess
-  (pps ppx_version ppx_jane ppx_deriving_yojson ppx_deriving.eq ppx_deriving.make
+  (pps ppx_version ppx_jane ppx_deriving_yojson ppx_compare ppx_deriving.make
  ))
  (instrumentation (backend bisect_ppx))
  (synopsis "Lib powering the client interactions with the daemon"))

@@ -13,7 +13,7 @@ module Aux_hash = struct
   [%%versioned
   module Stable = struct
     module V1 = struct
-      type t = string [@@deriving sexp, eq, compare, hash]
+      type t = string [@@deriving sexp, equal, compare, hash]
 
       let to_latest = Fn.id
 
@@ -58,7 +58,7 @@ module Pending_coinbase_aux = struct
   [%%versioned
   module Stable = struct
     module V1 = struct
-      type t = string [@@deriving sexp, eq, compare, hash]
+      type t = string [@@deriving sexp, equal, compare, hash]
 
       let to_latest = Fn.id
 
@@ -99,7 +99,7 @@ module Non_snark = struct
         { ledger_hash: Ledger_hash.Stable.V1.t
         ; aux_hash: Aux_hash.Stable.V1.t
         ; pending_coinbase_aux: Pending_coinbase_aux.Stable.V1.t }
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, equal, compare, hash, yojson]
 
       let to_latest = Fn.id
     end
@@ -174,7 +174,7 @@ module Poly = struct
     module V1 = struct
       type ('non_snark, 'pending_coinbase_hash) t =
         {non_snark: 'non_snark; pending_coinbase_hash: 'pending_coinbase_hash}
-      [@@deriving sexp, eq, compare, hash, yojson, hlist]
+      [@@deriving sexp, equal, compare, hash, yojson, hlist]
     end
   end]
 end
@@ -191,7 +191,7 @@ module Stable = struct
       ( Non_snark.Stable.V1.t
       , Pending_coinbase.Hash_versioned.Stable.V1.t )
       Poly.Stable.V1.t
-    [@@deriving sexp, eq, compare, hash, yojson]
+    [@@deriving sexp, equal, compare, hash, yojson]
 
     let to_latest = Fn.id
   end
@@ -199,7 +199,7 @@ end]
 
 type ('a, 'b) t_ = ('a, 'b) Poly.t
 
-type value = t [@@deriving sexp, eq, compare, hash]
+type value = t [@@deriving sexp, equal, compare, hash]
 
 type var = (Non_snark.var, Pending_coinbase.Hash.var) t_
 

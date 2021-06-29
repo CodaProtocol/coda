@@ -12,7 +12,7 @@ module Poly = struct
         ; genesis_ledger_hash: 'snarked_ledger_hash
         ; snarked_next_available_token: 'token_id
         ; timestamp: 'time }
-      [@@deriving sexp, fields, eq, compare, hash, yojson, hlist]
+      [@@deriving sexp, fields, equal, compare, hash, yojson, hlist]
     end
   end]
 end
@@ -37,7 +37,7 @@ module Value = struct
         , Token_id.Stable.V1.t
         , Block_time.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, equal, compare, hash, yojson]
 
       let to_latest = Fn.id
     end

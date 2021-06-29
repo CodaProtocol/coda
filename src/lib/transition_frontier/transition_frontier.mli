@@ -68,6 +68,7 @@ val extensions : t -> Extensions.t
 val genesis_state_hash : t -> State_hash.t
 
 module For_tests : sig
+  open Core_kernel
   open Signature_lib
 
   val equal : t -> t -> bool

@@ -658,7 +658,7 @@ let check_new_account_user_commands ~logger ~rosetta_uri ~graphql_uri =
         in
         let%map status_r = status_r_dr in
         if
-          [%eq: (string option, Error.t) result]
+          [%equal: (string option, Error.t) result]
             (Result.map status_r ~f:(fun status ->
                  Option.bind status.Network_status_response.sync_status
                    ~f:(fun sync_status -> sync_status.stage) ))

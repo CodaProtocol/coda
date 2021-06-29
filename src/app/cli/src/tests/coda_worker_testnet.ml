@@ -287,14 +287,16 @@ let start_prefix_check logger workers events testnet ~acceptable_delay =
        if
          Array.existsi testnet.status ~f:(fun i _ -> Api.synced testnet i)
          && not
-              ( diff
-              < Time.Span.to_sec acceptable_delay
-                +. epsilon
-                +. Int.to_float
-                     ( (8 - 1)
-                     * testnet.precomputed_values.constraint_constants
-                         .block_window_duration_ms )
-                   /. 1000. )
+              Float.(
+                diff
+                < Time.Span.to_sec acceptable_delay
+                  +. epsilon
+                  +. Int.to_float
+                       Int.(
+                         (8 - 1)
+                         * testnet.precomputed_values.constraint_constants
+                             .block_window_duration_ms)
+                     /. 1000.)
        then (
          [%log fatal] "No recent blocks" ;
          ignore (exit 8) ) ;
@@ -303,7 +305,7 @@ let start_prefix_check logger workers events testnet ~acceptable_delay =
      in
      go ()) ;
   don't_wait_for
-    (Deferred.ignore
+    (Deferred.ignore_m
        (Linear_pipe.fold ~init:chains all_transitions_r
           ~f:(fun chains (_, _, i) ->
             let%map path = Api.best_path testnet i in

@@ -3,7 +3,7 @@
  (public_name bootstrap_controller)
  (inline_tests)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_jane ppx_deriving.eq ppx_register_event))
+ (preprocess (pps ppx_coda ppx_version ppx_jane ppx_compare ppx_register_event))
  (libraries
    core
    mina_base

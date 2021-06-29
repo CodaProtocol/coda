@@ -7,7 +7,7 @@ module Stable = struct
     type t =
       { receiver_pk: Public_key.Compressed.Stable.V1.t
       ; fee: Currency.Fee.Stable.V1.t }
-    [@@deriving sexp, compare, eq, yojson, hash]
+    [@@deriving sexp, compare, equal, yojson, hash]
 
     let to_latest = Fn.id
 

@@ -54,7 +54,7 @@ module type S = sig
   end
 
   module type Data_hash_intf = sig
-    type t = private Field.t [@@deriving sexp, compare, eq, yojson, hash]
+    type t = private Field.t [@@deriving sexp, compare, equal, yojson, hash]
 
     type var
 
@@ -87,7 +87,7 @@ module type S = sig
     [%%versioned:
     module Stable : sig
       module V1 : sig
-        type nonrec t = Hash.t [@@deriving sexp, compare, eq, yojson, hash]
+        type nonrec t = Hash.t [@@deriving sexp, compare, equal, yojson, hash]
       end
     end]
   end
@@ -96,13 +96,13 @@ module type S = sig
     [%%versioned:
     module Stable : sig
       module V1 : sig
-        type nonrec t [@@deriving sexp, compare, eq, yojson, hash]
+        type nonrec t [@@deriving sexp, compare, equal, yojson, hash]
       end
     end]
   end
 
   module Stack : sig
-    type t = Stack_versioned.t [@@deriving sexp, compare, eq, yojson, hash]
+    type t = Stack_versioned.t [@@deriving sexp, compare, equal, yojson, hash]
 
     type var
 

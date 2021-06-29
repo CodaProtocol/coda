@@ -7,7 +7,6 @@
   (preprocess (pps ppx_version ppx_jane ppx_deriving_yojson ppx_deriving.std))
   (libraries
     ;;zexe_backend.common
-    zexe_backend.tweedle
     zexe_backend.pasta
     hex
     pickles_types

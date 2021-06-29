@@ -251,9 +251,9 @@ module Graph_node = struct
         { current: State_hash.t
         ; length: Mina_numbers.Length.t
         ; slot: Mina_numbers.Global_slot.t }
-  [@@deriving yojson, eq, hash]
+  [@@deriving yojson, equal, hash]
 
-  type t = {state: state; peers: int} [@@deriving yojson, eq, hash]
+  type t = {state: state; peers: int} [@@deriving yojson, equal, hash]
 
   type display = {state: string; length: string; slot: string; peers: int}
   [@@deriving yojson]

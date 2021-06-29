@@ -75,7 +75,7 @@ module Proof : sig
     module Stable : sig
       module V1 : sig
         type t = Make(Nat.N2)(Nat.N2).t
-        [@@deriving sexp, compare, yojson, hash]
+        [@@deriving sexp, compare, equal, yojson, hash]
       end
     end]
   end

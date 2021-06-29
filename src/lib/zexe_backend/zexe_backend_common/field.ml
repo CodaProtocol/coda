@@ -123,7 +123,7 @@ end
 module type S_with_version = sig
   module Stable : sig
     module V1 : sig
-      type t [@@deriving version, sexp, bin_io, compare, yojson, hash, eq]
+      type t [@@deriving version, sexp, bin_io, compare, yojson, hash, equal]
     end
 
     module Latest = V1

@@ -12,7 +12,7 @@ module Partial_reason = struct
     | Amount_inc_dec_mismatch
     | Status_not_pending
     | Can't_find_kind of string
-  [@@deriving yojson, sexp, show, eq]
+  [@@deriving yojson, sexp, show, equal]
 end
 
 module Variant = struct
@@ -38,11 +38,11 @@ module Variant = struct
     | `Signature_invalid
     | `Memo_invalid
     | `Graphql_uri_not_set ]
-  [@@deriving yojson, show, eq, to_enum, to_representatives]
+  [@@deriving yojson, show, equal, to_enum, to_representatives]
 end
 
 module T : sig
-  type t [@@deriving yojson, show, eq]
+  type t [@@deriving yojson, show, equal]
 
   val create : ?context:string -> Variant.t -> t
 
@@ -64,7 +64,7 @@ module T : sig
   end
 end = struct
   type t = {extra_context: string option; kind: Variant.t}
-  [@@deriving yojson, show, eq]
+  [@@deriving yojson, show, equal]
 
   let code = Fn.compose (fun x -> x + 1) Variant.to_enum
 

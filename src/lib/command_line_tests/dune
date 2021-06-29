@@ -4,5 +4,5 @@
  (inline_tests)
  (libraries core async cache_dir)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version ppx_jane ppx_deriving.eq))
+ (preprocess (pps ppx_version ppx_jane ppx_compare))
 )

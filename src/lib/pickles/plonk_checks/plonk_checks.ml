@@ -65,7 +65,8 @@ let domain (type t) ((module F) : t field) ~shifts ~domain_generator
     method generator = generator
   end
 
-let all_but m = List.filter Abc.Label.all ~f:(( <> ) m)
+let all_but m =
+  List.filter Abc.Label.all ~f:(fun label -> not (Abc.Label.equal label m))
 
 let actual_evaluation (type f) (module Field : Field_intf with type t = f)
     (e : Field.t array) (pt : Field.t) ~rounds : Field.t =

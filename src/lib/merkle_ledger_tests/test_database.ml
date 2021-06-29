@@ -35,7 +35,8 @@ let%test_module "test functor on in memory databases" =
         Test.with_instance (fun mdb ->
             Quickcheck.test
               (MT.For_tests.gen_account_location ~ledger_depth:(MT.depth mdb))
-              ~f:(fun location -> assert (MT.get mdb location = None)) )
+              ~f:(fun location -> assert (Option.is_none (MT.get mdb location)))
+        )
 
       let create_new_account_exn mdb account =
         let public_key = Account.identifier account in
@@ -118,9 +119,12 @@ let%test_module "test functor on in memory databases" =
               MT.get_or_create_account mdb account_id account'
               |> Or_error.ok_exn
             in
-            location = location'
-            && action = `Existed
-            && MT.get mdb location |> Option.value_exn <> account' )
+            [%equal: Test.Location.t] location location'
+            && (match action with `Existed -> true | `Added -> false)
+            && not
+                 (Mina_base.Account.equal
+                    (Option.value_exn (MT.get mdb location))
+                    account') )
 
       let%test_unit "get_or_create_account t account = location_of_account \
                      account.key" =
@@ -142,7 +146,7 @@ let%test_module "test functor on in memory databases" =
                    let location' =
                      MT.location_of_account mdb account_id |> Option.value_exn
                    in
-                   assert (location = location') ) )
+                   assert ([%equal: Test.Location.t] location location') ) )
 
       let%test_unit "set_inner_hash_at_addr_exn(address,hash); \
                      get_inner_hash_at_addr_exn(address) = hash" =
@@ -410,7 +414,8 @@ let%test_module "test functor on in memory databases" =
             let max_height = Int.min (MT.depth mdb) 5 in
             let accounts = random_accounts max_height |> dedup_accounts in
             List.iter accounts ~f:(fun account ->
-                create_new_account_exn mdb account |> ignore ) ;
+                ignore (create_new_account_exn mdb account : Test.Location.t)
+            ) ;
             [%test_result: Account.t list] accounts ~expect:(MT.to_list mdb) )
 
       let%test_unit "Add 2^d accounts (for testing, d is small)" =

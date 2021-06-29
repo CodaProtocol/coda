@@ -11,7 +11,7 @@ open Mina_state
 open Mina_transition
 open Network_peer
 
-type t [@@deriving sexp, eq, compare, to_yojson]
+type t [@@deriving sexp, equal, compare, to_yojson]
 
 type display =
   { state_hash: string

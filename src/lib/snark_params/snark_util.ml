@@ -159,8 +159,8 @@ module Make (Impl : Snarky_backendless.Snark_intf.S) = struct
             |> Or_error.ok_exn
           in
           let r = Bigint.(compare (of_field x) (of_field y)) in
-          assert (less = (r < 0)) ;
-          assert (less_or_equal = (r <= 0))
+          assert (Bool.equal less (r < 0)) ;
+          assert (Bool.equal less_or_equal (r <= 0))
         in
         for _i = 0 to 100 do
           test ()

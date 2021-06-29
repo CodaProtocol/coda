@@ -320,7 +320,7 @@ module Make (Test : Test_intf) = struct
         let maskable_merkle_path =
           Maskable.merkle_path_at_addr_exn maskable address
         in
-        mask_merkle_path = maskable_merkle_path )
+        [%equal: Mask.Attached.Path.t] mask_merkle_path maskable_merkle_path )
 
   let%test "mask and parent agree on Merkle root before set" =
     Test.with_instances (fun maskable mask ->
@@ -404,7 +404,9 @@ module Make (Test : Test_intf) = struct
             List.map2_exn subset_accounts subset_balances
               ~f:(fun account balance ->
                 let updated_account = {account with balance} in
-                create_existing_account_exn mask2 updated_account |> ignore ;
+                ignore
+                  ( create_existing_account_exn mask2 updated_account
+                    : Test.Location.t ) ;
                 updated_account )
           in
           let updated_accounts_map =

@@ -21,7 +21,7 @@ module Transition = struct
   module Stable = struct
     module V1 = struct
       type 'a t = {prev: 'a; next: 'a}
-      [@@deriving hlist, sexp, eq, yojson, hash, compare]
+      [@@deriving hlist, sexp, equal, yojson, hash, compare]
     end
   end]
 
@@ -90,7 +90,7 @@ module Set_or_keep = struct
   module Stable = struct
     module V1 = struct
       type 'a t = Set of 'a | Keep
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, equal, compare, hash, yojson]
     end
   end]
 
@@ -101,6 +101,10 @@ module Set_or_keep = struct
   let of_option = function Some x -> Set x | None -> Keep
 
   let set_or_keep t x = match t with Keep -> x | Set y -> y
+
+  let is_set = function Set _ -> true | _ -> false
+
+  let is_keep = function Keep -> true | _ -> false
 
   [%%ifdef
   consensus_mechanism]
@@ -158,7 +162,7 @@ module Or_ignore = struct
   module Stable = struct
     module V1 = struct
       type 'a t = Check of 'a | Ignore
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, equal, compare, hash, yojson]
     end
   end]
 
@@ -235,7 +239,7 @@ module Account_state = struct
   module Stable = struct
     module V1 = struct
       type t = Empty | Non_empty | Any
-      [@@deriving sexp, eq, yojson, hash, compare, enum]
+      [@@deriving sexp, equal, yojson, hash, compare, enum]
 
       let to_latest = Fn.id
     end

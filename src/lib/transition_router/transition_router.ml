@@ -429,7 +429,7 @@ let wait_till_genesis ~logger ~time_controller
     in
     Time.Timeout.await ~timeout_duration:time_till_genesis time_controller
       (logger_loop ())
-    |> Deferred.ignore
+    |> Deferred.ignore_m
 
 let run ~logger ~trust_system ~verifier ~network ~is_seed ~is_demo_mode
     ~time_controller ~consensus_local_state ~persistent_root_location
@@ -499,20 +499,20 @@ let run ~logger ~trust_system ~verifier ~network ~is_seed ~is_demo_mode
                    Broadcast_pipe.Reader.peek most_recent_valid_block_reader
                  in
                  if
-                   Consensus.Hooks.select
-                     ~constants:precomputed_values.consensus_constants
-                     ~existing:
-                       ( External_transition.Validation
-                         .forget_validation_with_hash current_transition
-                       |> With_hash.map ~f:External_transition.consensus_state
-                       )
-                     ~candidate:
-                       ( External_transition.Validation
-                         .forget_validation_with_hash incoming_transition
-                       |> With_hash.map ~f:External_transition.consensus_state
-                       )
-                     ~logger
-                   = `Take
+                   Consensus.Hooks.equal_select_status `Take
+                     (Consensus.Hooks.select
+                        ~constants:precomputed_values.consensus_constants
+                        ~existing:
+                          ( External_transition.Validation
+                            .forget_validation_with_hash current_transition
+                          |> With_hash.map
+                               ~f:External_transition.consensus_state )
+                        ~candidate:
+                          ( External_transition.Validation
+                            .forget_validation_with_hash incoming_transition
+                          |> With_hash.map
+                               ~f:External_transition.consensus_state )
+                        ~logger)
                  then
                    Broadcast_pipe.Writer.write most_recent_valid_block_writer
                      incoming_transition

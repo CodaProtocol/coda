@@ -199,7 +199,7 @@ let coda_status coda_ref =
 let make_report exn_json ~conf_dir ~top_logger coda_ref =
   (* TEMP MAKE REPORT TRACE *)
   [%log' trace top_logger] "make_report: enter" ;
-  let _ = remove_prev_crash_reports ~conf_dir in
+  ignore (remove_prev_crash_reports ~conf_dir : int) ;
   let crash_time = Time.to_filename_string ~zone:Time.Zone.utc (Time.now ()) in
   let temp_config = conf_dir ^/ "coda_crash_report_" ^ crash_time in
   let () = Core.Unix.mkdir temp_config in
@@ -236,11 +236,13 @@ let make_report exn_json ~conf_dir ~top_logger coda_ref =
   Yojson.Safe.to_file (temp_config ^/ "crash_summary.json") summary ;
   (*copy daemon_json to the temp dir *)
   let daemon_config = conf_dir ^/ "daemon.json" in
-  let _ =
-    if Core.Sys.file_exists daemon_config = `Yes then
-      Core.Sys.command
-        (sprintf "cp %s %s" daemon_config (temp_config ^/ "daemon.json"))
-      |> ignore
+  let eq = [%equal: [`Yes | `Unknown | `No]] in
+  let () =
+    if eq (Core.Sys.file_exists daemon_config) `Yes then
+      ignore
+        ( Core.Sys.command
+            (sprintf "cp %s %s" daemon_config (temp_config ^/ "daemon.json"))
+          : int )
   in
   (*Zip them all up*)
   let tmp_files =
@@ -250,7 +252,8 @@ let make_report exn_json ~conf_dir ~top_logger coda_ref =
     ; "coda_status.json"
     ; "crash_summary.json"
     ; "daemon.json" ]
-    |> List.filter ~f:(fun f -> Core.Sys.file_exists (temp_config ^/ f) = `Yes)
+    |> List.filter ~f:(fun f ->
+           eq (Core.Sys.file_exists (temp_config ^/ f)) `Yes )
   in
   let files = tmp_files |> String.concat ~sep:" " in
   let tar_command =
@@ -328,7 +331,10 @@ let setup_local_server ?(client_trustlist = []) ?rest_server_port
     ; implement Daemon_rpcs.Clear_hist_status.rpc (fun () flag ->
           Mina_commands.clear_hist_status ~flag coda )
     ; implement Daemon_rpcs.Get_ledger.rpc (fun () lh ->
-          Mina_lib.get_ledger coda lh |> return )
+          (* getting the ledger may take more time than a heartbeat timeout
+             run in thread to allow RPC heartbeats to proceed
+          *)
+          Async.In_thread.run (fun () -> Mina_lib.get_ledger coda lh) )
     ; implement Daemon_rpcs.Get_snarked_ledger.rpc (fun () lh ->
           Mina_lib.get_snarked_ledger coda lh |> return )
     ; implement Daemon_rpcs.Get_staking_ledger.rpc (fun () which ->
@@ -512,7 +518,7 @@ let setup_local_server ?(client_trustlist = []) ?rest_server_port
       (On_port (Mina_lib.client_port coda))
   in
   don't_wait_for
-    (Deferred.ignore
+    (Deferred.ignore_m
        (trace "client RPC handling" (fun () ->
             Tcp.Server.create
               ~on_handler_error:
@@ -608,7 +614,9 @@ let handle_crash e ~time_controller ~conf_dir ~child_pids ~top_logger coda_ref
   (* attempt to free up some memory before handling crash *)
   (* this circumvents using Child_processes.kill, and instead sends SIGKILL to all children *)
   Hashtbl.keys child_pids
-  |> List.iter ~f:(fun pid -> ignore (Signal.send Signal.kill (`Pid pid))) ;
+  |> List.iter ~f:(fun pid ->
+         ignore (Signal.send Signal.kill (`Pid pid) : [`No_such_process | `Ok])
+     ) ;
   let exn_json = Error_json.error_to_yojson (Error.of_exn ~backtrace:`Get e) in
   [%log' fatal top_logger]
     "Unhandled top-level exception: $exn\nGenerating crash report"
@@ -627,7 +635,7 @@ let handle_crash e ~time_controller ~conf_dir ~child_pids ~top_logger coda_ref
           with exn -> return (Error (Error.of_exn exn)) )
     with
     | `Ok (Ok (Some (report_file, temp_config))) ->
-        ( try Core.Sys.command (sprintf "rm -rf %s" temp_config) |> ignore
+        ( try ignore (Core.Sys.command (sprintf "rm -rf %s" temp_config) : int)
           with _ -> () ) ;
         sprintf "attach the crash report %s" report_file
     | `Ok (Ok None) ->

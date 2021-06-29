@@ -1,8 +1,0 @@
-(library
- (name marlin_plonk_bindings_bn_382_fp_vector)
- (public_name marlin_plonk_bindings.bn_382_fp.vector)
- (libraries
-   marlin_plonk_bindings_stubs
-   marlin_plonk_bindings_bn_382_fp)
- (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version)))

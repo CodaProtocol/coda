@@ -1,14 +1,14 @@
 open Core
 
 module Sender : sig
-  type t = Local | Remote of Peer.t [@@deriving sexp, eq, yojson, compare]
+  type t = Local | Remote of Peer.t [@@deriving sexp, equal, yojson, compare]
 
   val remote_exn : t -> Peer.t
 end
 
 module Incoming : sig
   type 'a t = {data: 'a; sender: Sender.t; received_at: Time.t}
-  [@@deriving eq, sexp, yojson, compare]
+  [@@deriving equal, sexp, yojson, compare]
 
   val sender : 'a t -> Sender.t
 

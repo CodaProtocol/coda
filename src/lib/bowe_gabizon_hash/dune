@@ -2,7 +2,7 @@
  (name bowe_gabizon_hash)
  (public_name bowe_gabizon_hash)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version ppx_jane ppx_deriving.eq))
+ (preprocess (pps ppx_version ppx_jane ppx_compare))
  (inline_tests)
  (libraries
    core_kernel))

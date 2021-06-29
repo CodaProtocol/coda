@@ -23,7 +23,7 @@ module Payload = struct
       module V1 = struct
         type ('pk, 'token_id, 'nonce, 'fee) t =
           {pk: 'pk; token_id: 'token_id; nonce: 'nonce; fee: 'fee}
-        [@@deriving hlist, sexp, eq, yojson, hash, compare]
+        [@@deriving hlist, sexp, equal, yojson, hash, compare]
       end
     end]
   end
@@ -37,7 +37,7 @@ module Payload = struct
         , Mina_numbers.Account_nonce.Stable.V1.t
         , Currency.Fee.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving sexp, eq, yojson, hash, compare]
+      [@@deriving sexp, equal, yojson, hash, compare]
 
       let to_latest = Fn.id
     end
@@ -92,7 +92,7 @@ end
 module Stable = struct
   module V1 = struct
     type t = {payload: Payload.Stable.V1.t; signature: Signature.Stable.V1.t}
-    [@@deriving sexp, eq, yojson, hash, compare]
+    [@@deriving sexp, equal, yojson, hash, compare]
 
     let to_latest = Fn.id
   end

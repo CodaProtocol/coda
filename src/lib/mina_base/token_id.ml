@@ -34,7 +34,7 @@ feature_tokens]
 [%%versioned
 module Stable = struct
   module V1 = struct
-    type t = T.Stable.V1.t [@@deriving sexp, eq, compare, hash, yojson]
+    type t = T.Stable.V1.t [@@deriving sexp, equal, compare, hash, yojson]
 
     let to_latest = Fn.id
   end
@@ -49,7 +49,7 @@ let check x =
 [%%versioned_binable
 module Stable = struct
   module V1 = struct
-    type t = T.Stable.V1.t [@@deriving sexp, eq, compare, hash, yojson]
+    type t = T.Stable.V1.t [@@deriving sexp, equal, compare, hash, yojson]
 
     include Binable.Of_binable
               (T.Stable.V1)

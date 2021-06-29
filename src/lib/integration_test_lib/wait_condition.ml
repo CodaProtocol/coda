@@ -83,7 +83,8 @@ struct
   let nodes_to_synchronize (nodes : Node.t list) =
     let all_equal ls =
       Option.value_map (List.hd ls) ~default:true ~f:(fun h ->
-          [h] = List.find_all_dups ~compare:State_hash.compare ls )
+          [%equal: State_hash.t list] [h]
+            (List.find_all_dups ~compare:State_hash.compare ls) )
     in
     let check () state =
       let best_tips =

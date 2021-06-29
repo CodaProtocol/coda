@@ -6,7 +6,7 @@ module Stable = struct
     type 'a t = 'a Marlin_plonk_bindings_types.Or_infinity.t =
       | Infinity
       | Finite of 'a
-    [@@deriving sexp, eq, compare, hash, yojson]
+    [@@deriving sexp, equal, compare, hash, yojson]
   end
 end]
 

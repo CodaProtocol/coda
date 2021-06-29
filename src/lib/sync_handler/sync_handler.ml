@@ -187,14 +187,16 @@ module Make (Inputs : Inputs_intf) :
         Best_tip_prover.prove ~logger frontier
       in
       let is_tip_better =
-        Consensus.Hooks.select ~constants:consensus_constants
-          ~logger:
-            (Logger.extend logger [("selection_context", `String "Root.prove")])
-          ~existing:
-            (With_hash.map ~f:External_transition.consensus_state
-               best_tip_with_witness.data)
-          ~candidate:seen_consensus_state
-        = `Keep
+        Consensus.Hooks.equal_select_status
+          (Consensus.Hooks.select ~constants:consensus_constants
+             ~logger:
+               (Logger.extend logger
+                  [("selection_context", `String "Root.prove")])
+             ~existing:
+               (With_hash.map ~f:External_transition.consensus_state
+                  best_tip_with_witness.data)
+             ~candidate:seen_consensus_state)
+          `Keep
       in
       let%map () = Option.some_if is_tip_better () in
       { best_tip_with_witness with
@@ -209,14 +211,16 @@ module Make (Inputs : Inputs_intf) :
           peer_root
       in
       let is_before_best_tip candidate =
-        Consensus.Hooks.select ~constants:consensus_constants
-          ~logger:
-            (Logger.extend logger [("selection_context", `String "Root.verify")])
-          ~existing:
-            (With_hash.map ~f:External_transition.consensus_state
-               best_tip_transition)
-          ~candidate
-        = `Keep
+        Consensus.Hooks.equal_select_status
+          (Consensus.Hooks.select ~constants:consensus_constants
+             ~logger:
+               (Logger.extend logger
+                  [("selection_context", `String "Root.verify")])
+             ~existing:
+               (With_hash.map ~f:External_transition.consensus_state
+                  best_tip_transition)
+             ~candidate)
+          `Keep
       in
       let%map () =
         Deferred.return

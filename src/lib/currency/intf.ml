@@ -104,7 +104,7 @@ module type Signed_intf = sig
   [%%endif]
 
   type t = (magnitude, Sgn.t) Signed_poly.t
-  [@@deriving sexp, hash, compare, eq, yojson]
+  [@@deriving sexp, hash, compare, equal, yojson]
 
   val gen : t Quickcheck.Generator.t
 

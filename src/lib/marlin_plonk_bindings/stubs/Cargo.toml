@@ -16,7 +16,7 @@ crate-type = ["staticlib"]
 [dependencies]
 groupmap = { path = "../../marlin/zexe/groupmap" }
 libc = { version = "0.2.0" }
-algebra = { path = "../../marlin/zexe/algebra", features = [ "asm", "parallel", "bn_382", "tweedle", "pasta", "ocaml_types" ] }
+algebra = { path = "../../marlin/zexe/algebra", features = [ "asm", "parallel", "pasta", "ocaml_types" ] }
 ff-fft = { path = "../../marlin/zexe/ff-fft", features = [ "parallel" ] }
 rand = { version = "0.7" }
 num-bigint = { version = "0.2.3" }

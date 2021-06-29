@@ -17,7 +17,7 @@ module Fee : sig
   [%%versioned:
   module Stable : sig
     module V1 : sig
-      type t [@@deriving sexp, compare, hash, yojson, eq]
+      type t [@@deriving sexp, compare, hash, yojson, equal]
 
       (* not automatically derived *)
       val dhall_type : Ppx_dhall_type.Dhall_type.t
@@ -61,7 +61,7 @@ module Amount : sig
   [%%versioned:
   module Stable : sig
     module V1 : sig
-      type t [@@deriving sexp, compare, hash, eq, yojson]
+      type t [@@deriving sexp, compare, hash, equal, yojson]
 
       (* not automatically derived *)
       val dhall_type : Ppx_dhall_type.Dhall_type.t
@@ -118,7 +118,7 @@ module Balance : sig
   [%%versioned:
   module Stable : sig
     module V1 : sig
-      type t [@@deriving sexp, compare, hash, yojson, eq]
+      type t [@@deriving sexp, compare, hash, yojson, equal]
 
       (* not automatically derived *)
       val dhall_type : Ppx_dhall_type.Dhall_type.t

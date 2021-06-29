@@ -300,20 +300,18 @@ module Interpreter = struct
         Option.map2
           (interpret_value_exp json x)
           (interpret_value_exp json y)
-          ~f:( = )
+          ~f:Yojson.Safe.equal
         |> Option.value ~default:false
     | Cmp_neq (x, y) ->
-        Option.map2
-          (interpret_value_exp json x)
-          (interpret_value_exp json y)
-          ~f:( <> )
+        Option.map2 (interpret_value_exp json x) (interpret_value_exp json y)
+          ~f:(fun json1 json2 -> not (Yojson.Safe.equal json1 json2))
         |> Option.value ~default:false
     | Cmp_in (x, y) ->
         Option.map2 (interpret_value_exp json x) (interpret_value_exp json y)
           ~f:(fun scalar list ->
             match list with
             | `List items ->
-                List.exists items ~f:(( = ) scalar)
+                List.exists items ~f:(Yojson.Safe.equal scalar)
             | _ ->
                 (* TODO: filter warnings *) false )
         |> Option.value ~default:false

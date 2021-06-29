@@ -63,7 +63,7 @@ module Make
   let sexp_of_t t = to_hex_string t |> Sexp.of_string
 
   let of_hex_string s =
-    assert (s.[0] = '0' && s.[1] = 'x') ;
+    assert (Char.equal s.[0] '0' && Char.equal s.[1] 'x') ;
     String.drop_prefix s 2 |> Hex.Safe.of_hex
     |> Option.value_exn ~here:[%here]
     |> Bytes.of_string |> of_bytes

@@ -1,9 +1,0 @@
-(library
- (name marlin_plonk_bindings_tweedle_fq)
- (public_name marlin_plonk_bindings.tweedle_fq)
- (libraries
-   marlin_plonk_bindings_stubs
-   marlin_plonk_bindings_bigint_256)
- (instrumentation (backend bisect_ppx))
- (inline_tests)
- (preprocess (pps ppx_version ppx_inline_test)))

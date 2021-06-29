@@ -32,10 +32,7 @@ Pipeline.build
           S.strictlyStart (S.contains "buildkite/src/Jobs/Release/MinaArtifact"),
           S.exactly "buildkite/scripts/build-artifact" "sh",
           S.exactly "buildkite/scripts/connect-to-testnet-on-develop" "sh",
-          S.exactly "dockerfiles/Dockerfile-mina-daemon" "",
-          S.exactly "dockerfiles/Dockerfile-mina-daemon-puppeteered" "",
-          S.exactly "dockerfiles/puppeteer-context/mina_daemon_puppeteer" "py",
-          S.exactly "dockerfiles/scripts/healthcheck-utilities" "sh",
+          S.strictlyStart (S.contains "dockerfiles"),
           S.strictlyStart (S.contains "scripts")
         ],
         path = "Release",
@@ -85,17 +82,6 @@ Pipeline.build
 
       DockerImage.generateStep mainnetSpec,
 
-      -- puppeteered image
-      let puppeteeredSpec = DockerImage.ReleaseSpec::{
-        deps=dependsOn # [{ name = "MinaArtifact", key = "devnet-docker-image" }],
-        service="\\\${MINA_SERVICE}-puppeteered",
-        extra_args = "--build-arg network=devnet --build-arg MINA_VERSION=\\\${MINA_VERSION}-devnet",
-        step_key="puppeteered-docker-image"
-      }
-
-      in
-
-      DockerImage.generateStep puppeteeredSpec,
 
       -- rosetta image
       let rosettaSpec = DockerImage.ReleaseSpec::{

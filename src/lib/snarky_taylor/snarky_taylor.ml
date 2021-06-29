@@ -217,7 +217,7 @@ module Exp = struct
           let term = Floating_point.(mul ~m ci xi) in
           match sum with
           | None ->
-              assert (sgn = `Pos) ;
+              assert ([%equal: [`Pos | `Neg]] sgn `Pos) ;
               Some term
           | Some s ->
               Some (Floating_point.add_signed ~m s (sgn, term)) )

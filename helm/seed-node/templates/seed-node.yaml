@@ -46,6 +46,9 @@ spec:
             memory: 32.0Gi
             cpu: 12.0
         image: {{ $.Values.coda.image }}
+        {{ if $.Values.coda.useCustomEntrypoint -}}
+        command: [{{ $.Values.coda.customEntrypoint }}]
+        {{- end }}
         args: [ "daemon",
           "-log-level", "Debug",
           "-log-json",

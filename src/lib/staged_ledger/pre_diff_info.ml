@@ -230,7 +230,7 @@ let create_fee_transfers completed_works delta public_key coinbase_fts =
               accum
           | Some fee ->
               let new_fee = Option.value_exn (Currency.Fee.sub fee cb_fee) in
-              if new_fee > Currency.Fee.zero then
+              if Currency.Fee.(new_fee > Currency.Fee.zero) then
                 Public_key.Compressed.Map.update accum receiver_pk ~f:(fun _ ->
                     new_fee )
               else Public_key.Compressed.Map.remove accum receiver_pk )

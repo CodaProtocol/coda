@@ -1,6 +1,0 @@
-(executable
- (name test)
- (libraries marlin_plonk_bindings_bigint_384)
- (foreign_archives ../../stubs/marlin_plonk_stubs)
- (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version)))

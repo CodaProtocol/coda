@@ -113,7 +113,7 @@ module Complement = struct
         ; token_id: 'token_id
         ; account2_nonce: 'nonce
         ; other_fee_payer_opt: 'fee_payer_opt }
-      [@@deriving hlist, sexp, eq, yojson, hash, compare]
+      [@@deriving hlist, sexp, equal, yojson, hash, compare]
     end
 
     open Mina_numbers
@@ -134,7 +134,9 @@ module Complement = struct
            ; other_fee_payer_opt } :
             t) ~one:({predicate; body1; body2} as one : Checked.t) :
           Snapp_command.Payload.One_proved.Digested.Checked.t =
-        let _ = Checked.to_field_elements one in
+        let (_ : Pickles.Impls.Step.Field.t array) =
+          Checked.to_field_elements one
+        in
         let ( ! ) x = Set_once.get_exn (With_hash.hash x) [%here] in
         { Snapp_command.Payload.Inner.second_starts_empty
         ; second_ends_empty
@@ -201,7 +203,7 @@ module Complement = struct
     module Poly = struct
       type ('token_id, 'fee_payer_opt) t =
         {token_id: 'token_id; other_fee_payer_opt: 'fee_payer_opt}
-      [@@deriving hlist, sexp, eq, yojson, hash, compare]
+      [@@deriving hlist, sexp, equal, yojson, hash, compare]
     end
 
     type t = (Token_id.t, Other_fee_payer.Payload.t option) Poly.t
@@ -225,8 +227,12 @@ module Complement = struct
       let complete ({token_id; other_fee_payer_opt} : t) ~(one : Checked.t)
           ~(two : Checked.t) :
           Snapp_command.Payload.Two_proved.Digested.Checked.t =
-        let _ = Checked.to_field_elements one in
-        let _ = Checked.to_field_elements two in
+        let (_ : Pickles.Impls.Step.Field.t array) =
+          Checked.to_field_elements one
+        in
+        let (_ : Pickles.Impls.Step.Field.t array) =
+          Checked.to_field_elements two
+        in
         let ( ! ) x = Set_once.get_exn (With_hash.hash x) [%here] in
         { Snapp_command.Payload.Inner.second_starts_empty= Boolean.false_
         ; second_ends_empty= Boolean.false_

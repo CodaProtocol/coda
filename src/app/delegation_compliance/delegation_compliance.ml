@@ -289,8 +289,6 @@ let main ~input_file ~csv_file ~preliminary_csv_file_opt ~archive_uri
       "Please provide at least one payout address on the command line" ;
     Core.exit 1 ) ;
   let json = Yojson.Safe.from_file input_file in
-  let csv_out_channel = Out_channel.create csv_file in
-  write_csv_header ~csv_out_channel ;
   let input =
     match input_of_yojson json with
     | Ok inp ->
@@ -345,8 +343,8 @@ let main ~input_file ~csv_file ~preliminary_csv_file_opt ~archive_uri
   | Ok pool ->
       [%log info] "Successfully created Caqti pool for Postgresql" ;
       (* load from runtime config in same way as daemon
-       except that we don't consider loading from a tar file
-    *)
+         except that we don't consider loading from a tar file
+      *)
       let%bind padded_accounts =
         match
           Genesis_ledger_helper.Ledger.padded_accounts_from_runtime_config_opt
@@ -370,11 +368,6 @@ let main ~input_file ~csv_file ~preliminary_csv_file_opt ~archive_uri
           ~item:"max slot"
       in
       [%log info] "Maximum global slot in blocks is %d" max_slot ;
-      if max_slot < (input.epoch * slots_per_epoch) + 3500 then (
-        [%log fatal]
-          "Insufficient archive data: maximum global slot is less than slot \
-           3500 slot in the next epoch" ;
-        Core_kernel.exit 1 ) ;
       (* find longest canonical chain
          a slot may represent several blocks, only one of which can be on canonical chain
          starting with max slot, look for chain, decrementing slot until chain found
@@ -402,7 +395,7 @@ let main ~input_file ~csv_file ~preliminary_csv_file_opt ~archive_uri
         Deferred.List.find_map state_hashes ~f:block_infos_from_state_hash
       in
       let num_tries = 5 in
-      let%bind block_infos =
+      let%bind block_infos, usable_max_slot =
         let rec try_slot slot tries_left =
           if tries_left <= 0 then (
             [%log fatal] "Could not find canonical chain after trying %d slots"
@@ -416,10 +409,53 @@ let main ~input_file ~csv_file ~preliminary_csv_file_opt ~archive_uri
                 "Found possible canonical chain to target state hash %s at \
                  slot %d"
                 state_hash slot ;
-              return block_infos
+              return (block_infos, slot)
         in
         try_slot max_slot num_tries
       in
+      let finalized_csv_only =
+        usable_max_slot < ((input.epoch + 1) * slots_per_epoch) - 1
+      in
+      if finalized_csv_only then (
+        if usable_max_slot < (input.epoch * slots_per_epoch) + 3500 then (
+          [%log fatal]
+            "Insufficient archive data for finalizing previous epoch CSV: \
+             maximum usable global slot is less than slot 3500 slot in the \
+             current epoch" ;
+          Core_kernel.exit 1 ) )
+      else if usable_max_slot < ((input.epoch + 1) * slots_per_epoch) - 1 then (
+        [%log fatal]
+          "Insufficient archive data for creating preliminary CSV for current \
+           epoch: maximum usable global slot is less than last slot in the \
+           current epoch" ;
+        Core_kernel.exit 1 ) ;
+      let csv_out_channel_opt =
+        if not finalized_csv_only then Some (Out_channel.create csv_file)
+        else None
+      in
+      ( match csv_out_channel_opt with
+      | None ->
+          ()
+      | Some csv_out_channel ->
+          write_csv_header ~csv_out_channel ) ;
+      ( match (preliminary_csv_file_opt, finalized_csv_only) with
+      | None, true ->
+          [%log fatal]
+            "Insufficient data for preliminary CSV for current epoch, and no \
+             preliminary CSV from previous epoch provided" ;
+          Core_kernel.exit 1
+      | Some _, true ->
+          [%log info]
+            "Producing finalized CSV for previous epoch, no preliminary CSV \
+             for current epoch"
+      | None, false ->
+          [%log info]
+            "Producing only preliminary CSV for current epoch, no finalized \
+             CSV for previous epoch"
+      | Some _, false ->
+          [%log info]
+            "Producing preliminary CSV for current epoch and finalized CSV \
+             for previous epoch" ) ;
       let block_ids =
         (* examine blocks in current epoch *)
         let min_slot = input.epoch * slots_per_epoch in
@@ -921,12 +957,17 @@ let main ~input_file ~csv_file ~preliminary_csv_file_opt ~archive_uri
                 (Currency.Amount.to_formatted_string payment_total_as_amount)
                 (Public_key.Compressed.to_base58_check payout_info.payout_pk)
                 (Currency.Amount.to_formatted_string total_payout_obligation) ;
-            write_csv_line ~csv_out_channel ~payout_addr:payout_info.payout_pk
-              ~balance:(account_balance ledger payout_info.payout_pk)
-              ~delegatee:payout_info.delegatee ~delegation:delegated_stake
-              ~blocks_won:num_blocks_produced
-              ~payout_obligation:total_payout_obligation
-              ~payout_received:payment_total_as_amount ;
+            ( match csv_out_channel_opt with
+            | None ->
+                ()
+            | Some csv_out_channel ->
+                write_csv_line ~csv_out_channel
+                  ~payout_addr:payout_info.payout_pk
+                  ~balance:(account_balance ledger payout_info.payout_pk)
+                  ~delegatee:payout_info.delegatee ~delegation:delegated_stake
+                  ~blocks_won:num_blocks_produced
+                  ~payout_obligation:total_payout_obligation
+                  ~payout_received:payment_total_as_amount ) ;
             return () )
       in
       ( match preliminary_csv_file_opt with
@@ -955,7 +996,7 @@ let main ~input_file ~csv_file ~preliminary_csv_file_opt ~archive_uri
           List.iter updated_csv_datas
             ~f:(write_csv_line_of_csv_data ~csv_out_channel) ;
           Out_channel.close csv_out_channel ) ;
-      Out_channel.close csv_out_channel ;
+      Option.iter csv_out_channel_opt ~f:Out_channel.close ;
       Deferred.unit
 
 let () =

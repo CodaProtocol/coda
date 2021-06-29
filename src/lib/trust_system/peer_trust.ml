@@ -171,7 +171,7 @@ module Make0 (Inputs : Input_intf) = struct
     let action_fmt, action_metadata = Action.to_log action in
     let log_trust_change () =
       let verb =
-        if simple_new.trust >. simple_old.trust then "Increasing"
+        if Float.(simple_new.trust > simple_old.trust) then "Increasing"
         else "Decreasing"
       in
       [%log debug]
@@ -318,8 +318,9 @@ let%test_module "peer_trust" =
               match Peer_trust_test.lookup_ip db peer0 with
               | [(_, {trust= decayed_trust; banned= Unbanned})] ->
                   (* N.b. the floating point equality operator has a built in
-                 tolerance i.e. it's approximate equality. *)
-                  decayed_trust =. start_trust /. 2.0
+                     tolerance i.e. it's approximate equality.
+                  *)
+                  Float.(decayed_trust =. start_trust /. 2.0)
               | _ ->
                   false )
           | _ ->
@@ -395,7 +396,7 @@ let%test_module "peer_trust" =
             let%bind () = act_constant_rate db 1. Action.Big_credit in
             ( match Peer_trust_test.lookup_ip db peer0 with
             | [(_, {trust; banned= Unbanned})] ->
-                assert (trust >. 0.99) ;
+                assert (Float.(trust > 0.99)) ;
                 assert_ban_pipe []
             | [(_, {banned= Banned_until _; _})] ->
                 failwith "Peer is banned after credits"

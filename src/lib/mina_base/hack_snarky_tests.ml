@@ -1,4 +1,4 @@
-open Core
+open Core_kernel
 
 let%test_module "merkle_tree" =
   ( module struct
@@ -25,7 +25,7 @@ let%test_module "merkle_tree" =
         assert (get_exn tree i = i)
       done
 
-    let%test "key_nonexist" = None = get tree n
+    let%test "key_nonexist" = Option.is_none (get tree n)
 
     let%test_unit "modify" =
       let key = 5 in
@@ -37,6 +37,10 @@ let%test_module "merkle_tree" =
     let%test_unit "merkle_root" =
       for key = 0 to n - 1 do
         let path = get_path tree key in
-        assert (implied_root ~merge key (hash (Some key)) path = root tree)
+        (* need poly equality here *)
+        assert (
+          Poly.( = )
+            (implied_root ~merge key (hash (Some key)) path)
+            (root tree) )
       done
   end )

@@ -55,7 +55,7 @@ module type Inputs_intf = sig
   module Hash : Merkle_ledger.Intf.Hash with type account := Account.t
 
   module Root_hash : sig
-    type t [@@deriving eq, sexp, yojson]
+    type t [@@deriving equal, sexp, yojson]
 
     val to_hash : t -> Hash.t
   end
@@ -292,7 +292,10 @@ end = struct
                   List.fold rest_address
                     ~init:(Addr.next first_address, true)
                     ~f:(fun (expected_address, is_compact) actual_address ->
-                      if is_compact && expected_address = Some actual_address
+                      if
+                        is_compact
+                        && [%equal: Addr.t option] expected_address
+                             (Some actual_address)
                       then (Addr.next actual_address, true)
                       else (expected_address, false) )
                 in
@@ -706,7 +709,7 @@ end = struct
             `Ok t.tree )
 
   let fetch t rh ~data ~equal =
-    new_goal t rh ~data ~equal |> ignore ;
+    ignore (new_goal t rh ~data ~equal : [`New | `Repeat | `Update_data]) ;
     wait_until_valid t rh
 
   let create mt ~logger ~trust_system =

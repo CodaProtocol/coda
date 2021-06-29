@@ -23,14 +23,14 @@ module Body : sig
     | Create_new_token of New_token_payload.t
     | Create_token_account of New_account_payload.t
     | Mint_tokens of Minting_payload.t
-  [@@deriving eq, sexp, hash, yojson]
+  [@@deriving equal, sexp, hash, yojson]
 
   [%%versioned:
   module Stable : sig
     [@@@no_toplevel_latest_type]
 
     module V1 : sig
-      type nonrec t = t [@@deriving compare, eq, sexp, hash, yojson]
+      type nonrec t = t [@@deriving compare, equal, sexp, hash, yojson]
     end
   end]
 
@@ -59,7 +59,7 @@ module Common : sig
           ; nonce: 'nonce
           ; valid_until: 'global_slot
           ; memo: 'memo }
-        [@@deriving eq, sexp, hash, yojson]
+        [@@deriving equal, sexp, hash, yojson]
       end
     end]
   end
@@ -75,7 +75,7 @@ module Common : sig
         , Mina_numbers.Global_slot.Stable.V1.t
         , Signed_command_memo.t )
         Poly.Stable.V1.t
-      [@@deriving compare, eq, sexp, hash]
+      [@@deriving compare, equal, sexp, hash]
     end
   end]
 
@@ -114,7 +114,7 @@ module Poly : sig
   module Stable : sig
     module V1 : sig
       type ('common, 'body) t = {common: 'common; body: 'body}
-      [@@deriving eq, sexp, hash, yojson, compare, hlist]
+      [@@deriving equal, sexp, hash, yojson, compare, hlist]
 
       val of_latest :
            ('common1 -> ('common2, 'err) Result.t)
@@ -129,7 +129,7 @@ end
 module Stable : sig
   module V1 : sig
     type t = (Common.Stable.V1.t, Body.Stable.V1.t) Poly.Stable.V1.t
-    [@@deriving compare, eq, sexp, hash, yojson]
+    [@@deriving compare, equal, sexp, hash, yojson]
   end
 end]
 

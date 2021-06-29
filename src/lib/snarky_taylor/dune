@@ -2,7 +2,7 @@
  (name snarky_taylor)
  (public_name snarky_taylor)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version ppx_jane ppx_deriving.eq))
+ (preprocess (pps ppx_version ppx_jane ppx_compare))
  (inline_tests)
  (libraries
    snarky.backendless

@@ -6,6 +6,6 @@
  (inline_tests)
  (libraries core_kernel signature_lib)
  (preprocess
-  (pps ppx_version ppx_jane ppx_deriving.eq))
+  (pps ppx_version ppx_jane ppx_compare))
  (instrumentation (backend bisect_ppx))
  (synopsis "fold types"))

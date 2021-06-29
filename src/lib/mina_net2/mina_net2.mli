@@ -54,7 +54,7 @@ open Network_peer
 type net
 
 module Validation_callback : sig
-  type validation_result = [`Accept | `Reject | `Ignore]
+  type validation_result = [`Accept | `Reject | `Ignore] [@@deriving equal]
 
   type t
 

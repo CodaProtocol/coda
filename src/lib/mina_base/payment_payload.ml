@@ -30,7 +30,7 @@ module Poly = struct
         ; receiver_pk: 'public_key
         ; token_id: 'token_id
         ; amount: 'amount }
-      [@@deriving eq, sexp, hash, yojson, compare, hlist]
+      [@@deriving equal, sexp, hash, yojson, compare, hlist]
     end
   end]
 end
@@ -43,7 +43,7 @@ module Stable = struct
       , Token_id.Stable.V1.t
       , Amount.Stable.V1.t )
       Poly.Stable.V1.t
-    [@@deriving eq, sexp, hash, compare, yojson]
+    [@@deriving equal, sexp, hash, compare, yojson]
 
     let to_latest = Fn.id
   end

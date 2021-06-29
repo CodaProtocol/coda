@@ -2,7 +2,7 @@ open Core_kernel
 
 type t = ..
 
-type id = string [@@deriving eq, yojson, sexp]
+type id = string [@@deriving equal, yojson, sexp]
 
 let id_of_string s = s
 

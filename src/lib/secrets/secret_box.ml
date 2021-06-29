@@ -100,13 +100,13 @@ let decrypt ~(password : Bytes.t)
     ; pwsalt
     ; pwdiff= mem_limit, ops_limit
     ; ciphertext } =
-  if box_primitive <> Secret_box.primitive then
+  if not (String.equal box_primitive Secret_box.primitive) then
     Error
       (`Corrupted_privkey
         (Error.createf
            !"don't know how to handle a %s secret_box"
            box_primitive))
-  else if pw_primitive <> Password_hash.primitive then
+  else if not (String.equal pw_primitive Password_hash.primitive) then
     Error
       (`Corrupted_privkey
         (Error.createf

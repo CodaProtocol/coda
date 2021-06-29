@@ -9,7 +9,7 @@ module Stable = struct
       ; token_owner_pk: Public_key.Compressed.Stable.V1.t
       ; receiver_pk: Public_key.Compressed.Stable.V1.t
       ; account_disabled: bool }
-    [@@deriving compare, eq, sexp, hash, yojson]
+    [@@deriving compare, equal, sexp, hash, yojson]
 
     let to_latest = Fn.id
   end

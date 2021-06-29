@@ -44,7 +44,7 @@ struct
     let tree, remaining_nodes, _ =
       go (List.map ~f:Hash.hash_account list @ empty_hashes) max_num_accts
     in
-    assert (remaining_nodes = []) ;
+    assert (List.is_empty remaining_nodes) ;
     tree
 
   let rec get_inner_hash_at_addr_exn = function

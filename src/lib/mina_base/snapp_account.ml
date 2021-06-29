@@ -26,7 +26,7 @@ module Poly = struct
   module Stable = struct
     module V1 = struct
       type ('app_state, 'vk) t = {app_state: 'app_state; verification_key: 'vk}
-      [@@deriving sexp, eq, compare, hash, yojson, hlist, fields]
+      [@@deriving sexp, equal, compare, hash, yojson, hlist, fields]
     end
   end]
 end
@@ -44,7 +44,7 @@ module Stable = struct
         With_hash.Stable.V1.t
         option )
       Poly.Stable.V1.t
-    [@@deriving sexp, eq, compare, hash, yojson]
+    [@@deriving sexp, equal, compare, hash, yojson]
 
     let to_latest = Fn.id
   end

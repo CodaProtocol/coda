@@ -3,7 +3,7 @@
  (public_name snarky_field_extensions)
  (inline_tests)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version ppx_jane ppx_deriving.eq ppx_deriving_yojson))
+ (preprocess (pps ppx_version ppx_jane ppx_compare ppx_deriving_yojson))
  (libraries
    snarky.backendless
    snarkette

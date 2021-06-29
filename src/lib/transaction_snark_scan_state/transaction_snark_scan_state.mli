@@ -57,7 +57,7 @@ module Make_statement_scanner
         val verify :
              verifier:t
           -> Ledger_proof_with_sok_message.t list
-          -> sexp_bool M.Or_error.t
+          -> bool M.Or_error.t
     end) : sig
   val scan_statement :
        constraint_constants:Genesis_constants.Constraint_constants.t

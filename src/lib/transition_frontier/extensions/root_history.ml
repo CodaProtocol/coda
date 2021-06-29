@@ -53,10 +53,11 @@ module T = struct
       in
       t.protocol_states_for_root_scan_state <- new_protocol_states_map ) ;
     assert (
-      `Ok
-      = Queue.enqueue_back t.history
-          (External_transition.Validated.state_hash (transition t.current_root))
-          t.current_root ) ;
+      [%equal: [`Ok | `Key_already_present]] `Ok
+        (Queue.enqueue_back t.history
+           (External_transition.Validated.state_hash
+              (transition t.current_root))
+           t.current_root) ) ;
     t.current_root <- new_root
 
   let handle_diffs root_history frontier diffs_with_mutants =
@@ -112,7 +113,9 @@ let most_recent {history; _} =
   let open Option.Let_syntax in
   let%map state_hash, breadcrumb = Queue.dequeue_back_with_key history in
   (* should never return `Key_already_present since we just removed it *)
-  assert (`Ok = Queue.enqueue_back history state_hash breadcrumb) ;
+  assert (
+    [%equal: [`Ok | `Key_already_present]] `Ok
+      (Queue.enqueue_back history state_hash breadcrumb) ) ;
   breadcrumb
 
 let oldest {history; _} = Queue.first history

@@ -126,7 +126,7 @@ let setup_and_submit_user_commands t user_command_list =
 module Receipt_chain_verifier = Merkle_list_verifier.Make (struct
   type proof_elem = User_command.t
 
-  type hash = Receipt.Chain_hash.t [@@deriving eq]
+  type hash = Receipt.Chain_hash.t [@@deriving equal]
 
   let hash parent_hash (proof_elem : User_command.t) =
     let p =

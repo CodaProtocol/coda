@@ -48,7 +48,7 @@ module Pending_coinbase_stack_state = struct
     module Stable = struct
       module V1 = struct
         type t = Base of Pending_coinbase.Stack_versioned.Stable.V1.t | Merge
-        [@@deriving sexp, hash, compare, eq, yojson]
+        [@@deriving sexp, hash, compare, equal, yojson]
 
         let to_latest = Fn.id
       end
@@ -61,7 +61,7 @@ module Pending_coinbase_stack_state = struct
       module V1 = struct
         type 'pending_coinbase t =
           {source: 'pending_coinbase; target: 'pending_coinbase}
-        [@@deriving sexp, hash, compare, eq, fields, yojson, hlist]
+        [@@deriving sexp, hash, compare, equal, fields, yojson, hlist]
 
         let to_latest pending_coinbase {source; target} =
           {source= pending_coinbase source; target= pending_coinbase target}
@@ -77,14 +77,14 @@ module Pending_coinbase_stack_state = struct
 
   type 'pending_coinbase poly = 'pending_coinbase Poly.t =
     {source: 'pending_coinbase; target: 'pending_coinbase}
-  [@@deriving sexp, hash, compare, eq, fields, yojson]
+  [@@deriving sexp, hash, compare, equal, fields, yojson]
 
   (* State of the coinbase stack for the current transaction snark *)
   [%%versioned
   module Stable = struct
     module V1 = struct
       type t = Pending_coinbase.Stack_versioned.Stable.V1.t Poly.Stable.V1.t
-      [@@deriving sexp, hash, compare, eq, yojson]
+      [@@deriving sexp, hash, compare, equal, yojson]
 
       let to_latest = Fn.id
     end
@@ -405,7 +405,8 @@ module Proof = struct
   module Stable = struct
     module V1 = struct
       type t = Pickles.Proof.Branching_2.Stable.V1.t
-      [@@deriving version {asserted}, yojson, bin_io, compare, sexp, hash]
+      [@@deriving
+        version {asserted}, yojson, bin_io, compare, equal, sexp, hash]
 
       let to_latest = Fn.id
     end
@@ -417,7 +418,7 @@ module Stable = struct
   module V1 = struct
     type t =
       {statement: Statement.With_sok.Stable.V1.t; proof: Proof.Stable.V1.t}
-    [@@deriving compare, fields, sexp, version, yojson, hash]
+    [@@deriving compare, equal, fields, sexp, version, yojson, hash]
 
     let to_latest = Fn.id
   end
@@ -956,14 +957,14 @@ module Base = struct
         fun () ->
           let b = exists Boolean.typ_unchecked ~compute:(fun _ -> true) in
           let g = exists Inner_curve.typ ~compute:(fun _ -> Inner_curve.one) in
-          let _ =
-            Pickles.Step_main_inputs.Ops.scale_fast g
-              (`Plus_two_to_len [|b; b|])
-          in
-          let _ =
-            Pickles.Pairing_main.Scalar_challenge.endo g (Scalar_challenge [b])
-          in
-          ())
+          ignore
+            ( Pickles.Step_main_inputs.Ops.scale_fast g
+                (`Plus_two_to_len [|b; b|])
+              : Pickles.Step_main_inputs.Inner_curve.t ) ;
+          ignore
+            ( Pickles.Pairing_main.Scalar_challenge.endo g
+                (Scalar_challenge [b])
+              : Field.t * Field.t ))
 
   let%snarkydef check_signature shifted ~payload ~is_user_command ~signer
       ~signature =
@@ -1613,7 +1614,9 @@ module Base = struct
            s2.body2 = s1.body1
            so to save on hashing, we just throw away the bodies in s2 and replace them. *)
         let s2 =
-          let _ = Snapp_statement.Checked.to_field_elements s1 in
+          ignore
+            ( Snapp_statement.Checked.to_field_elements s1
+              : Pickles.Impls.Step.Field.t array ) ;
           (* pickles uses these values to hash the statement  *)
           let ( := ) x2 x1 =
             Set_once.set_exn x2 [%here] (Set_once.get_exn x1 [%here])
@@ -1741,7 +1744,9 @@ module Base = struct
         let curr_state =
           Mina_state.Protocol_state.Body.view_checked state_body
         in
-        let _ = Snapp_statement.Checked.to_field_elements s1 in
+        ignore
+          ( Snapp_statement.Checked.to_field_elements s1
+            : Pickles.Impls.Step.Field.t array ) ;
         let excess =
           !(Amount.Signed.Checked.add s1.body1.data.delta s1.body2.data.delta)
         in
@@ -3063,17 +3068,18 @@ let check_transaction_union ?(preeval = false) ~constraint_constants
     ; sok_digest }
   in
   let open Tick in
-  Or_error.ok_exn
-    (run_and_check
-       (handle
-          (Checked.map ~f:As_prover.return
-             (let open Checked in
-             exists Statement.With_sok.typ
-               ~compute:(As_prover.return statement)
-             >>= Base.main ~constraint_constants))
-          handler)
-       ())
-  |> ignore
+  ignore
+    ( Or_error.ok_exn
+        (run_and_check
+           (handle
+              (Checked.map ~f:As_prover.return
+                 (let open Checked in
+                 exists Statement.With_sok.typ
+                   ~compute:(As_prover.return statement)
+                 >>= Base.main ~constraint_constants))
+              handler)
+           ())
+      : unit * unit )
 
 let command_to_proofs (p : Snapp_command.t) :
     (Snapp_statement.t * Pickles.Side_loaded.Proof.t, Nat.N2.n) At_most.t =
@@ -3156,9 +3162,12 @@ let check_snapp_command ?(preeval = false) ~constraint_constants ~sok_message
             in
             () )
   in
-  Or_error.ok_exn
-    (run_and_check (handle (Checked.map ~f:As_prover.return comp) handler) ())
-  |> ignore
+  ignore
+    ( Or_error.ok_exn
+        (run_and_check
+           (handle (Checked.map ~f:As_prover.return comp) handler)
+           ())
+      : unit * unit )
 
 let check_transaction ?preeval ~constraint_constants ~sok_message ~source
     ~target ~init_stack ~pending_coinbase_stack_state
@@ -4277,9 +4286,11 @@ let%test_module "transaction_snark" =
                   ; init_stack }
                 , state_body2 )
               in
-              Ledger.apply_user_command ~constraint_constants ledger
-                ~txn_global_slot:current_global_slot t1
-              |> Or_error.ok_exn |> ignore ;
+              ignore
+                ( Ledger.apply_user_command ~constraint_constants ledger
+                    ~txn_global_slot:current_global_slot t1
+                  |> Or_error.ok_exn
+                  : Ledger.Transaction_applied.Signed_command_applied.t ) ;
               [%test_eq: Frozen_ledger_hash.t]
                 (Ledger.merkle_root ledger)
                 (Sparse_ledger.merkle_root sparse_ledger) ;
@@ -4298,9 +4309,11 @@ let%test_module "transaction_snark" =
                   ~txn_global_slot:current_global_slot sparse_ledger
                   (t2 :> Signed_command.t)
               in
-              Ledger.apply_user_command ledger ~constraint_constants
-                ~txn_global_slot:current_global_slot t2
-              |> Or_error.ok_exn |> ignore ;
+              ignore
+                ( Ledger.apply_user_command ledger ~constraint_constants
+                    ~txn_global_slot:current_global_slot t2
+                  |> Or_error.ok_exn
+                  : Ledger.Transaction_applied.Signed_command_applied.t ) ;
               [%test_eq: Frozen_ledger_hash.t]
                 (Ledger.merkle_root ledger)
                 (Sparse_ledger.merkle_root sparse_ledger) ;
@@ -4888,8 +4901,8 @@ let%test_module "transaction_snark" =
               assert (Balance.(equal zero) token_owner_account.balance) ;
               assert (Option.is_none token_owner_account.delegate) ;
               assert (
-                token_owner_account.token_permissions
-                = Token_owned {disable_new_accounts= false} ) ) )
+                Token_permissions.equal token_owner_account.token_permissions
+                  (Token_owned {disable_new_accounts= false}) ) ) )
 
     let%test_unit "create new token for a different pk" =
       Test_util.with_randomness 123456789 (fun () ->
@@ -4924,8 +4937,8 @@ let%test_module "transaction_snark" =
               assert (Balance.(equal zero) token_owner_account.balance) ;
               assert (Option.is_none token_owner_account.delegate) ;
               assert (
-                token_owner_account.token_permissions
-                = Token_owned {disable_new_accounts= false} ) ) )
+                Token_permissions.equal token_owner_account.token_permissions
+                  (Token_owned {disable_new_accounts= false}) ) ) )
 
     let%test_unit "create new token for a different pk new accounts disabled" =
       Test_util.with_randomness 123456789 (fun () ->
@@ -4959,8 +4972,8 @@ let%test_module "transaction_snark" =
               assert (Balance.(equal zero) token_owner_account.balance) ;
               assert (Option.is_none token_owner_account.delegate) ;
               assert (
-                token_owner_account.token_permissions
-                = Token_owned {disable_new_accounts= true} ) ) )
+                Token_permissions.equal token_owner_account.token_permissions
+                  (Token_owned {disable_new_accounts= true}) ) ) )
 
     let%test_unit "create own new token account" =
       Test_util.with_randomness 123456789 (fun () ->
@@ -5007,8 +5020,8 @@ let%test_module "transaction_snark" =
               assert (Balance.(equal zero) receiver_account.balance) ;
               assert (Option.is_none receiver_account.delegate) ;
               assert (
-                receiver_account.token_permissions
-                = Not_owned {account_disabled= false} ) ) )
+                Token_permissions.equal receiver_account.token_permissions
+                  (Not_owned {account_disabled= false}) ) ) )
 
     let%test_unit "create new token account for a different pk" =
       Test_util.with_randomness 123456789 (fun () ->
@@ -5055,8 +5068,8 @@ let%test_module "transaction_snark" =
               assert (Balance.(equal zero) receiver_account.balance) ;
               assert (Option.is_none receiver_account.delegate) ;
               assert (
-                receiver_account.token_permissions
-                = Not_owned {account_disabled= false} ) ) )
+                Token_permissions.equal receiver_account.token_permissions
+                  (Not_owned {account_disabled= false}) ) ) )
 
     let%test_unit "create new token account for a different pk in a locked \
                    token" =
@@ -5104,8 +5117,8 @@ let%test_module "transaction_snark" =
               assert (Balance.(equal zero) receiver_account.balance) ;
               assert (Option.is_none receiver_account.delegate) ;
               assert (
-                receiver_account.token_permissions
-                = Not_owned {account_disabled= false} ) ) )
+                Token_permissions.equal receiver_account.token_permissions
+                  (Not_owned {account_disabled= false}) ) ) )
 
     let%test_unit "create new own locked token account in a locked token" =
       Test_util.with_randomness 123456789 (fun () ->
@@ -5152,8 +5165,8 @@ let%test_module "transaction_snark" =
               assert (Balance.(equal zero) receiver_account.balance) ;
               assert (Option.is_none receiver_account.delegate) ;
               assert (
-                receiver_account.token_permissions
-                = Not_owned {account_disabled= true} ) ) )
+                Token_permissions.equal receiver_account.token_permissions
+                  (Not_owned {account_disabled= true}) ) ) )
 
     let%test_unit "create new token account fails for locked token, non-owner \
                    fee-payer" =
@@ -5450,8 +5463,8 @@ let%test_module "transaction_snark" =
                 Public_key.Compressed.equal receiver_pk
                   (Option.value_exn receiver_account.delegate) ) ;
               assert (
-                receiver_account.token_permissions
-                = Not_owned {account_disabled= false} ) ) )
+                Token_permissions.equal receiver_account.token_permissions
+                  (Not_owned {account_disabled= false}) ) ) )
 
     let%test_unit "mint tokens in owner's account" =
       Test_util.with_randomness 123456789 (fun () ->
@@ -6267,7 +6280,7 @@ let%test_module "transaction_undos" =
       in
       let new_mask = Ledger.Mask.create ~depth:(Ledger.depth ledger) () in
       let new_ledger = Ledger.register_mask ledger new_mask in
-      let _ =
+      let () =
         Ledger.undo ~constraint_constants new_ledger applied_txn
         |> Or_error.ok_exn
       in
@@ -6281,7 +6294,7 @@ let%test_module "transaction_undos" =
             test_undo ledger t :: acc )
       in
       List.iter res ~f:(fun (root_before, u) ->
-          let _ =
+          let () =
             Ledger.undo ~constraint_constants ledger u |> Or_error.ok_exn
           in
           assert (Ledger_hash.equal (Ledger.merkle_root ledger) root_before) )

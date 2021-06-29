@@ -122,7 +122,7 @@ module Max_branches_vec = struct
     end
   end]
 
-  let _ =
+  let () =
     let _f : type a. unit -> (a t, (a, Max_branches.n) At_most.t) Type_equal.t
         =
      fun () -> Type_equal.T

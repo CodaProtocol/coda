@@ -12,7 +12,7 @@ module Poly : sig
         ; genesis_ledger_hash: 'snarked_ledger_hash
         ; snarked_next_available_token: 'token_id
         ; timestamp: 'time }
-      [@@deriving sexp, eq, compare, fields, yojson]
+      [@@deriving sexp, equal, compare, fields, yojson]
     end
   end]
 end
@@ -27,7 +27,7 @@ module Value : sig
         , Token_id.Stable.V1.t
         , Block_time.Stable.V1.t )
         Poly.Stable.V1.t
-      [@@deriving sexp, eq, compare, hash, yojson]
+      [@@deriving sexp, equal, compare, hash, yojson]
     end
   end]
 end

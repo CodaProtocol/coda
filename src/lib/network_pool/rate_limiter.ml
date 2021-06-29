@@ -56,7 +56,7 @@ module Record = struct
           in
           if is_old then (
             r.remaining_capacity <- Score.(r.remaining_capacity + n) ;
-            ignore (Queue.dequeue_exn r.elts) ;
+            ignore (Queue.dequeue_exn r.elts : int * Time.t) ;
             go () )
     in
     go ()
@@ -81,7 +81,7 @@ module Lru_table (Q : Hash_queue.S) = struct
     match Q.lookup_and_move_to_back table k with
     | None ->
         if Int.(Q.length table >= max_size) then
-          Q.dequeue_front table |> ignore ;
+          ignore (Q.dequeue_front table : Record.t option) ;
         Q.enqueue_back_exn table k
           {Record.remaining_capacity= initial_capacity; elts= Queue.create ()} ;
         `Ok
@@ -138,8 +138,8 @@ let add {by_ip; by_peer_id} (sender : Envelope.Sender.t) ~now ~score =
         Ip.Lru.has_capacity by_ip ip ~now ~score
         && Peer_id.Lru.has_capacity by_peer_id id ~now ~score
       then (
-        Ip.Lru.add by_ip ip ~now ~score |> ignore ;
-        Peer_id.Lru.add by_peer_id id ~now ~score |> ignore ;
+        ignore (Ip.Lru.add by_ip ip ~now ~score : [`No_space | `Ok]) ;
+        ignore (Peer_id.Lru.add by_peer_id id ~now ~score : [`No_space | `Ok]) ;
         `Within_capacity )
       else `Capacity_exceeded
 

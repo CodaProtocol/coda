@@ -242,7 +242,7 @@ let plus_or_minus initial ~delta =
 (** Call this as early as possible after the process is known, and store the
     resulting [Deferred.t] somewhere to be used later.
 *)
-let wait_safe ~logger process =
+let wait_safe ~logger process ~module_ ~location ~here =
   (* This is a little more nuanced than it may initially seem.
      - The initial call to [Process.wait] runs a wait syscall -- with the
        NOHANG flag -- synchronously.
@@ -263,11 +263,11 @@ let wait_safe ~logger process =
   match
     Or_error.try_with (fun () ->
         let deferred_wait =
-          Monitor.try_with ~run:`Now
+          Monitor.try_with ~here ~run:`Now
             ~rest:
               (`Call
                 (fun exn ->
-                  [%log warn]
+                  Logger.warn logger ~module_ ~location
                     "Saw an error from Process.wait in wait_safe: $err"
                     ~metadata:
                       [("err", Error_json.error_to_yojson (Error.of_exn exn))]
@@ -319,8 +319,11 @@ let create ~logger ~proof_level ~constraint_constants ~pids ~conf_dir :
       |> Deferred.Result.map_error ~f:Error.of_exn
     in
     Child_processes.Termination.wait_for_process_log_errors ~logger process
-      ~module_:__MODULE__ ~location:__LOC__ ;
-    let exit_or_signal = wait_safe ~logger process in
+      ~module_:__MODULE__ ~location:__LOC__ ~here:[%here] ;
+    let exit_or_signal =
+      wait_safe ~logger process ~module_:__MODULE__ ~location:__LOC__
+        ~here:[%here]
+    in
     [%log info]
       "Daemon started process of kind $process_kind with pid $verifier_pid"
       ~metadata:

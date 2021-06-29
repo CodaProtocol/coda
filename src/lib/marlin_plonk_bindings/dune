@@ -6,50 +6,29 @@
    marlin_plonk_bindings_types
    ;; Biginteger types backing fields
    marlin_plonk_bindings_bigint_256
-   marlin_plonk_bindings_bigint_384
    ;; Finite fields
    marlin_plonk_bindings_pasta_fp
    marlin_plonk_bindings_pasta_fq
-   marlin_plonk_bindings_tweedle_fp
-   marlin_plonk_bindings_tweedle_fq
-   marlin_plonk_bindings_bn_382_fp
-   marlin_plonk_bindings_bn_382_fq
    ;; Finite field vectors
    marlin_plonk_bindings_pasta_fp_vector
    marlin_plonk_bindings_pasta_fq_vector
-   marlin_plonk_bindings_tweedle_fp_vector
-   marlin_plonk_bindings_tweedle_fq_vector
-   marlin_plonk_bindings_bn_382_fp_vector
-   marlin_plonk_bindings_bn_382_fq_vector
    ;; Groups
    marlin_plonk_bindings_pasta_vesta
    marlin_plonk_bindings_pasta_pallas
-   marlin_plonk_bindings_tweedle_dee
-   marlin_plonk_bindings_tweedle_dum
    ;; URSs
    marlin_plonk_bindings_pasta_fp_urs
    marlin_plonk_bindings_pasta_fq_urs
-   marlin_plonk_bindings_tweedle_fp_urs
-   marlin_plonk_bindings_tweedle_fq_urs
    ;; Indices
    marlin_plonk_bindings_pasta_fp_index
    marlin_plonk_bindings_pasta_fq_index
-   marlin_plonk_bindings_tweedle_fp_index
-   marlin_plonk_bindings_tweedle_fq_index
    ;; Verification indices
    marlin_plonk_bindings_pasta_fp_verifier_index
    marlin_plonk_bindings_pasta_fq_verifier_index
-   marlin_plonk_bindings_tweedle_fp_verifier_index
-   marlin_plonk_bindings_tweedle_fq_verifier_index
    ;; Proofs
    marlin_plonk_bindings_pasta_fp_proof
    marlin_plonk_bindings_pasta_fq_proof
-   marlin_plonk_bindings_tweedle_fp_proof
-   marlin_plonk_bindings_tweedle_fq_proof
    ;; Oracles
    marlin_plonk_bindings_pasta_fp_oracles
-   marlin_plonk_bindings_pasta_fq_oracles
-   marlin_plonk_bindings_tweedle_fp_oracles
-   marlin_plonk_bindings_tweedle_fq_oracles)
+   marlin_plonk_bindings_pasta_fq_oracles)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_version)))

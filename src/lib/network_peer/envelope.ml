@@ -72,7 +72,7 @@ module Incoming = struct
     ; sender: Sender.t
     ; received_at: Time.t
           [@to_yojson time_to_yojson] [@of_yojson time_of_yojson] }
-  [@@deriving eq, sexp, yojson, compare]
+  [@@deriving equal, sexp, yojson, compare]
 
   let sender t = t.sender
 

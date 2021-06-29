@@ -4,6 +4,6 @@
  (library_flags -linkall)
  (libraries core async rpc_parallel)
  (preprocess
-  (pps ppx_version ppx_jane ppx_deriving.eq))
+  (pps ppx_version ppx_jane ppx_compare))
  (instrumentation (backend bisect_ppx))
  (synopsis "Template code to run programs that rely Rpc_parallel.Expert"))

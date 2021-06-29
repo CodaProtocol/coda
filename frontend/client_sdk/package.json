@@ -1,7 +1,7 @@
 {
   "name": "@o1labs/client-sdk",
   "description": "Node API for signing transactions for Mina Protocol",
-  "version": "1.1.0",
+  "version": "1.0.1",
   "scripts": {
     "build": "bsb -make-world && tsc src/SDKWrapper.ts -d",
     "start": "bsb -make-world -w",
