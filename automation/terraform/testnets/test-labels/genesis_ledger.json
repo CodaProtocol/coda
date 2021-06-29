@@ -1,0 +1,114 @@
+{
+  "genesis": {
+    "genesis_state_timestamp": "2021-04-08 19:42:22-7:00"
+  },
+  "ledger": {
+    "name": "test-labels",
+    "num_accounts": 16,
+    "accounts": [
+      {
+        "pk": "B62qrMm1fSizfgGuFK7KsZZdxEvFK7etUt272wX5cQfWixZkoEy5Sgq",
+        "balance": "66000.000000000",
+        "delegate": "B62qrMm1fSizfgGuFK7KsZZdxEvFK7etUt272wX5cQfWixZkoEy5Sgq",
+        "sk": null,
+        "timing": {
+          "initial_minimum_balance": "60000",
+          "cliff_time": "150",
+          "cliff_amount": "12000",
+          "vesting_period": "6",
+          "vesting_increment": "150"
+        }
+      },
+      {
+        "pk": "B62qmmyFhM51jEuSKsBp1VdPxxpuf1jvKvVQdzfqDqGofRwaB37tdgB",
+        "balance": "20000.000000000",
+        "delegate": "B62qmmyFhM51jEuSKsBp1VdPxxpuf1jvKvVQdzfqDqGofRwaB37tdgB",
+        "sk": null
+      },
+      {
+        "pk": "B62qrY36cZbJDLmxXS6Gf3keryLLUEwRJJH1DJFU2Q4vhyoc1Adrw11",
+        "balance": "20000.000000000",
+        "delegate": "B62qrY36cZbJDLmxXS6Gf3keryLLUEwRJJH1DJFU2Q4vhyoc1Adrw11",
+        "sk": null
+      },
+      {
+        "pk": "B62qoSVGbUvuaezbuUnqqai4mkMsgDckY367koR76Wysx6QVS5pQZhL",
+        "balance": "20000.000000000",
+        "delegate": "B62qoSVGbUvuaezbuUnqqai4mkMsgDckY367koR76Wysx6QVS5pQZhL",
+        "sk": null
+      },
+      {
+        "pk": "B62qkhVC4jdRHWAJGaZuvvB555qXA8Ys2vVWTewMdNpg2jmT8ZqDJh3",
+        "balance": "20000.000000000",
+        "delegate": "B62qkhVC4jdRHWAJGaZuvvB555qXA8Ys2vVWTewMdNpg2jmT8ZqDJh3",
+        "sk": null
+      },
+      {
+        "pk": "B62qpgAtQHb3JhzeBSYmNQUXWkrnZ6KVxDdDBFY6yKVVX6RjCWsB9Wj",
+        "balance": "20000.000000000",
+        "delegate": "B62qpgAtQHb3JhzeBSYmNQUXWkrnZ6KVxDdDBFY6yKVVX6RjCWsB9Wj",
+        "sk": null
+      },
+      {
+        "pk": "B62qrTLLzysdpmKwDffpS4BTRoSE4yC3pot5F4D4ZwAn5oxNb9yCxhz",
+        "balance": "20000.000000000",
+        "delegate": "B62qmmyFhM51jEuSKsBp1VdPxxpuf1jvKvVQdzfqDqGofRwaB37tdgB",
+        "sk": null
+      },
+      {
+        "pk": "B62qp1jrz9S5pU8MT6j5xMQawxFbNxHzkT1YnQspyDXxESb4Au8aeWL",
+        "balance": "20000.000000000",
+        "delegate": "B62qrY36cZbJDLmxXS6Gf3keryLLUEwRJJH1DJFU2Q4vhyoc1Adrw11",
+        "sk": null
+      },
+      {
+        "pk": "B62qpBLWeBjAnnQGehYrHZ9vrh1HXwpm9Pp7qksT6AkMumswyJpGF4X",
+        "balance": "20000.000000000",
+        "delegate": "B62qoSVGbUvuaezbuUnqqai4mkMsgDckY367koR76Wysx6QVS5pQZhL",
+        "sk": null
+      },
+      {
+        "pk": "B62qj2jSJhbUwLYXeoLndzw5cwmWGFeeSRSDxEwYQUmpdBeiMPFQ5jq",
+        "balance": "20000.000000000",
+        "delegate": "B62qkhVC4jdRHWAJGaZuvvB555qXA8Ys2vVWTewMdNpg2jmT8ZqDJh3",
+        "sk": null
+      },
+      {
+        "pk": "B62qp7toDo2vTrNSVjsRSXkKBQCjvByLdwFcoGTqay6kuDSiU3pubeS",
+        "balance": "20000.000000000",
+        "delegate": "B62qpgAtQHb3JhzeBSYmNQUXWkrnZ6KVxDdDBFY6yKVVX6RjCWsB9Wj",
+        "sk": null
+      },
+      {
+        "pk": "B62qrSYyANC6tD145U2rD6j2Pk22obbXridrLS4k2ATvAhJDhfDjD5N",
+        "balance": "2250000.000000000",
+        "delegate": "B62qjRyvPXehwFqoA2fgAKfK38edF8HYRhGMjjX76m6oPPKob9Tchzs",
+        "sk": null
+      },
+      {
+        "pk": "B62qjEy1BAqGPJYw3B24uhPnhMJc19LgsmHCVvH5GFzB5SJzBy7hJ8y",
+        "balance": "2250000.000000000",
+        "delegate": "B62qnPzdCBJKCVgkoGQPXa7dMpxny8zGr76E8YMMdQo6e3CK1Zpwo9Y",
+        "sk": null
+      },
+      {
+        "pk": "B62qqsQPNrNLGBTpsKyvtW6NKZERRPHaACMpkKGxmusV8MwaGjAtwRv",
+        "balance": "2250000.000000000",
+        "delegate": "B62qmEKWAURBnMHLojq9eW2wRKyvRtJQUG2tzGRJzTUVef3PyCFQ8th",
+        "sk": null
+      },
+      {
+        "pk": "B62qr7ed4upRdRaNmvxVKgxmbutxsGWeQeXBMEZjJN83CUrXnD1sDgz",
+        "balance": "2250000.000000000",
+        "delegate": "B62qqQPw875obJSweVGPpj2hu455ncZZTeMz8rvgiNZM5bErspo4sPM",
+        "sk": null
+      },
+      {
+        "pk": "B62qmf7k5jdBKRhnTo8tyfr978d7GvzgECUNGETdjWvjEi5VdsfNady",
+        "balance": "2250000.000000000",
+        "delegate": "B62qrMJjvLTz6XsE1Cge4yPAA9Y44SWeDtonH5LYN6ZYkwfsqukAf5D",
+        "sk": null
+      }
+    ]
+  }
+}

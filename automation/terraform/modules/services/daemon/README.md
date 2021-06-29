@@ -1,6 +1,6 @@
-## Coda Daemon Module
+## mina Daemon Module
 
-This is a Terraform module that will deploy a Coda Daemon container as a service in AWS ECS. 
+This is a Terraform module that will deploy a mina Daemon container as a service in AWS ECS. 
 
 ## Variables 
 
@@ -14,7 +14,7 @@ This is a Terraform module that will deploy a Coda Daemon container as a service
 
 `container_version`: The version of the container to be used when deploying the Daemon Service
 
-`coda_wallet_keys`: A space-delimited list of AWS Secrets Manager secret IDs
+`mina_wallet_keys`: A space-delimited list of AWS Secrets Manager secret IDs
 
 `aws_access_key`: An Access Key granting read-only access to Testnet Secrets
 
@@ -30,27 +30,27 @@ This is a Terraform module that will deploy a Coda Daemon container as a service
 
 `daemon_metrics_port` (Default: 10000): The port that the daemon will expose prometheus metrics on
 
-`coda_privkey_pass`: The password for the installed keys
+`mina_privkey_pass`: The password for the installed keys
 
 ## Deployment Considerations
 
-In order to deploy a "new" version of this module, you must ensure that you have rebuilt said container. The container build is a two-step process, with the base Coda dockerfile being [here](https://github.com/CodaProtocol/coda/blob/develop/dockerfiles/Dockerfile-coda-daemon) and the more deployment-specific Dockerfile [here](https://github.com/CodaProtocol/coda-automation/blob/master/services/daemon/Dockerfile). 
+In order to deploy a "new" version of this module, you must ensure that you have rebuilt said container. The container build is a two-step process, with the base mina dockerfile being [here](https://github.com/MinaProtocol/mina/blob/develop/dockerfiles/Dockerfile-mina-daemon) and the more deployment-specific Dockerfile [here](https://github.com/MinaProtocol/mina-automation/blob/master/services/daemon/Dockerfile).
 
 The manual commands to release each container are the following: 
 
-### Coda-Daemon Container
+### Mina-Daemon Container
 
-*(From the root of the `CodaProtocol/coda` repository)*
-`./scripts/release-docker.sh -s coda-daemon -v <major>.<minor>.<patch> --extra-args "--build-arg coda_version=<CODA_VERSION> --build-arg deb_repo=<deb-repo>"`
+*(From the root of the `MinaProtocol/mina` repository)*
+`./scripts/release-docker.sh -s mina-daemon -v <major>.<minor>.<patch> --extra-args "--build-arg deb_version=<DEB_VERSION> --build-arg deb_release=<mina package release channel, e.g. alpha>"`
 
 Example:
-`./scripts/release-docker.sh -s coda-daemon -v 0.0.10-beta4 --extra-args "--build-arg coda_version=0.0.10-beta4-fff3b856 --build-arg deb_repo=release"`
+`./scripts/release-docker.sh -s mina-daemon -v 0.0.10-beta4 --extra-args "--build-arg deb_version=0.0.10-beta4-fff3b856 --build-arg deb_release=alpha`
 
-The `--extra-args` argument is for passing additional parameters directly to the `docker build` command. It is used here to pass the required Dockerfile variable `coda_version` but can also be used to override Dockerfile variables with default values like so `--build-arg deb_repo=release`
+The `--extra-args` argument is for passing additional parameters directly to the `docker build` command. It is used here to pass the required Dockerfile variable `'deb_version` but can also be used to override Dockerfile variables with default values like so `--build-arg deb_repo=release`
 
 ### daemon Container
 
-*(From the root of the `CodaProtocol/coda-automation` repository)*
+*(From the root of the `MinaProtocol/mina/automation` folder in the mina repository)*
 `./scripts/release-docker.sh -s daemon -v <major>.<minor>.<patch> --extra-args "--build-arg base_image_tag=<docker tag created in first step> "`
 
 Example:

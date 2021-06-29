@@ -73,6 +73,11 @@ end)
 
   let broadcasts {read_broadcasts; _} = read_broadcasts
 
+  let create_rate_limiter () =
+    Rate_limiter.create
+      ~capacity:
+        (Resource_pool.Diff.max_per_15_seconds, `Per (Time.Span.of_sec 15.0))
+
   let apply_and_broadcast t
       (diff : Resource_pool.Diff.verified Envelope.Incoming.t) cb =
     let rebroadcast (diff', rejected) =
@@ -86,7 +91,7 @@ end)
                 @@ Envelope.Incoming.data diff ) ] ;
         drop diff' rejected cb )
       else (
-        [%log' trace t.logger] "Rebroadcasting diff %s"
+        [%log' debug t.logger] "Rebroadcasting diff %s"
           (Resource_pool.Diff.summary diff') ;
         forward t.write_broadcasts diff' rejected cb )
     in
@@ -131,11 +136,7 @@ end)
                       (Resource_pool.Diff.reject_overloaded_diff diff)
                       cb )) ))
     in
-    let rl =
-      Rate_limiter.create
-        ~capacity:
-          (Resource_pool.Diff.max_per_15_seconds, `Per (Time.Span.of_sec 15.0))
-    in
+    let rl = create_rate_limiter () in
     if log_rate_limiter then log_rate_limiter_occasionally t rl ;
     (*Note: This is done asynchronously to use batch verification*)
     Strict_pipe.Reader.iter_without_pushback pipe ~f:(fun d ->
@@ -144,7 +145,10 @@ end)
           let summary =
             `String (Resource_pool.Diff.summary @@ Envelope.Incoming.data diff)
           in
-          [%log' debug t.logger] "Verifying $diff" ~metadata:[("diff", summary)] ;
+          [%log' debug t.logger] "Verifying $diff from $sender"
+            ~metadata:
+              [ ("diff", summary)
+              ; ("sender", Envelope.Sender.to_yojson diff.sender) ] ;
           don't_wait_for
             ( match
                 Rate_limiter.add rl diff.sender ~now:(Time.now ())
@@ -152,7 +156,9 @@ end)
               with
             | `Capacity_exceeded ->
                 [%log' debug t.logger]
-                  ~metadata:[("sender", Envelope.Sender.to_yojson diff.sender)]
+                  ~metadata:
+                    [ ("sender", Envelope.Sender.to_yojson diff.sender)
+                    ; ("diff", summary) ]
                   "exceeded capacity from $sender" ;
                 Broadcast_callback.error
                   (Error.of_string "exceeded capacity")
@@ -249,10 +255,12 @@ end)
           "Preparing to rebroadcast locally generated resource pool diffs \
            $diffs"
           ~metadata:
-            [ ( "diffs"
+            [ ("count", `Int (List.length rebroadcastable))
+            ; ( "diffs"
               , `List
-                  (List.map ~f:Resource_pool.Diff.to_yojson rebroadcastable) )
-            ] ;
+                  (List.map
+                     ~f:(fun d -> `String (Resource_pool.Diff.summary d))
+                     rebroadcastable) ) ] ;
       let%bind () =
         Deferred.List.iter rebroadcastable
           ~f:(Linear_pipe.write t.write_broadcasts)

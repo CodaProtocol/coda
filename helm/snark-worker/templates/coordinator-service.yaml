@@ -20,4 +20,22 @@ spec:
   - name: tcp-client
     port: {{ .Values.coda.ports.client }}
     targetPort: client-port
+---
+{{- if .Values.coda.exposeGraphql }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ tpl .Values.coordinator.fullname . }}-graphql
+spec:
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  selector:
+    app: {{ tpl .Values.coordinator.fullname . }}
+  ports:
+  - name: http-graphql
+    protocol: TCP
+    port: 80
+    targetPort: {{ .Values.coda.ports.graphql }}
+{{- end }}
+---
 {{ end }}

@@ -36,6 +36,8 @@ module Inputs = struct
             Some
               ( module Transaction_snark.Make (struct
                 let constraint_constants = constraint_constants
+
+                let proof_level = proof_level
               end)
               : S )
         | Check | None ->
@@ -114,7 +116,7 @@ module Inputs = struct
                       Sparse_ledger.snapp_accounts w.ledger
                         (Transaction.forget t)
                     in
-                    Deferred.Or_error.try_with (fun () ->
+                    Deferred.Or_error.try_with ~here:[%here] (fun () ->
                         M.of_transaction ~sok_digest ~snapp_account1
                           ~snapp_account2
                           ~source:input.Transaction_snark.Statement.source

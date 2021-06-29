@@ -8,8 +8,7 @@ let runtime_config = Runtime_config.Test_configs.bootstrap
 let main () =
   let logger = Logger.create () in
   let%bind precomputed_values, _runtime_config =
-    Genesis_ledger_helper.init_from_config_file ~logger ~may_generate:false
-      ~proof_level:None
+    Genesis_ledger_helper.inputs_from_config_file ~logger ~proof_level:None
       (Lazy.force runtime_config)
     >>| Or_error.ok_exn
   in
@@ -17,7 +16,7 @@ let main () =
   let block_production_keys i = Some i in
   let snark_work_public_keys i =
     if i = 0 then
-      Some (Precomputed_values.largest_account_pk_exn precomputed_values)
+      Some (Genesis_proof.Inputs.largest_account_pk_exn precomputed_values)
     else None
   in
   let%bind testnet =

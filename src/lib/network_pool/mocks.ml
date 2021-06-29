@@ -6,7 +6,6 @@ open Mina_base
 let trust_system = Trust_system.null ()
 
 module Transaction_snark_work = Transaction_snark_work
-module Ledger_proof = Ledger_proof.Debug
 
 module Base_ledger = struct
   type t = Account.t Account_id.Map.t [@@deriving sexp]
@@ -31,7 +30,7 @@ end
 module Transition_frontier = struct
   type table = int Transaction_snark_work.Statement.Table.t [@@deriving sexp]
 
-  type diff = int * table [@@deriving sexp]
+  type diff = Extensions.Snark_pool_refcount.view [@@deriving sexp]
 
   type best_tip_diff = unit
 
@@ -43,6 +42,7 @@ module Transition_frontier = struct
 
   type t =
     { refcount_table: table
+    ; best_tip_table: Transaction_snark_work.Statement.Hash_set.t
     ; mutable ledger: Base_ledger.t
     ; diff_writer: diff Broadcast_pipe.Writer.t sexp_opaque
     ; diff_reader: diff Broadcast_pipe.Reader.t sexp_opaque }
@@ -58,10 +58,17 @@ module Transition_frontier = struct
 
   (*Create tf with some statements referenced to be able to add snark work for those statements to the pool*)
   let create _stmts : t =
-    let table = Transaction_snark_work.Statement.Table.create () in
+    let refcount_table = Transaction_snark_work.Statement.Table.create () in
+    let best_tip_table = Transaction_snark_work.Statement.Hash_set.create () in
     (*add_statements table stmts ;*)
-    let diff_reader, diff_writer = Broadcast_pipe.create (0, table) in
-    { refcount_table= table
+    let diff_reader, diff_writer =
+      Broadcast_pipe.create
+        { Extensions.Snark_pool_refcount.removed= 0
+        ; refcount_table
+        ; best_tip_table }
+    in
+    { refcount_table
+    ; best_tip_table
     ; ledger= Account_id.Map.empty
     ; diff_writer
     ; diff_reader }
@@ -72,9 +79,7 @@ module Transition_frontier = struct
     module Work = Transaction_snark_work.Statement
   end
 
-  let snark_pool_refcount_pipe (t : t) :
-      (int * int Transaction_snark_work.Statement.Table.t)
-      Broadcast_pipe.Reader.t =
+  let snark_pool_refcount_pipe (t : t) : diff Broadcast_pipe.Reader.t =
     t.diff_reader
 
   let best_tip_diff_pipe _ =
@@ -85,8 +90,22 @@ module Transition_frontier = struct
   let refer_statements (t : t) stmts =
     let open Deferred.Let_syntax in
     add_statements t.refcount_table stmts ;
+    List.iter ~f:(Hash_set.add t.best_tip_table) stmts ;
     let%bind () =
-      Broadcast_pipe.Writer.write t.diff_writer (0, t.refcount_table)
+      Broadcast_pipe.Writer.write t.diff_writer
+        { Transition_frontier.Extensions.Snark_pool_refcount.removed= 0
+        ; refcount_table= t.refcount_table
+        ; best_tip_table= t.best_tip_table }
+    in
+    Async.Scheduler.yield_until_no_jobs_remain ()
+
+  let remove_from_best_tip (t : t) stmts =
+    List.iter ~f:(Hash_set.remove t.best_tip_table) stmts ;
+    let%bind () =
+      Broadcast_pipe.Writer.write t.diff_writer
+        { Transition_frontier.Extensions.Snark_pool_refcount.removed= 0
+        ; refcount_table= t.refcount_table
+        ; best_tip_table= t.best_tip_table }
     in
     Async.Scheduler.yield_until_no_jobs_remain ()
 end

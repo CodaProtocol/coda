@@ -8,6 +8,7 @@ let Command = ./Command/Base.dhall
 let Docker = ./Command/Docker/Type.dhall
 let JobSpec = ./Pipeline/JobSpec.dhall
 let Pipeline = ./Pipeline/Dsl.dhall
+let PipelineMode = ./Pipeline/Mode.dhall
 let Size = ./Command/Size.dhall
 let triggerCommand = ./Pipeline/TriggerCommand.dhall
 
@@ -22,13 +23,21 @@ let jobs : List JobSpec.Type =
 let makeCommand : JobSpec.Type -> Cmd.Type = \(job : JobSpec.Type) ->
   let dirtyWhen = SelectFiles.compile job.dirtyWhen
   let trigger = triggerCommand "src/Jobs/${job.path}/${job.name}.dhall"
-  in Cmd.quietly ''
-    if cat _computed_diff.txt | egrep -q '${dirtyWhen}'; then
+  let pipelineType : PipelineMode = env:BUILDKITE_PIPELINE_MODE ? PipelineMode.PullRequest
+  let pipelineHandlers = {
+    PullRequest = ''
+      if cat _computed_diff.txt | egrep -q '${dirtyWhen}'; then
         echo "Triggering ${job.name} for reason:"
         cat _computed_diff.txt | egrep '${dirtyWhen}'
         ${Cmd.format trigger}
-    fi
-  ''
+      fi
+    '',
+    Stable = ''
+      echo "Triggering ${job.name} because this is a stable buildkite run"
+      ${Cmd.format trigger}
+    ''
+  }
+  in Cmd.quietly (merge pipelineHandlers pipelineType)
 
 let prefixCommands = [
   Cmd.run "git config --global http.sslCAInfo /etc/ssl/certs/ca-bundle.crt", -- Tell git where to find certs for https connections

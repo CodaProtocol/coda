@@ -74,6 +74,7 @@ val handle_committed_txn :
      t
   -> Transaction_hash.User_command_with_valid_signature.t
   -> fee_payer_balance:Currency.Amount.t
+  -> fee_payer_nonce:Mina_base.Account.Nonce.t
   -> ( t * Transaction_hash.User_command_with_valid_signature.t Sequence.t
      , [ `Queued_txns_by_sender of
          string

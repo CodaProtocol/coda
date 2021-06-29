@@ -17,6 +17,7 @@ spec:
         testnet: {{ .Values.testnetName }}
         role: snark-coordinator
         version: {{ trunc 6 (split ":" .Values.coda.image)._1 | trimSuffix "-" }}
+        syncStatus: INIT
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: {{ .Values.coda.ports.metrics | quote }}
@@ -43,6 +44,9 @@ spec:
           "-snark-worker-fee", "$(CODA_SNARK_FEE)",
           "-work-selection", "$(WORK_SELECTION)",
           "-enable-peer-exchange", "true",
+          {{- if $.Values.coda.logTxnPoolGossip }}
+          "-log-txn-pool-gossip", "true",
+          {{- end -}}
           {{- if $.Values.coda.runtimeConfig }}
           "-config-file", "/config/daemon.json",
           {{- end }}
@@ -92,7 +96,9 @@ spec:
           protocol: TCP 
           containerPort: {{ .Values.coda.ports.p2p }}
           hostPort: {{ .Values.coda.ports.p2p }}
-{{- include "healthcheck.snarkCoordinator.allChecks" .Values | indent 8 }}
+{{$name := tpl .Values.coordinator.fullname . }}
+{{$data := dict "name" $name "healthcheck" $.Values.healthcheck }}
+{{- include "healthcheck.snarkCoordinator.allChecks" $data | indent 8 }}
         imagePullPolicy: Always
       {{- if .Values.coda.runtimeConfig }}
         volumeMounts:

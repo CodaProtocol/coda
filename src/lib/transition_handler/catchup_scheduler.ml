@@ -284,6 +284,8 @@ let%test_module "Transition_handler.Catchup_scheduler tests" =
 
     let proof_level = precomputed_values.proof_level
 
+    let constraint_constants = precomputed_values.constraint_constants
+
     let trust_system = Trust_system.null ()
 
     let pids = Child_processes.Termination.create_pid_table ()
@@ -293,6 +295,11 @@ let%test_module "Transition_handler.Catchup_scheduler tests" =
     let max_length = 10
 
     let create = create ~logger ~trust_system ~time_controller
+
+    let verifier =
+      Async.Thread_safe.block_on_async_exn (fun () ->
+          Verifier.create ~logger ~proof_level ~constraint_constants
+            ~conf_dir:None ~pids )
 
     (* cast a breadcrumb into a cached, enveloped, partially validated transition *)
     let downcast_breadcrumb breadcrumb =
@@ -307,10 +314,6 @@ let%test_module "Transition_handler.Catchup_scheduler tests" =
     let%test_unit "catchup jobs fire after the timeout" =
       let timeout_duration = Block_time.Span.of_ms 200L in
       let test_delta = Block_time.Span.of_ms 100L in
-      let verifier =
-        Async.Thread_safe.block_on_async_exn (fun () ->
-            Verifier.create ~logger ~proof_level ~conf_dir:None ~pids )
-      in
       Quickcheck.test ~trials:3
         (Transition_frontier.For_tests.gen_with_branch ~precomputed_values
            ~verifier ~max_length ~frontier_size:1 ~branch_size:2 ())
@@ -361,10 +364,6 @@ let%test_module "Transition_handler.Catchup_scheduler tests" =
                    invalidated" =
       let timeout_duration = Block_time.Span.of_ms 200L in
       let test_delta = Block_time.Span.of_ms 100L in
-      let verifier =
-        Async.Thread_safe.block_on_async_exn (fun () ->
-            Verifier.create ~logger ~proof_level ~conf_dir:None ~pids )
-      in
       Quickcheck.test ~trials:3
         (Transition_frontier.For_tests.gen_with_branch ~precomputed_values
            ~verifier ~max_length ~frontier_size:1 ~branch_size:2 ())
@@ -446,10 +445,6 @@ let%test_module "Transition_handler.Catchup_scheduler tests" =
     let%test_unit "catchup scheduler should not create duplicate jobs when a \
                    sequence of transitions is added in reverse order" =
       let timeout_duration = Block_time.Span.of_ms 400L in
-      let verifier =
-        Async.Thread_safe.block_on_async_exn (fun () ->
-            Verifier.create ~logger ~proof_level ~conf_dir:None ~pids )
-      in
       Quickcheck.test ~trials:3
         (Transition_frontier.For_tests.gen_with_branch ~precomputed_values
            ~verifier ~max_length ~frontier_size:1 ~branch_size:5 ())

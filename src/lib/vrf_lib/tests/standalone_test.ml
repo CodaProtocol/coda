@@ -4,12 +4,17 @@ open Vrf_lib.Standalone
 let%test_module "vrf-test" =
   ( module struct
     (* Nothing in here is secure, it's just for the test *)
-    module Impl = Snarky.Snark.Make (Snarky.Backends.Mnt4.GM)
-    module Other_impl = Snarky.Snark.Make (Snarky.Backends.Mnt6.GM)
+    module Impl = Snark_params.Tick
+    module Other_impl = Snark_params.Tock
     module B = Bigint
 
     module Scalar = struct
-      include Snarky.Libsnark.Mnt6.Field
+      include (
+        Snark_params.Tick.Inner_curve.Scalar :
+          module type of Snark_params.Tick.Inner_curve.Scalar
+          with type t = Snark_params.Tick.Inner_curve.Scalar.t
+           and type var := Snark_params.Tick.Inner_curve.Scalar.var
+          with module Checked := Snark_params.Tick.Inner_curve.Scalar.Checked )
 
       let of_bits = Other_impl.Field.project
 
@@ -47,17 +52,29 @@ let%test_module "vrf-test" =
 
       type var = Field.Var.t * Field.Var.t
 
-      include Snarky.Libsnark.Mnt6.G1
+      include (
+        Snark_params.Tick.Inner_curve :
+          module type of Snark_params.Tick.Inner_curve
+          with type var := Snark_params.Tick.Inner_curve.var
+          with module Checked := Snark_params.Tick.Inner_curve.Checked )
+
+      type 'a or_infinity = 'a Marlin_plonk_bindings_types.Or_infinity.t =
+        | Infinity
+        | Finite of 'a
+      [@@deriving equal]
+
+      let equal x y =
+        Snark_params.Tick.Inner_curve.(
+          equal_or_infinity Affine.equal (to_affine_or_infinity x)
+            (to_affine_or_infinity y))
+
+      let scale_field = scale
 
       module Checked = struct
         include Snarky_curves.Make_weierstrass_checked
                   (Snarky_field_extensions.Field_extensions.F (Impl)) (Scalar)
-                  (struct
-                    include Snarky.Libsnark.Mnt6.G1
-
-                    let scale = scale_field
-                  end)
-                  (Snarky.Libsnark.Mnt6.G1.Coefficients)
+                  (Snark_params.Tick.Inner_curve)
+                  (Snark_params.Tick.Inner_curve.Params)
                   (struct
                     let add = None
                   end)
@@ -175,6 +192,8 @@ let%test_module "vrf-test" =
 
                   let of_sexpable = Curve.of_affine
                 end)
+
+      type value = t [@@deriving sexp]
 
       type var = Curve.var
 

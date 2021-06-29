@@ -32,13 +32,14 @@
 [%%define integration_tests false]
 [%%define force_updates false]
 
-[%%define download_snark_keys true]
+[%%define download_snark_keys false]
+[%%define generate_genesis_proof false]
 
 [%%define print_versioned_types false]
 
 [%%define daemon_expiry "2024-12-10 14:00:00-07:00"]
 [%%define test_full_epoch false]
 [%%import "/src/config/fork.mlh"]
-[%%import "/src/config/features/mainnet.mlh"]
+[%%import "/src/config/features/public_testnet.mlh"]
 (* 2*block_window_duration *)
 [%%define compaction_interval 360000]

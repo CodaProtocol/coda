@@ -11,7 +11,7 @@ type ledger_proof = Ledger_proof.Prod.t
 module Worker_state = struct
   module type S = sig
     val verify_blockchain_snarks :
-      (Protocol_state.Value.t * Proof.t) list -> bool
+      (Protocol_state.Value.t * Proof.t) list -> bool Deferred.t
 
     val verify_commands :
          Mina_base.User_command.Verifiable.t list
@@ -23,30 +23,45 @@ module Worker_state = struct
            * Pickles.Side_loaded.Proof.t )
            list ]
          list
+         Deferred.t
 
     val verify_transaction_snarks :
-      (Transaction_snark.t * Sok_message.t) list -> bool
+      (Transaction_snark.t * Sok_message.t) list -> bool Deferred.t
   end
 
   (* bin_io required by rpc_parallel *)
   type init_arg =
     { conf_dir: string option
     ; logger: Logger.Stable.Latest.t
-    ; proof_level: Genesis_constants.Proof_level.Stable.Latest.t }
+    ; proof_level: Genesis_constants.Proof_level.Stable.Latest.t
+    ; constraint_constants:
+        Genesis_constants.Constraint_constants.Stable.Latest.t }
   [@@deriving bin_io_unversioned]
 
   type t = (module S)
 
-  let create {logger; proof_level; _} : t Deferred.t =
+  let create {logger; proof_level; constraint_constants; _} : t Deferred.t =
     Memory_stats.log_memory_stats logger ~process:"verifier" ;
     match proof_level with
     | Full ->
         Deferred.return
-          (let bc_vk = Precomputed_values.blockchain_verification ()
-           and tx_vk = Precomputed_values.transaction_verification () in
-           let module M = struct
-             let verify_commands (cs : User_command.Verifiable.t list) : _ list
-                 =
+          (let module M = struct
+             module T = Transaction_snark.Make (struct
+               let constraint_constants = constraint_constants
+
+               let proof_level = proof_level
+             end)
+
+             module B = Blockchain_snark_state.Make (struct
+               let tag = T.tag
+
+               let constraint_constants = constraint_constants
+
+               let proof_level = proof_level
+             end)
+
+             let verify_commands (cs : User_command.Verifiable.t list) :
+                 _ list Deferred.t =
                let cs = List.map cs ~f:Common.check in
                let to_verify =
                  List.concat_map cs ~f:(function
@@ -57,7 +72,7 @@ module Worker_state = struct
                    | `Valid_assuming (_, xs) ->
                        xs )
                in
-               let all_verified =
+               let%map all_verified =
                  Pickles.Side_loaded.verify
                    ~value_to_field_elements:Snapp_statement.to_field_elements
                    to_verify
@@ -70,14 +85,10 @@ module Worker_state = struct
                  | `Valid_assuming (c, xs) ->
                      if all_verified then `Valid c else `Valid_assuming xs )
 
-             let verify_blockchain_snarks ts =
-               Blockchain_snark.Blockchain_snark_state.verify ts ~key:bc_vk
+             let verify_blockchain_snarks = B.Proof.verify
 
              let verify_transaction_snarks ts =
-               match
-                 Or_error.try_with (fun () ->
-                     Transaction_snark.verify ~key:tx_vk ts )
-               with
+               match Or_error.try_with (fun () -> T.verify ts) with
                | Ok result ->
                    result
                | Error e ->
@@ -87,7 +98,7 @@ module Worker_state = struct
                       snark" ;
                    failwith "Verifier crashed"
            end in
-           (module M : S))
+          (module M : S))
     | Check | None ->
         Deferred.return
         @@ ( module struct
@@ -100,10 +111,11 @@ module Worker_state = struct
                        `Invalid
                    | `Valid_assuming (c, _) ->
                        `Valid c )
+               |> Deferred.return
 
-             let verify_blockchain_snarks _ = true
+             let verify_blockchain_snarks _ = Deferred.return true
 
-             let verify_transaction_snarks _ = true
+             let verify_transaction_snarks _ = Deferred.return true
            end
            : S )
 
@@ -148,19 +160,18 @@ module Worker = struct
       let verify_blockchains (w : Worker_state.t) (chains : Blockchain.t list)
           =
         let (module M) = Worker_state.get w in
-        Deferred.return
-          (M.verify_blockchain_snarks
-             (List.map chains ~f:(fun snark ->
-                  ( Blockchain_snark.Blockchain.state snark
-                  , Blockchain_snark.Blockchain.proof snark ) )))
+        M.verify_blockchain_snarks
+          (List.map chains ~f:(fun snark ->
+               ( Blockchain_snark.Blockchain.state snark
+               , Blockchain_snark.Blockchain.proof snark ) ))
 
       let verify_transaction_snarks (w : Worker_state.t) ts =
         let (module M) = Worker_state.get w in
-        Deferred.return (M.verify_transaction_snarks ts)
+        M.verify_transaction_snarks ts
 
       let verify_commands (w : Worker_state.t) ts =
         let (module M) = Worker_state.get w in
-        Deferred.return (M.verify_commands ts)
+        M.verify_commands ts
 
       let functions =
         let f (i, o, f) =
@@ -195,7 +206,8 @@ module Worker = struct
                   list]
               , verify_commands ) }
 
-      let init_worker_state Worker_state.{conf_dir; logger; proof_level} =
+      let init_worker_state
+          Worker_state.{conf_dir; logger; proof_level; constraint_constants} =
         ( if Option.is_some conf_dir then
           let max_size = 256 * 1024 * 512 in
           let num_rotate = 1 in
@@ -206,7 +218,8 @@ module Worker = struct
                  ~directory:(Option.value_exn conf_dir)
                  ~log_filename:"mina-verifier.log" ~max_size ~num_rotate) ) ;
         [%log info] "Verifier started" ;
-        Worker_state.create {conf_dir; logger; proof_level}
+        Worker_state.create
+          {conf_dir; logger; proof_level; constraint_constants}
 
       let init_connection_state ~connection:_ ~worker_state:_ () =
         Deferred.unit
@@ -226,12 +239,10 @@ type t = {worker: worker Ivar.t ref; logger: Logger.Stable.Latest.t}
 let plus_or_minus initial ~delta =
   initial +. (Random.float (2. *. delta) -. delta)
 
-let min_expected_lifetime = Time.Span.of_min 1.
-
 (** Call this as early as possible after the process is known, and store the
     resulting [Deferred.t] somewhere to be used later.
 *)
-let wait_safe process =
+let wait_safe ~logger process =
   (* This is a little more nuanced than it may initially seem.
      - The initial call to [Process.wait] runs a wait syscall -- with the
        NOHANG flag -- synchronously.
@@ -251,8 +262,19 @@ let wait_safe process =
   *)
   match
     Or_error.try_with (fun () ->
-        let deferred_wait = Process.wait process in
-        Deferred.Or_error.try_with (fun () -> deferred_wait) )
+        let deferred_wait =
+          Monitor.try_with ~run:`Now
+            ~rest:
+              (`Call
+                (fun exn ->
+                  [%log warn]
+                    "Saw an error from Process.wait in wait_safe: $err"
+                    ~metadata:
+                      [("err", Error_json.error_to_yojson (Error.of_exn exn))]
+                  ))
+            (fun () -> Process.wait process)
+        in
+        Deferred.Result.map_error ~f:Error.of_exn deferred_wait )
   with
   | Ok x ->
       x
@@ -260,27 +282,45 @@ let wait_safe process =
       Deferred.Or_error.fail err
 
 (* TODO: investigate why conf_dir wasn't being used *)
-let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
+let create ~logger ~proof_level ~constraint_constants ~pids ~conf_dir :
+    t Deferred.t =
   let on_failure err =
     [%log error] "Verifier process failed with error $err"
       ~metadata:[("err", Error_json.error_to_yojson err)] ;
     Error.raise err
   in
-  let prev_start = ref (Time.of_span_since_epoch Time.Span.zero) in
   let create_worker () =
-    let now = Time.now () in
-    let prev_died_early =
-      Time.Span.( < ) (Time.diff now !prev_start) min_expected_lifetime
-    in
-    prev_start := now ;
-    let%map connection, process =
-      Worker.spawn_in_foreground_exn ~connection_timeout:(Time.Span.of_min 1.)
-        ~on_failure ~shutdown_on:Disconnect ~connection_state_init_arg:()
-        {conf_dir; logger; proof_level}
+    [%log info] "Starting a new verifier process" ;
+    let%map.Deferred.Or_error.Let_syntax connection, process =
+      (* This [try_with] isn't really here to catch an error that throws while
+         the process is being spawned. Indeed, the immediate [ok_exn] will
+         ensure that any errors that occur during that time are immediately
+         re-raised.
+         However, this *also* captures any exceptions raised by code scheduled
+         as a result of the inner calls, but which have not completed by the
+         time the process has been created.
+         In order to suppress errors around [wait]s coming from [Rpc_parallel]
+         -- in particular the "no child processes" WNOHANG error -- we supply a
+         [rest] handler for the 'rest' of the errors after the value is
+         determined, which logs the errors and then swallows them.
+      *)
+      Monitor.try_with ~name:"Verifier RPC worker" ~here:[%here] ~run:`Now
+        ~rest:
+          (`Call
+            (fun exn ->
+              let err = Error.of_exn ~backtrace:`Get exn in
+              [%log error] "Error from verifier worker $err"
+                ~metadata:[("err", Error_json.error_to_yojson err)] ))
+        (fun () ->
+          Worker.spawn_in_foreground_exn
+            ~connection_timeout:(Time.Span.of_min 1.) ~on_failure
+            ~shutdown_on:Disconnect ~connection_state_init_arg:()
+            {conf_dir; logger; proof_level; constraint_constants} )
+      |> Deferred.Result.map_error ~f:Error.of_exn
     in
     Child_processes.Termination.wait_for_process_log_errors ~logger process
       ~module_:__MODULE__ ~location:__LOC__ ;
-    let exit_or_signal = wait_safe process in
+    let exit_or_signal = wait_safe ~logger process in
     [%log info]
       "Daemon started process of kind $process_kind with pid $verifier_pid"
       ~metadata:
@@ -288,9 +328,13 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
         ; ( "process_kind"
           , `String Child_processes.Termination.(show_process_kind Verifier) )
         ] ;
-    if prev_died_early then
-      Child_processes.Termination.register_process pids process
-        Child_processes.Termination.Verifier ;
+    Child_processes.Termination.register_process pids process
+      Child_processes.Termination.Verifier ;
+    (* Always report termination as expected, and use the restart logic here
+       instead.
+    *)
+    let pid = Process.pid process in
+    Child_processes.Termination.mark_termination_as_expected pids pid ;
     don't_wait_for
     @@ Pipe.iter
          (Process.stdout process |> Reader.pipe)
@@ -307,7 +351,7 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
                 ~metadata:[("stderr", `String stderr)] ) ;
     {connection; process; exit_or_signal}
   in
-  let%map worker = create_worker () in
+  let%map worker = create_worker () |> Deferred.Or_error.ok_exn in
   let worker_ref = ref (Ivar.create_full worker) in
   let rec on_worker {connection= _; process; exit_or_signal} =
     let restart_after = Time.Span.(of_min (15. |> plus_or_minus ~delta:2.5)) in
@@ -323,11 +367,19 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
     in
     upon finished (fun e ->
         let pid = Process.pid process in
+        let create_worker_trigger = Ivar.create () in
+        don't_wait_for
+          (* If we don't hear back that the process has died after 10 seconds,
+             begin creating a new process anyway.
+          *)
+          (let%map () = after (Time.Span.of_sec 10.) in
+           Ivar.fill_if_empty create_worker_trigger ()) ;
         let () =
           match e with
           | `Unexpected_termination ->
               [%log error] "verifier terminated unexpectedly"
-                ~metadata:[("verifier_pid", `Int (Pid.to_int pid))]
+                ~metadata:[("verifier_pid", `Int (Pid.to_int pid))] ;
+              Ivar.fill_if_empty create_worker_trigger ()
           | `Time_to_restart | `Wait_threw_an_exception _ -> (
               ( match e with
               | `Wait_threw_an_exception err ->
@@ -337,12 +389,12 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
                     ~metadata:[("exn", Error_json.error_to_yojson err)]
               | _ ->
                   () ) ;
-              Child_processes.Termination.mark_termination_as_expected pids pid ;
               match Signal.send Signal.kill (`Pid pid) with
               | `No_such_process ->
                   [%log info]
                     "verifier failed to get sigkill (no such process)"
-                    ~metadata:[("verifier_pid", `Int (Pid.to_int pid))]
+                    ~metadata:[("verifier_pid", `Int (Pid.to_int pid))] ;
+                  Ivar.fill_if_empty create_worker_trigger ()
               | `Ok ->
                   [%log info] "verifier successfully got sigkill"
                     ~metadata:[("verifier_pid", `Int (Pid.to_int pid))] )
@@ -350,7 +402,7 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
         let new_worker = Ivar.create () in
         worker_ref := new_worker ;
         don't_wait_for
-        @@ let%bind exit_metadata =
+          (let%map exit_metadata =
              match%map exit_or_signal with
              | Ok res ->
                  [ ( "exit_status"
@@ -364,9 +416,24 @@ let create ~logger ~proof_level ~pids ~conf_dir : t Deferred.t =
                ( ("verifier_pid", `Int (Process.pid process |> Pid.to_int))
                :: exit_metadata ) ;
            Child_processes.Termination.remove pids pid ;
-           let%map worker = create_worker () in
-           on_worker worker ;
-           Ivar.fill new_worker worker )
+           Ivar.fill_if_empty create_worker_trigger ()) ;
+        don't_wait_for
+          (let%bind () = Ivar.read create_worker_trigger in
+           let rec try_create_worker () =
+             match%bind create_worker () with
+             | Ok worker ->
+                 on_worker worker ;
+                 Ivar.fill new_worker worker ;
+                 return ()
+             | Error err ->
+                 [%log error]
+                   "Failed to create a new verifier process: $err. Retrying..."
+                   ~metadata:[("err", Error_json.error_to_yojson err)] ;
+                 (* Wait 5s before retrying. *)
+                 let%bind () = after Time.Span.(of_sec 5.) in
+                 try_create_worker ()
+           in
+           try_create_worker ()) )
   in
   on_worker worker ;
   {worker= worker_ref; logger}
@@ -430,7 +497,7 @@ let verify_transaction_snarks {worker; logger} ts =
         |> Deferred.Or_error.map ~f:(fun x -> `Continue x) )
   in
   upon res (fun x ->
-      [%log trace] "verify $n transaction_snarks (after)"
+      [%log trace] "verify $n transaction_snarks (after)!"
         ~metadata:
           ( ("result", `String (Sexp.to_string ([%sexp_of: bool Or_error.t] x)))
           :: metadata () ) ) ;

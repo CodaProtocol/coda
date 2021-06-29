@@ -30,7 +30,9 @@ let get_path {path; cache} public_key =
   path ^/ filename
 
 let decode_public_key key file path logger =
-  match Public_key.Compressed.of_base58_check key with
+  match
+    Or_error.try_with (fun () -> Public_key.of_base58_check_decompress_exn key)
+  with
   | Ok pk ->
       Some pk
   | Error e ->
@@ -137,7 +139,8 @@ let create_hd_account t ~hd_index :
 let delete ({cache; _} as t : t) (pk : Public_key.Compressed.t) :
     (unit, [`Not_found]) Deferred.Result.t =
   Hashtbl.remove cache pk ;
-  Deferred.Or_error.try_with (fun () -> Unix.remove (get_path t pk))
+  Deferred.Or_error.try_with ~here:[%here] (fun () ->
+      Unix.remove (get_path t pk) )
   |> Deferred.Result.map_error ~f:(fun _ -> `Not_found)
 
 let pks ({cache; _} : t) = Public_key.Compressed.Table.keys cache

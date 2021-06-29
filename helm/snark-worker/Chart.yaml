@@ -2,14 +2,14 @@ apiVersion: v2
 name: snark-worker
 description: A Helm chart for Mina Protocol's SNARK worker nodes
 type: application
-version: 1.0.1
+version: 1.0.2
 appVersion: 1.16.0
 annotations:
   artifacthub.io/changes: |
     - enable daemon blockchain archival capability
 dependencies:
   - name: common-utilities
-    version: 0.0.8
+    version: 0.0.9
     repository: "https://coda-charts.storage.googleapis.com"
 icon: https://storage.googleapis.com/coda-charts/Mina_Icon_Secondary_RGB_Black.png
 keywords:

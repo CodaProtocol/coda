@@ -18,16 +18,19 @@ let config : Pipeline.Config.Type = Pipeline.Config::{
     dirtyWhen = [ SelectFiles.everything ]
   },
   steps = [
-  Command.build
-    Command.Config::{
+    Command.build Command.Config::{
       commands = [
+        Cmd.run "export BUILDKITE_PIPELINE_MODE=${env:BUILDKITE_PIPELINE_MODE as Text ? "(./buildkite/src/Pipeline/Mode.dhall).PullRequest"}",
         Cmd.run "./buildkite/scripts/generate-jobs.sh > buildkite/src/gen/Jobs.dhall",
         triggerCommand "src/Monorepo.dhall"
       ],
       label = "Prepare monorepo triage",
       key = "monorepo",
       target = Size.Small,
-      docker = Some Docker::{ image = (./Constants/ContainerImages.dhall).toolchainBase }
+      docker = Some Docker::{
+        image = (./Constants/ContainerImages.dhall).toolchainBase,
+        environment = ["BUILDKITE_AGENT_ACCESS_TOKEN"]
+      }
     }
   ]
 }

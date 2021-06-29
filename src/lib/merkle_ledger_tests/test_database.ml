@@ -40,7 +40,7 @@ let%test_module "test functor on in memory databases" =
       let create_new_account_exn mdb account =
         let public_key = Account.identifier account in
         let action, location =
-          MT.get_or_create_account_exn mdb public_key account
+          MT.get_or_create_account mdb public_key account |> Or_error.ok_exn
         in
         match action with
         | `Existed ->
@@ -115,7 +115,8 @@ let%test_module "test functor on in memory databases" =
             let account' = Account.create account_id balance' in
             let location = create_new_account_exn mdb account in
             let action, location' =
-              MT.get_or_create_account_exn mdb account_id account'
+              MT.get_or_create_account mdb account_id account'
+              |> Or_error.ok_exn
             in
             location = location'
             && action = `Existed
@@ -135,7 +136,8 @@ let%test_module "test functor on in memory databases" =
             |> Sequence.iter ~f:(fun account ->
                    let account_id = Account.identifier account in
                    let _, location =
-                     MT.get_or_create_account_exn mdb account_id account
+                     MT.get_or_create_account mdb account_id account
+                     |> Or_error.ok_exn
                    in
                    let location' =
                      MT.location_of_account mdb account_id |> Option.value_exn
@@ -166,9 +168,10 @@ let%test_module "test functor on in memory databases" =
         random_accounts max_height
         |> List.iter ~f:(fun account ->
                let action, location =
-                 MT.get_or_create_account_exn mdb
+                 MT.get_or_create_account mdb
                    (Account.identifier account)
                    account
+                 |> Or_error.ok_exn
                in
                match action with
                | `Added ->
@@ -334,7 +337,9 @@ let%test_module "test functor on in memory databases" =
             let open MT in
             let key = Quickcheck.random_value Account_id.gen in
             let start_hash = merkle_root ledger in
-            match get_or_create_account_exn ledger key Account.empty with
+            match
+              get_or_create_account ledger key Account.empty |> Or_error.ok_exn
+            with
             | `Existed, _ ->
                 failwith
                   "create_empty with empty ledger somehow already has that key?"

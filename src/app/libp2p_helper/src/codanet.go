@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	peerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"io"
+	"math"
 	"math/rand"
 	gonet "net"
 	"path"
+	"sync"
 	"time"
 
 	dsb "github.com/ipfs/go-ds-badger"
@@ -23,6 +24,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/metrics"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
+	peerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	protocol "github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/libp2p/go-libp2p-core/routing"
 	discovery "github.com/libp2p/go-libp2p-discovery"
@@ -41,7 +43,7 @@ import (
 	mplex "github.com/libp2p/go-mplex"
 )
 
-const NodeStatusTimeout = 1000 * time.Millisecond
+const NodeStatusTimeout = 10 * time.Second
 
 func parseCIDR(cidr string) gonet.IPNet {
 	_, ipnet, err := gonet.ParseCIDR(cidr)
@@ -52,6 +54,8 @@ func parseCIDR(cidr string) gonet.IPNet {
 }
 
 type getRandomPeersFunc func(num int, from peer.ID) []peer.AddrInfo
+
+const numPxConnectionWorkers int = 8
 
 var (
 	logger      = logging.Logger("codanet.Helper")
@@ -67,7 +71,7 @@ var (
 		"169.254.0.0/16",
 	}
 
-	pxProtocolID        = protocol.ID("/mina/peer-exchange")
+	pxProtocolID         = protocol.ID("/mina/peer-exchange")
 	NodeStatusProtocolID = protocol.ID("/mina/node-status")
 
 	privateIpFilter *ma.Filters = nil
@@ -159,10 +163,6 @@ func (cm *CodaConnectionManager) Connected(net network.Network, c network.Conn) 
 	cm.OnConnect(net, c)
 	cm.p2pManager.Notifee().Connected(net, c)
 
-	if !cm.minaPeerExchange {
-		return
-	}
-
 	info := cm.GetInfo()
 	if len(net.Peers()) <= info.HighWater {
 		return
@@ -171,6 +171,10 @@ func (cm *CodaConnectionManager) Connected(net network.Network, c network.Conn) 
 	cm.TrimOpenConns(context.Background())
 
 	logger.Debugf("node=%s disconnecting from peer=%s; max peers=%d peercount=%d", c.LocalPeer(), c.RemotePeer(), info.HighWater, len(net.Peers()))
+
+	if !cm.minaPeerExchange {
+		return
+	}
 
 	defer func() {
 		go func() {
@@ -235,8 +239,54 @@ type Helper struct {
 	GatingState       *CodaGatingState
 	ConnectionManager *CodaConnectionManager
 	BandwidthCounter  *metrics.BandwidthCounter
+	MsgStats          *MessageStats
 	Seeds             []peer.AddrInfo
 	NodeStatus        string
+	pxDiscoveries     chan peer.AddrInfo
+}
+
+type MessageStats struct {
+	min   uint64
+	avg   uint64
+	max   uint64
+	total uint64
+	sync.RWMutex
+}
+
+func (ms *MessageStats) UpdateMetrics(val uint64) {
+	ms.Lock()
+	defer ms.Unlock()
+	if ms.max < val {
+		ms.max = val
+	}
+
+	if ms.min > val {
+		ms.min = val
+	}
+
+	ms.total++
+	if ms.avg == 0 {
+		ms.avg = val
+	} else {
+		ms.avg = (ms.avg*(ms.total-1) + val) / ms.total
+	}
+}
+
+type safeStats struct {
+	Min float64
+	Max float64
+	Avg float64
+}
+
+func (ms *MessageStats) GetStats() *safeStats {
+	ms.RLock()
+	defer ms.RUnlock()
+
+	return &safeStats{
+		Min: float64(ms.min),
+		Max: float64(ms.max),
+		Avg: float64(ms.avg),
+	}
 }
 
 // this type implements the ConnectionGating interface
@@ -500,19 +550,11 @@ func (h *Helper) handlePxStreams(s network.Stream) {
 	}
 
 	for _, p := range peers {
-		go func(p peer.AddrInfo) {
-			connInfo := h.ConnectionManager.GetInfo()
-			if connInfo.ConnCount < connInfo.LowWater {
-				err = h.Host.Connect(h.Ctx, p)
-				if err != nil {
-					logger.Debugf("failed to connect to peer %v err=%s", p, err)
-				} else {
-					logger.Debugf("connected to peer! %v", p)
-				}
-			} else {
-				h.Host.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.ConnectedAddrTTL)
-			}
-		}(p)
+		select {
+		case h.pxDiscoveries <- p:
+		default:
+			logger.Debugf("peer discoveries channel full; dropping peer %v", p)
+		}
 	}
 }
 
@@ -542,6 +584,23 @@ func (h *Helper) handleNodeStatusStreams(s network.Stream) {
 	}
 
 	logger.Debugf("wrote node status to stream %s", s.Protocol())
+}
+
+func (h Helper) pxConnectionWorker() {
+	for peer := range h.pxDiscoveries {
+		connInfo := h.ConnectionManager.GetInfo()
+		if connInfo.ConnCount < connInfo.LowWater {
+			err := h.Host.Connect(h.Ctx, peer)
+			if err != nil {
+				logger.Debugf("failed to connect to peer %v err=%s", peer, err)
+			} else {
+				logger.Debugf("connected to peer! %v", peer)
+			}
+		} else {
+			logger.Debugf("discovered peer (%v) via peer exchange, but already have too many connections; adding to peerstore, but refusing to connect", peer)
+			h.Host.Peerstore().AddAddrs(peer.ID, peer.Addrs, peerstore.ConnectedAddrTTL)
+		}
+	}
 }
 
 // MakeHelper does all the initialization to run one host
@@ -638,11 +697,18 @@ func MakeHelper(ctx context.Context, listenOn []ma.Multiaddr, externalAddr ma.Mu
 		GatingState:       gatingState,
 		ConnectionManager: connManager,
 		BandwidthCounter:  bandwidthCounter,
+		MsgStats:          &MessageStats{min: math.MaxUint64},
 		Seeds:             seeds,
+		pxDiscoveries:     nil,
 	}
 
 	if !minaPeerExchange {
 		return h, nil
+	}
+
+	h.pxDiscoveries = make(chan peer.AddrInfo, maxConnections*3)
+	for w := 0; w < numPxConnectionWorkers; w++ {
+		go h.pxConnectionWorker()
 	}
 
 	connManager.getRandomPeers = h.getRandomPeers

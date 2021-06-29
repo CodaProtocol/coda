@@ -1,0 +1,6 @@
+(library
+ (name archive_cli)
+ (public_name archive.cli)
+ (libraries core async archive_lib cli_lib caqti caqti-async caqti-driver-postgresql)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_version ppx_jane ppx_coda)))

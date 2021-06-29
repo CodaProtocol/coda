@@ -1,0 +1,18 @@
+(executable
+ (package patch_archive_test)
+ (name patch_archive_test)
+ (public_name patch_archive_test)
+ (libraries
+   async
+   core_kernel
+   caqti
+   caqti-async
+   caqti-driver-postgresql
+   archive_lib
+   block_time
+   mina_numbers
+   logger
+   mina_base)
+ (preprocessor_deps ../../config.mlh)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_version ppx_coda ppx_let ppx_hash ppx_compare ppx_sexp_conv h_list.ppx)))

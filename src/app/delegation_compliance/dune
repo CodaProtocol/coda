@@ -1,0 +1,21 @@
+(executable
+ (package delegation_compliance)
+ (name delegation_compliance)
+ (public_name delegation_compliance)
+ (libraries
+   async_kernel
+   core
+   caqti
+   caqti-async
+   caqti-driver-postgresql
+   archive_lib
+   mina_base
+   mina_state
+   genesis_constants
+   genesis_ledger_helper
+   yojson
+ )
+ (preprocessor_deps ../../config.mlh)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_coda ppx_version ppx_let ppx_sexp_conv ppx_deriving.show
+                  ppx_hash ppx_compare ppx_deriving_yojson h_list.ppx)))

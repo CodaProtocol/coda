@@ -371,7 +371,7 @@ There's several gotchas here that the script will check for:
 Next, you must create a new testnet in `terraform/testnets/`. For ease of use, you can copy-paste an existing one, however it's important to go through the terraform and change the following things:
 
 - location of Terraform state file
-- Name of testnet
+- Name of testnet (Note: Prefix it with `test-` for testnets that don't require alerting. For example, private testnets for testing specific features)
 - number of nodes to deploy
 - Location of the Genesis Ledger
 

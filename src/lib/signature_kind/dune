@@ -1,0 +1,7 @@
+(library
+ (name mina_signature_kind)
+ (public_name mina_signature_kind)
+ (preprocess (pps ppx_version))
+ (instrumentation (backend bisect_ppx))
+ (virtual_modules mina_signature_kind)
+ (default_implementation mina_signature_kind_config))

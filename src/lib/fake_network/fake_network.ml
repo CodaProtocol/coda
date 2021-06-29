@@ -153,10 +153,11 @@ module Generator = struct
 
   type peer_config =
        precomputed_values:Precomputed_values.t
+    -> verifier:Verifier.t
     -> max_frontier_length:int
     -> peer_state Generator.t
 
-  let fresh_peer ~precomputed_values ~max_frontier_length =
+  let fresh_peer ~precomputed_values ~verifier ~max_frontier_length =
     let epoch_ledger_location =
       Filename.temp_dir_name ^/ "epoch_ledger"
       ^ (Uuid_unix.create () |> Uuid.to_string)
@@ -174,12 +175,12 @@ module Generator = struct
           (With_hash.hash precomputed_values.protocol_state_with_hash)
     in
     let%map frontier =
-      Transition_frontier.For_tests.gen ~precomputed_values
+      Transition_frontier.For_tests.gen ~precomputed_values ~verifier
         ~consensus_local_state ~max_length:max_frontier_length ~size:0 ()
     in
     {frontier; consensus_local_state}
 
-  let peer_with_branch ~frontier_branch_size ~precomputed_values
+  let peer_with_branch ~frontier_branch_size ~precomputed_values ~verifier
       ~max_frontier_length =
     let epoch_ledger_location =
       Filename.temp_dir_name ^/ "epoch_ledger"
@@ -199,7 +200,7 @@ module Generator = struct
     in
     let%map frontier, branch =
       Transition_frontier.For_tests.gen_with_branch ~precomputed_values
-        ~max_length:max_frontier_length ~frontier_size:0
+        ~verifier ~max_length:max_frontier_length ~frontier_size:0
         ~branch_size:frontier_branch_size ~consensus_local_state ()
     in
     Async.Thread_safe.block_on_async_exn (fun () ->
@@ -207,11 +208,11 @@ module Generator = struct
           ~f:(Transition_frontier.add_breadcrumb_exn frontier) ) ;
     {frontier; consensus_local_state}
 
-  let gen ~precomputed_values ~max_frontier_length configs =
+  let gen ~precomputed_values ~verifier ~max_frontier_length configs =
     let open Quickcheck.Generator.Let_syntax in
     let%map states =
       Vect.Quickcheck_generator.map configs ~f:(fun config ->
-          config ~precomputed_values ~max_frontier_length )
+          config ~precomputed_values ~verifier ~max_frontier_length )
     in
     setup ~precomputed_values states
 end

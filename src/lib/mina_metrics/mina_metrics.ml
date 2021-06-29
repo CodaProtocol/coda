@@ -820,6 +820,40 @@ module Block_latency = struct
       ()
 end
 
+module Rejected_blocks = struct
+  let subsystem = "Rejected_blocks"
+
+  let worse_than_root =
+    let help =
+      "The number of blocks rejected due to the blocks are not selected over \
+       our root"
+    in
+    Counter.v "worse_than_root" ~help ~namespace ~subsystem
+
+  let no_common_ancestor =
+    let help =
+      "The number of blocks rejected due to the blocks do not share a common \
+       ancestor with our root"
+    in
+    Counter.v "no_common_ancestor" ~help ~namespace ~subsystem
+
+  let invalid_proof =
+    let help = "The number of blocks rejected due to invalid proof" in
+    Counter.v "invalid_proof" ~help ~namespace ~subsystem
+
+  let received_late =
+    let help =
+      "The number of blocks rejected due to blocks being received too late"
+    in
+    Counter.v "received_late" ~help ~namespace ~subsystem
+
+  let received_early =
+    let help =
+      "The number of blocks rejected due to blocks being received too early"
+    in
+    Counter.v "received_early" ~help ~namespace ~subsystem
+end
+
 module Object_lifetime_statistics = struct
   let subsystem = "Object_lifetime_statistics"
 

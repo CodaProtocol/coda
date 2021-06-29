@@ -49,7 +49,12 @@ fi
 
 # All our ocaml packages
 opam update
-opam switch import src/opam.export
+if [[ "$OSTYPE" == "darwin*" ]]; then
+  PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig LIBRARY_PATH=/usr/local/lib opam switch import src/opam.export
+else
+  opam switch import src/opam.export
+fi
+
 eval $(opam config env)
 
 # Extlib gets automatically installed, but we want our pin, so we should

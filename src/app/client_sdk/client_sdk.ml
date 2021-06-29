@@ -20,7 +20,7 @@ open Rosetta_coding_nonconsensus
 open Js_util
 
 let _ =
-  Js.export "codaSDK"
+  Js.export "minaSDK"
     (object%js (_self)
        (** public key corresponding to a private key *)
        method publicKeyOfPrivateKey (sk_base58_check_js : string_js) =
@@ -53,7 +53,7 @@ let _ =
        method rawPublicKeyOfPublicKey (pk_base58_check_js : string_js) =
          let pk =
            Js.to_string pk_base58_check_js
-           |> Public_key.Compressed.of_base58_check_exn
+           |> Public_key.of_base58_check_decompress_exn
          in
          Coding.of_public_key_compressed pk |> Js.string
 
@@ -259,6 +259,27 @@ let _ =
                 exclusively"
          | Error msg ->
              make_error msg
+
+       method signedRosettaTransactionToSignedCommand
+             (signedRosettaTxn : string_js) =
+         let signed_txn_json =
+           Js.to_string signedRosettaTxn |> Yojson.Safe.from_string
+         in
+         let result_json =
+           match Transaction.to_mina_signed signed_txn_json with
+           | Ok signed_cmd ->
+               let cmd_json = Signed_command.to_yojson signed_cmd in
+               `Assoc [("data", cmd_json)]
+           | Error err ->
+               let open Core_kernel in
+               let err_msg =
+                 sprintf
+                   "Could not parse JSON for signed Rosetta transaction: %s"
+                   (Error.to_string_hum err)
+               in
+               `Assoc [("error", `String err_msg)]
+         in
+         Js.string (Yojson.Safe.to_string result_json)
 
        method runUnitTests () : bool Js.t = Coding.run_unit_tests () ; Js._true
     end)

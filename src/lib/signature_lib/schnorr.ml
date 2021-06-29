@@ -414,16 +414,12 @@ module Message = struct
 
   type t = (Field.t, bool) Random_oracle.Input.t [@@deriving sexp]
 
-  [%%if
-  mainnet]
-
-  let network_id = Char.of_int_exn 1
-
-  [%%else]
-
-  let network_id = Char.of_int_exn 0
-
-  [%%endif]
+  let network_id =
+    match Mina_signature_kind.t with
+    | Mainnet ->
+        Char.of_int_exn 1
+    | Testnet ->
+        Char.of_int_exn 0
 
   let derive t ~private_key ~public_key =
     let input =

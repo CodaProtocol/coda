@@ -1,4 +1,4 @@
-(** Management of starting, tracking, and killing child processes. *)
+(* child_processes.ml -- management of starting, tracking, and killing child processes. *)
 
 open Core
 open Async
@@ -30,8 +30,8 @@ let stdin : t -> Writer.t = fun t -> t.stdin
 let termination_status : t -> Unix.Exit_or_signal.t Or_error.t option =
  fun t -> Ivar.peek t.terminated_ivar
 
-(** Try running [f] until it returns [Ok], returning the first [Ok] or [Error]
-    if all attempts fail. *)
+(* Try running [f] until it returns [Ok], returning the first [Ok] or [Error]
+   if all attempts fail. *)
 let keep_trying :
     f:('a -> 'b Deferred.Or_error.t) -> 'a list -> 'b Deferred.Or_error.t =
  fun ~f xs ->
@@ -72,7 +72,7 @@ let get_project_root () =
    - argv[0] might have been deleted (this is quite common with jenga)
    - `cp /proc/PID/exe dst` works as expected while `cp /proc/self/exe dst` does
      not *)
-let get_coda_binary () =
+let get_mina_binary () =
   let open Async in
   let open Deferred.Or_error.Let_syntax in
   let%bind os = Process.run ~prog:"uname" ~args:["-s"] () in
@@ -162,9 +162,10 @@ type output_handling =
   * [`Pipe | `No_pipe]
   * [`Keep_empty | `Filter_empty]
 
-(** Given a Reader.t coming from a process output, optionally log the lines
-    coming from it and return a strict pipe that will get the lines if the
-    argument is `Pipe and be empty if it's `No_pipe. *)
+(* Given a Reader.t coming from a process output, optionally log the lines
+   coming from it and return a strict pipe that will get the lines if the
+   argument is `Pipe and be empty if it's `No_pipe.
+*)
 let reader_to_strict_pipe_with_logging :
        Reader.t
     -> string
@@ -267,7 +268,7 @@ let start_custom :
     ~metadata:
       [ ("name", `String name)
       ; ("args", `List (List.map args ~f:(fun a -> `String a))) ] ;
-  let%bind coda_binary_path = get_coda_binary () in
+  let%bind mina_binary_path = get_mina_binary () in
   let relative_to_root =
     get_project_root ()
     |> Option.map ~f:(fun root -> root ^/ git_root_relative_path)
@@ -277,7 +278,8 @@ let start_custom :
       (List.filter_opt
          [ Unix.getenv @@ "CODA_" ^ String.uppercase name ^ "_PATH"
          ; relative_to_root
-         ; Some (Filename.dirname coda_binary_path ^/ name)
+         ; Some (Filename.dirname mina_binary_path ^/ name)
+         ; Some ("mina-" ^ name)
          ; Some ("coda-" ^ name) ])
       ~f:(fun prog -> Process.create ~stdin:"" ~prog ~args ())
   in
@@ -318,7 +320,7 @@ let start_custom :
   don't_wait_for
     (let open Deferred.Let_syntax in
     let%bind termination_status =
-      Deferred.Or_error.try_with (fun () -> Process.wait process)
+      Deferred.Or_error.try_with ~here:[%here] (fun () -> Process.wait process)
     in
     [%log trace] "child process %s died" name ;
     don't_wait_for

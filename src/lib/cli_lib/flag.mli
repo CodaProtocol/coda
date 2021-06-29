@@ -34,6 +34,12 @@ module Uri : sig
 
   module Client : sig
     val rest_graphql : Uri.t Types.with_name Command.Spec.param
+
+    val rest_graphql_opt : Uri.t Types.with_name option Command.Spec.param
+
+    val name : string
+
+    val default : Uri.t
   end
 
   module Archive : sig

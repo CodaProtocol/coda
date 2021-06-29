@@ -275,6 +275,9 @@ let block_winner =
 
 let commands = Fn.compose Staged_ledger_diff.commands staged_ledger_diff
 
+let completed_works =
+  Fn.compose Staged_ledger_diff.completed_works staged_ledger_diff
+
 let to_yojson t =
   `Assoc
     [ ("protocol_state", Protocol_state.value_to_yojson (protocol_state t))
@@ -887,6 +890,8 @@ module With_validation = struct
 
   let commands t = lift commands t
 
+  let completed_works t = lift completed_works t
+
   let transactions ~constraint_constants t =
     lift (transactions ~constraint_constants) t
 
@@ -1056,6 +1061,7 @@ module Validated = struct
     , supercharge_coinbase
     , transactions
     , commands
+    , completed_works
     , payments
     , global_slot
     , erase
@@ -1081,22 +1087,19 @@ let genesis ~precomputed_values =
   let genesis_protocol_state =
     Precomputed_values.genesis_state_with_hash precomputed_values
   in
-  let protocol_state_proof =
-    Precomputed_values.genesis_proof precomputed_values
-  in
-  let empty_diff =
-    { Staged_ledger_diff.diff=
-        ( { completed_works= []
-          ; commands= []
-          ; coinbase= Staged_ledger_diff.At_most_two.Zero
-          ; internal_command_balances= [] }
-        , None ) }
-  in
+  let empty_diff = Staged_ledger_diff.empty_diff in
   (* the genesis transition is assumed to be valid *)
   let (`I_swear_this_is_safe_see_my_comment transition) =
     Validated.create_unsafe_pre_hashed
       (With_hash.map genesis_protocol_state ~f:(fun protocol_state ->
-           create ~protocol_state ~protocol_state_proof
+           create
+             ~protocol_state
+               (* We pass a dummy proof here, with the understanding that it will
+                never be validated except as part of the snark for the first
+                block produced (where we will explicitly generate the genesis
+                proof).
+             *)
+             ~protocol_state_proof:Proof.blockchain_dummy
              ~staged_ledger_diff:empty_diff
              ~validation_callback:
                (Mina_net2.Validation_callback.create_without_expiration ())

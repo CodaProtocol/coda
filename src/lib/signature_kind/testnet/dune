@@ -1,0 +1,6 @@
+(library
+ (name mina_signature_kind_testnet)
+ (public_name mina_signature_kind.testnet)
+ (preprocess (pps ppx_version))
+ (instrumentation (backend bisect_ppx))
+ (implements mina_signature_kind))

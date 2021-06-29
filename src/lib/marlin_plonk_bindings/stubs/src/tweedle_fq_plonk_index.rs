@@ -25,11 +25,13 @@ use crate::plonk_gate::{CamlPlonkCol, CamlPlonkGate, CamlPlonkWire};
 use crate::tweedle_fq_urs::CamlTweedleFqUrs;
 
 pub struct CamlTweedleFqPlonkGateVector(Vec<Gate<Fq>>);
-pub type CamlTweedleFqPlonkGateVectorPtr = ocaml::Pointer<CamlTweedleFqPlonkGateVector>;
+pub type CamlTweedleFqPlonkGateVectorPtr<'a> = ocaml::Pointer<'a, CamlTweedleFqPlonkGateVector>;
 
-extern "C" fn caml_tweedle_fq_plonk_gate_vector_finalize(v: ocaml::Value) {
-    let v: CamlTweedleFqPlonkGateVectorPtr = ocaml::FromValue::from_value(v);
-    unsafe { v.drop_in_place() };
+extern "C" fn caml_tweedle_fq_plonk_gate_vector_finalize(v: ocaml::Raw) {
+    unsafe {
+        let v: CamlTweedleFqPlonkGateVectorPtr = v.as_pointer();
+        v.drop_in_place()
+    };
 }
 
 ocaml::custom!(CamlTweedleFqPlonkGateVector {
@@ -98,11 +100,11 @@ pub fn caml_tweedle_fq_plonk_gate_vector_wrap(
 /* Boxed so that we don't store large proving indexes in the OCaml heap. */
 
 pub struct CamlTweedleFqPlonkIndex<'a>(pub Box<DlogIndex<'a, GAffine>>, pub Rc<SRS<GAffine>>);
-pub type CamlTweedleFqPlonkIndexPtr<'a> = ocaml::Pointer<CamlTweedleFqPlonkIndex<'a>>;
+pub type CamlTweedleFqPlonkIndexPtr<'a> = ocaml::Pointer<'a, CamlTweedleFqPlonkIndex<'a>>;
 
-extern "C" fn caml_tweedle_fq_plonk_index_finalize(v: ocaml::Value) {
-    let mut v: CamlTweedleFqPlonkIndexPtr = ocaml::FromValue::from_value(v);
+extern "C" fn caml_tweedle_fq_plonk_index_finalize(v: ocaml::Raw) {
     unsafe {
+        let mut v: CamlTweedleFqPlonkIndexPtr = v.as_pointer();
         v.as_mut_ptr().drop_in_place();
     }
 }

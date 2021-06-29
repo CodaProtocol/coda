@@ -1,12 +1,21 @@
 #
 # Determine whether a local daemon is SYNCed with its network
 #
+
+function updateSyncStatusLabel() {
+    status=$(
+        curl --silent --show-error --header "Content-Type:application/json" -d'{ "query": "query { syncStatus } " }' localhost:3085/graphql | \
+            jq '.data.syncStatus'
+    )
+    str=$(echo ${status} | sed 's/"//g' )
+    kubectl label --overwrite=true pod -l app=$1 syncStatus=${str}
+}
+
 function isDaemonSynced() {
     status=$(
         curl --silent --show-error --header "Content-Type:application/json" -d'{ "query": "query { syncStatus } " }' localhost:3085/graphql | \
             jq '.data.syncStatus'
     )
-
     case ${status} in
       \"BOOTSTRAP\")
         ;&

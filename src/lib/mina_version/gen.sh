@@ -4,17 +4,17 @@ set -e
 commit_id_short=$(git rev-parse --short=8 --verify HEAD)
 CWD=$PWD
 
-if [ -n "$CODA_BRANCH" ]; then
-  branch="$CODA_BRANCH"
+if [ -n "$MINA_BRANCH" ]; then
+  branch="$MINA_BRANCH"
 else
   branch=$(git rev-parse --verify --abbrev-ref HEAD || echo "<none found>")
 fi
 
 # we are nested 5 directories deep (_build/<context>/src/lib/mina_version)
 pushd ../../../../..
-  if [ -n "$CODA_COMMIT_SHA1" ]; then
+  if [ -n "$MINA_COMMIT_SHA1" ]; then
     # pull from env var if set
-    id="$CODA_COMMIT_SHA1"
+    id="$MINA_COMMIT_SHA1"
   else
     if [ ! -e .git ]; then echo 'Error: git repository not found'; exit 1; fi
     id=$(git rev-parse --verify HEAD)

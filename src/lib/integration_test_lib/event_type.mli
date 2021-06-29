@@ -62,6 +62,42 @@ module Breadcrumb_added : sig
   include Event_type_intf with type t := t
 end
 
+module Gossip : sig
+  module Direction : sig
+    type t = Sent | Received [@@deriving yojson]
+  end
+
+  module With_direction : sig
+    type 'a t = 'a * Direction.t [@@deriving yojson]
+  end
+
+  module Block : sig
+    type r = {state_hash: State_hash.t} [@@deriving hash, yojson]
+
+    type t = r With_direction.t
+
+    include Event_type_intf with type t := t
+  end
+
+  module Snark_work : sig
+    type r = {work: Network_pool.Snark_pool.Resource_pool.Diff.compact}
+    [@@deriving hash, yojson]
+
+    type t = r With_direction.t
+
+    include Event_type_intf with type t := t
+  end
+
+  module Transactions : sig
+    type r = {txns: Network_pool.Transaction_pool.Resource_pool.Diff.t}
+    [@@deriving hash, yojson]
+
+    type t = r With_direction.t
+
+    include Event_type_intf with type t := t
+  end
+end
+
 type 'a t =
   | Log_error : Log_error.t t
   | Node_initialization : Node_initialization.t t
@@ -69,6 +105,9 @@ type 'a t =
       : Transition_frontier_diff_application.t t
   | Block_produced : Block_produced.t t
   | Breadcrumb_added : Breadcrumb_added.t t
+  | Block_gossip : Gossip.Block.t t
+  | Snark_work_gossip : Gossip.Snark_work.t t
+  | Transactions_gossip : Gossip.Transactions.t t
 
 val to_string : 'a t -> string
 

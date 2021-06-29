@@ -3,11 +3,6 @@ pull_request_rules:
       conditions:
           - "status-success=buildkite/mina-pr-gating"
           - "status-success=buildkite/mina/pr"
-          - "status-success=ci/circleci: test--dev--coda-bootstrap-test"
-          - "status-success=ci/circleci: test--dev--coda-delegation-test"
-          - "status-success=ci/circleci: test--dev--coda-shared-state-test"
-          - "status-success=ci/circleci: test--test_postake_snarkless"
-          - "status-success=ci/circleci: test--test_postake_split"
           - "#approved-reviews-by>=1"
           - label=ready-to-merge
       actions:
@@ -19,11 +14,6 @@ pull_request_rules:
       conditions:
           - "status-success=buildkite/mina-pr-gating"
           - "status-success=buildkite/mina/pr"
-          - "status-success=ci/circleci: test--dev--coda-bootstrap-test"
-          - "status-success=ci/circleci: test--dev--coda-delegation-test"
-          - "status-success=ci/circleci: test--dev--coda-shared-state-test"
-          - "status-success=ci/circleci: test--test_postake_snarkless"
-          - "status-success=ci/circleci: test--test_postake_split"
           - "#approved-reviews-by>=1"
           - label=ready-to-merge-into-develop
           - base=develop
@@ -36,11 +26,6 @@ pull_request_rules:
       conditions:
           - "status-success=buildkite/mina-pr-gating"
           - "status-success=buildkite/mina/pr"
-          - "status-success=ci/circleci: test--dev--coda-bootstrap-test"
-          - "status-success=ci/circleci: test--dev--coda-delegation-test"
-          - "status-success=ci/circleci: test--dev--coda-shared-state-test"
-          - "status-success=ci/circleci: test--test_postake_snarkless"
-          - "status-success=ci/circleci: test--test_postake_split"
           - "#approved-reviews-by>=1"
           - label=ready-to-merge-into-develop
           - base=develop-until-4.1-hardfork
@@ -53,11 +38,6 @@ pull_request_rules:
       conditions:
           - "status-success=buildkite/mina-pr-gating"
           - "status-success=buildkite/mina/pr"
-          - "status-success=ci/circleci: test--dev--coda-bootstrap-test"
-          - "status-success=ci/circleci: test--dev--coda-delegation-test"
-          - "status-success=ci/circleci: test--dev--coda-shared-state-test"
-          - "status-success=ci/circleci: test--test_postake_snarkless"
-          - "status-success=ci/circleci: test--test_postake_split"
           - "#approved-reviews-by>=1"
           - label=ready-to-merge-into-develop
           - base=develop-until-adversarial

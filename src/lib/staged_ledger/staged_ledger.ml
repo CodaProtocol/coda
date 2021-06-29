@@ -1926,6 +1926,14 @@ let%test_module "test" =
     let constraint_constants =
       Genesis_constants.Constraint_constants.for_unit_tests
 
+    let logger = Logger.null ()
+
+    let verifier =
+      Async.Thread_safe.block_on_async_exn (fun () ->
+          Verifier.create ~logger ~proof_level ~constraint_constants
+            ~conf_dir:None
+            ~pids:(Child_processes.Termination.create_pid_table ()) )
+
     let supercharge_coinbase ~ledger ~winner ~global_slot =
       (*using staged ledger to confirm coinbase amount is correctly generated*)
       let epoch_ledger =
@@ -1938,7 +1946,7 @@ let%test_module "test" =
     let create_and_apply_with_state_body_hash
         ?(coinbase_receiver = coinbase_receiver) ?(winner = self_pk)
         ~(current_state_view : Snapp_predicate.Protocol_state.View.t)
-        ~state_and_body_hash sl logger pids txns stmt_to_work =
+        ~state_and_body_hash sl txns stmt_to_work =
       let open Deferred.Let_syntax in
       let supercharge_coinbase =
         supercharge_coinbase ~ledger:(Sl.ledger !sl) ~winner
@@ -1957,9 +1965,6 @@ let%test_module "test" =
             Error.raise (Pre_diff_info.Error.to_error e)
       in
       let diff' = Staged_ledger_diff.forget diff in
-      let%bind verifier =
-        Verifier.create ~logger ~proof_level ~pids ~conf_dir:None
-      in
       let%map ( `Hash_after_applying hash
               , `Ledger_proof ledger_proof
               , `Staged_ledger sl'
@@ -1999,13 +2004,13 @@ let%test_module "test" =
         global_slot_since_genesis }
 
     let create_and_apply ?(coinbase_receiver = coinbase_receiver)
-        ?(winner = self_pk) sl logger pids txns stmt_to_work =
+        ?(winner = self_pk) sl txns stmt_to_work =
       let open Deferred.Let_syntax in
       let%map ledger_proof, diff, _, _, _ =
         create_and_apply_with_state_body_hash ~coinbase_receiver ~winner
           ~current_state_view:(dummy_state_view ())
           ~state_and_body_hash:(State_hash.dummy, State_body_hash.dummy)
-          sl logger pids txns stmt_to_work
+          sl txns stmt_to_work
       in
       (ledger_proof, diff)
 
@@ -2269,13 +2274,11 @@ let%test_module "test" =
         -> unit Deferred.t =
      fun init_state cmds cmd_iters sl ?(expected_proof_count = None) test_mask
          provers stmt_to_work ->
-      let logger = Logger.null () in
-      let pids = Child_processes.Termination.create_pid_table () in
       let%map total_ledger_proofs =
         iter_cmds_acc cmds cmd_iters 0
           (fun cmds_left count_opt cmds_this_iter proof_count ->
             let%bind ledger_proof, diff =
-              create_and_apply sl logger pids cmds_this_iter stmt_to_work
+              create_and_apply sl cmds_this_iter stmt_to_work
             in
             let proof_count' =
               proof_count + if Option.is_some ledger_proof then 1 else 0
@@ -2504,8 +2507,6 @@ let%test_module "test" =
             Ledger.init_state * User_command.Valid.t list * int option list]
         ~trials:10 ~f:(fun (ledger_init_state, cmds, iters) ->
           async_with_ledgers ledger_init_state (fun sl _test_mask ->
-              let logger = Logger.null () in
-              let pids = Child_processes.Termination.create_pid_table () in
               let%map checked =
                 iter_cmds_acc cmds iters true
                   (fun _cmds_left _count_opt cmds_this_iter checked ->
@@ -2539,9 +2540,6 @@ let%test_module "test" =
                         ~ledger:(Sl.ledger !sl)
                         ~coinbase_amount:constraint_constants.coinbase_amount
                         cmds_this_iter work_done partitions
-                    in
-                    let%bind verifier =
-                      Verifier.create ~logger ~proof_level ~pids ~conf_dir:None
                     in
                     let%bind apply_res =
                       Sl.apply ~constraint_constants !sl diff ~logger ~verifier
@@ -2600,7 +2598,6 @@ let%test_module "test" =
         ~trials:1
         ~f:(fun (ledger_init_state, cmds, iters) ->
           async_with_ledgers ledger_init_state (fun sl _test_mask ->
-              let logger = Logger.null () in
               iter_cmds_acc cmds iters ()
                 (fun _cmds_left _count_opt cmds_this_iter () ->
                   let diff =
@@ -2655,8 +2652,6 @@ let%test_module "test" =
         -> [`One_prover | `Many_provers]
         -> unit Deferred.t =
      fun init_state cmds cmd_iters proofs_available sl test_mask provers ->
-      let logger = Logger.null () in
-      let pids = Child_processes.Termination.create_pid_table () in
       let%map proofs_available_left =
         iter_cmds_acc cmds cmd_iters proofs_available
           (fun cmds_left _count_opt cmds_this_iter proofs_available_left ->
@@ -2668,7 +2663,7 @@ let%test_module "test" =
               List.hd_exn proofs_available_left
             in
             let%map proof, diff =
-              create_and_apply sl logger pids cmds_this_iter
+              create_and_apply sl cmds_this_iter
                 (stmt_to_work_restricted
                    (List.take work_list proofs_available_this_iter)
                    provers)
@@ -2812,8 +2807,6 @@ let%test_module "test" =
         -> [`One_prover | `Many_provers]
         -> unit Deferred.t =
      fun _init_state cmds cmd_iters proofs_available sl _test_mask provers ->
-      let logger = Logger.null () in
-      let pids = Child_processes.Termination.create_pid_table () in
       let%map proofs_available_left =
         iter_cmds_acc cmds cmd_iters proofs_available
           (fun _cmds_left _count_opt cmds_this_iter proofs_available_left ->
@@ -2828,7 +2821,7 @@ let%test_module "test" =
               List.(zip_exn work_list (take fees_for_each (length work_list)))
             in
             let%map _proof, diff =
-              create_and_apply sl logger pids cmds_this_iter
+              create_and_apply sl cmds_this_iter
                 (stmt_to_work_random_fee work_to_be_done provers)
             in
             let sorted_work_from_diff1
@@ -3013,8 +3006,6 @@ let%test_module "test" =
         -> unit Deferred.t =
      fun init_state cmds cmd_iters proofs_available state_body_hashes
          current_state_view sl test_mask provers ->
-      let logger = Logger.null () in
-      let pids = Child_processes.Termination.create_pid_table () in
       let%map proofs_available_left, _state_body_hashes_left =
         iter_cmds_acc cmds cmd_iters (proofs_available, state_body_hashes)
           (fun cmds_left
@@ -3033,8 +3024,7 @@ let%test_module "test" =
             let%map proof, diff, is_new_stack, pc_update, supercharge_coinbase
                 =
               create_and_apply_with_state_body_hash ~current_state_view
-                ~state_and_body_hash:state_body_hash sl logger pids
-                cmds_this_iter
+                ~state_and_body_hash:state_body_hash sl cmds_this_iter
                 (stmt_to_work_restricted
                    (List.take work_list proofs_available_this_iter)
                    provers)
@@ -3153,14 +3143,12 @@ let%test_module "test" =
           (f_expected_balance count init_balance)
           account.balance
       in
-      let logger = Logger.null () in
-      let pids = Child_processes.Termination.create_pid_table () in
       Deferred.List.iter
         (List.init block_count ~f:(( + ) 1))
         ~f:(fun block_count ->
           let%bind _ =
             create_and_apply_with_state_body_hash ~winner:delegator.public_key
-              ~coinbase_receiver:coinbase_receiver.public_key sl logger pids
+              ~coinbase_receiver:coinbase_receiver.public_key sl
               ~current_state_view:
                 (dummy_state_view
                    ~global_slot_since_genesis:

@@ -290,6 +290,15 @@ locals {
         chmod +x bin/coda-network && ln --symbolic --force bin/coda-network /usr/local/bin/coda-network
       EOF
 
+      "02-install-cortextool" = <<-EOF
+        #!/bin/bash
+
+        set -euo pipefail
+
+        curl -fSL -o /usr/local/bin/cortextool "https://github.com/grafana/cortex-tools/releases/download/v0.7.2/cortextool_0.7.2_linux_x86_64"
+        chmod a+x /usr/local/bin/cortextool
+      EOF
+
       "03-setup-k8s-ctx" = <<-EOF
         #!/bin/bash
 

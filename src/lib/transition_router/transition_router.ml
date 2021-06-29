@@ -125,7 +125,7 @@ let start_bootstrap_controller ~logger ~trust_system ~verifier ~network
 
 let download_best_tip ~logger ~network ~verifier ~trust_system
     ~most_recent_valid_block_writer ~genesis_constants ~precomputed_values =
-  let num_peers = 8 in
+  let num_peers = 16 in
   let%bind peers = Mina_networking.random_peers network num_peers in
   [%log info] "Requesting peers for their best tip to do initialization" ;
   let%map tips =
@@ -313,33 +313,21 @@ let initialize ~logger ~network ~is_seed ~is_demo_mode ~verifier ~trust_system
         ~transition_writer_ref ~frontier_w ~persistent_root
         ~persistent_frontier ~initial_root_transition ~catchup_mode
         ~best_seen_transition:best_tip ~precomputed_values
-  | None, Some frontier ->
-      [%log info]
-        "Successfully loaded frontier, but failed to download best tip from \
-         network; starting participation" ;
-      return
-      @@ start_transition_frontier_controller ~logger ~trust_system ~verifier
-           ~network ~time_controller ~producer_transition_reader_ref
-           ~producer_transition_writer_ref ~verified_transition_writer
-           ~clear_reader ~collected_transitions:[] ~transition_reader_ref
-           ~transition_writer_ref ~frontier_w ~precomputed_values frontier
-  | Some best_tip, Some frontier ->
-      [%log info]
-        ~metadata:
-          [ ( "length"
-            , `Int
-                (Unsigned.UInt32.to_int
-                   (External_transition.Initial_validated.blockchain_length
-                      best_tip.data)) ) ]
-        "Successfully loaded frontier and downloaded best tip with $length \
-         from network" ;
-      if
-        is_transition_for_bootstrap ~logger frontier
-          (best_tip |> Envelope.Incoming.data)
-          ~precomputed_values
-      then (
+  | best_tip, Some frontier -> (
+    match best_tip with
+    | Some best_tip
+      when is_transition_for_bootstrap ~logger frontier
+             (best_tip |> Envelope.Incoming.data)
+             ~precomputed_values ->
         [%log info]
-          "Network best tip is too new to catchup to; starting bootstrap" ;
+          ~metadata:
+            [ ( "length"
+              , `Int
+                  (Unsigned.UInt32.to_int
+                     (External_transition.Initial_validated.blockchain_length
+                        best_tip.data)) ) ]
+          "Network best tip is too new to catchup to (best_tip with $length); \
+           starting bootstrap" ;
         let initial_root_transition =
           Transition_frontier.(Breadcrumb.validated_transition (root frontier))
         in
@@ -350,11 +338,22 @@ let initialize ~logger ~network ~is_seed ~is_demo_mode ~verifier ~trust_system
           ~clear_reader ~transition_reader_ref ~consensus_local_state
           ~transition_writer_ref ~frontier_w ~persistent_root
           ~persistent_frontier ~initial_root_transition ~catchup_mode
-          ~best_seen_transition:(Some best_tip) ~precomputed_values )
-      else (
-        [%log info]
-          "Network best tip is recent enough to catchup to; syncing local \
-           state and starting participation" ;
+          ~best_seen_transition:(Some best_tip) ~precomputed_values
+    | _ ->
+        if Option.is_some best_tip then
+          [%log info]
+            ~metadata:
+              [ ( "length"
+                , `Int
+                    (Unsigned.UInt32.to_int
+                       (External_transition.Initial_validated.blockchain_length
+                          (Option.value_exn best_tip).data)) ) ]
+            "Network best tip is recent enough to catchup to (best_tip with \
+             $length); syncing local state and starting participation"
+        else
+          [%log info]
+            "Successfully loaded frontier, but failed downloaded best tip \
+             from network" ;
         let curr_best_tip = Transition_frontier.best_tip frontier in
         let%map () =
           match
@@ -388,12 +387,12 @@ let initialize ~logger ~network ~is_seed ~is_demo_mode ~verifier ~trust_system
               | Ok () ->
                   () )
         in
+        let collected_transitions = Option.to_list best_tip in
         start_transition_frontier_controller ~logger ~trust_system ~verifier
           ~network ~time_controller ~producer_transition_reader_ref
           ~producer_transition_writer_ref ~verified_transition_writer
-          ~clear_reader ~collected_transitions:[best_tip]
-          ~transition_reader_ref ~transition_writer_ref ~frontier_w
-          ~precomputed_values frontier )
+          ~clear_reader ~collected_transitions ~transition_reader_ref
+          ~transition_writer_ref ~frontier_w ~precomputed_values frontier )
 
 let wait_till_genesis ~logger ~time_controller
     ~(precomputed_values : Precomputed_values.t) =

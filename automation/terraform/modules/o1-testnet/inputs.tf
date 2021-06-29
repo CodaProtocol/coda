@@ -246,6 +246,11 @@ variable "make_report_accounts" {
   default = ""
 }
 
+variable "log_precomputed_blocks" {
+  type = bool
+  default = false
+}
+
 # Archive-Postgres Vars
 
 variable "archive_node_count" {
@@ -254,25 +259,8 @@ variable "archive_node_count" {
 }
 
 variable "archive_configs" {
-  type    = list(any)
-  default = []
-}
-
-variable "postgres_persistence_config" {
-  type = object({
-    enabled       = optional(bool)
-    size          = optional(string)
-    reclaimPolicy = optional(string)
-    storageClass  = optional(string)
-    accessModes   = optional(list(string))
-  })
-  default = {
-    enabled       = true
-    size          = "8Gi"
-    reclaimPolicy = "retain"
-    storageClass  = "ssd-retain"
-    accessModes   = ["ReadWriteOnce"]
-  }
+  description = "individual archive-node deployment configurations"
+  default = null
 }
 
 variable "upload_blocks_to_gcloud" {

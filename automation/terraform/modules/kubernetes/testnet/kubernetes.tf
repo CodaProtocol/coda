@@ -9,4 +9,8 @@ resource "kubernetes_namespace" "testnet_namespace" {
   metadata {
     name = var.testnet_name
   }
+
+  timeouts {
+    delete = "15m"
+  }
 }

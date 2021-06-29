@@ -3,5 +3,5 @@
  (name integration_test_lib)
  (inline_tests)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_optcomp ppx_let ppx_inline_test ppx_custom_printf ppx_deriving.std ppx_sexp_conv ppx_compare ppx_assert lens.ppx_deriving ppx_pipebang))
+ (preprocess (pps ppx_base ppx_fields_conv ppx_coda ppx_version ppx_optcomp ppx_let ppx_inline_test ppx_custom_printf ppx_deriving.std ppx_sexp_conv ppx_compare ppx_assert lens.ppx_deriving ppx_pipebang))
  (libraries core async mina_base runtime_config genesis_constants transition_frontier transition_router block_producer user_command_input cmdliner lens))

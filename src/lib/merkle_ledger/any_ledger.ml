@@ -143,9 +143,6 @@ module Make_base (Inputs : Inputs_intf) :
 
     let close (T ((module Base), t)) = Base.close t
 
-    let get_or_create_account_exn (T ((module Base), t)) =
-      Base.get_or_create_account_exn t
-
     let get_or_create_account (T ((module Base), t)) =
       Base.get_or_create_account t
 

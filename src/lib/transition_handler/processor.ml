@@ -360,9 +360,17 @@ let%test_module "Transition_handler.Processor tests" =
 
     let proof_level = precomputed_values.proof_level
 
+    let constraint_constants = precomputed_values.constraint_constants
+
     let time_controller = Block_time.Controller.basic ~logger
 
     let trust_system = Trust_system.null ()
+
+    let verifier =
+      Async.Thread_safe.block_on_async_exn (fun () ->
+          Verifier.create ~logger ~proof_level ~constraint_constants
+            ~conf_dir:None
+            ~pids:(Child_processes.Termination.create_pid_table ()) )
 
     let downcast_breadcrumb breadcrumb =
       let transition =
@@ -379,14 +387,10 @@ let%test_module "Transition_handler.Processor tests" =
       let max_length = frontier_size + branch_size in
       Quickcheck.test ~trials:4
         (Transition_frontier.For_tests.gen_with_branch ~precomputed_values
-           ~max_length ~frontier_size ~branch_size ())
+           ~verifier ~max_length ~frontier_size ~branch_size ())
         ~f:(fun (frontier, branch) ->
           assert (
             Thread_safe.block_on_async_exn (fun () ->
-                let pids = Child_processes.Termination.create_pid_table () in
-                let%bind verifier =
-                  Verifier.create ~logger ~proof_level ~conf_dir:None ~pids
-                in
                 let valid_transition_reader, valid_transition_writer =
                   Strict_pipe.create
                     (Buffered (`Capacity branch_size, `Overflow Drop_head))

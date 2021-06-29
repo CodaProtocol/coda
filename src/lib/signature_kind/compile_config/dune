@@ -1,0 +1,7 @@
+(library
+ (name mina_signature_kind_config)
+ (public_name mina_signature_kind.config)
+ (preprocessor_deps ../../../config.mlh)
+ (preprocess (pps ppx_optcomp ppx_version))
+ (instrumentation (backend bisect_ppx))
+ (implements mina_signature_kind))

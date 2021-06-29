@@ -5,11 +5,11 @@ module Stable : sig
   [@@@no_toplevel_latest_type]
 
   module V1 : sig
-    type t [@@deriving sexp, compare, hash]
+    type t [@@deriving sexp, compare, hash, equal]
   end
 end]
 
-type t = Stable.Latest.t [@@deriving sexp, compare, hash, yojson]
+type t = Stable.Latest.t [@@deriving sexp, compare, hash, yojson, equal]
 
 val of_base58_check : string -> t Or_error.t
 

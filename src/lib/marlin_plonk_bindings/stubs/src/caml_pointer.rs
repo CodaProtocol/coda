@@ -5,14 +5,14 @@ use std::rc::Rc;
 pub struct CamlPointer<T>(pub Rc<T>);
 
 impl<T> CamlPointer<T> {
-    extern "C" fn caml_pointer_finalize(v: ocaml::Value) {
-        let v: ocaml::Pointer<CamlPointer<T>> = ocaml::FromValue::from_value(v);
+    extern "C" fn caml_pointer_finalize(v: ocaml::Raw) {
         unsafe {
+            let v: ocaml::Pointer<CamlPointer<T>> = v.as_pointer();
             v.drop_in_place();
         }
     }
 
-    extern "C" fn caml_pointer_compare(_: ocaml::Value, _: ocaml::Value) -> i32 {
+    extern "C" fn caml_pointer_compare(_: ocaml::Raw, _: ocaml::Raw) -> i32 {
         // Always return equal. We can use this for sanity checks, and anything else using this
         // would be broken anyway.
         0
@@ -24,7 +24,7 @@ ocaml::custom!(CamlPointer<T> {
     compare: CamlPointer::<T>::caml_pointer_compare,
 });
 
-unsafe impl<T> ocaml::FromValue for CamlPointer<T> {
+unsafe impl<'a, T> ocaml::FromValue<'a> for CamlPointer<T> {
     fn from_value(x: ocaml::Value) -> Self {
         let x = ocaml::Pointer::<Self>::from_value(x);
         CamlPointer(x.as_ref().0.clone())

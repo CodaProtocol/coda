@@ -44,7 +44,7 @@ let () =
            Param.flag "--archive-uri"
              ~doc:
                "URI URI for connecting to the archive database (e.g., \
-                postgres://$USER:$USER@localhost:5432/archiver)"
+                postgres://$USER@localhost:5432/archiver)"
              Param.(required string)
          in
          main ~archive_uri)))

@@ -77,15 +77,15 @@ module Make
     end) (Message : sig
       open Impl
 
-      type t [@@deriving sexp]
+      type value [@@deriving sexp]
 
       type var
 
-      val typ : (var, t) Typ.t
+      val typ : (var, value) Typ.t
 
       (* This hash function can be merely collision-resistant *)
 
-      val hash_to_group : t -> Group.t
+      val hash_to_group : value -> Group.t
 
       module Checked : sig
         val hash_to_group : var -> (Group.var, _) Checked.t
@@ -97,7 +97,7 @@ module Make
 
       (* I believe this has to be a random oracle *)
 
-      val hash : Message.t -> Group.t -> t
+      val hash : Message.value -> Group.t -> t
 
       module Checked : sig
         val hash : Message.var -> Group.var -> (var, _) Impl.Checked.t
@@ -106,7 +106,7 @@ module Make
       (* I believe this has to be a random oracle *)
 
       val hash_for_proof :
-        Message.t -> Group.t -> Group.t -> Group.t -> Scalar.t
+        Message.value -> Group.t -> Group.t -> Group.t -> Scalar.t
 
       module Checked : sig
         val hash_for_proof :
@@ -130,7 +130,7 @@ module Make
   end
 
   module Context : sig
-    type t = (Message.t, Public_key.t) Context.t [@@deriving sexp]
+    type t = (Message.value, Public_key.t) Context.t [@@deriving sexp]
 
     type var = (Message.var, Public_key.var) Context.t
 
@@ -148,7 +148,7 @@ module Make
 
     val typ : (var, t) Impl.Typ.t
 
-    val create : Private_key.t -> Message.t -> t
+    val create : Private_key.t -> Message.value -> t
 
     val verified_output : t -> Context.t -> Output_hash.t option
 
@@ -164,7 +164,7 @@ end = struct
   module Public_key = Group
 
   module Context = struct
-    type t = (Message.t, Public_key.t) Context.t [@@deriving sexp]
+    type t = (Message.value, Public_key.t) Context.t [@@deriving sexp]
 
     type var = (Message.var, Public_key.var) Context.t
 

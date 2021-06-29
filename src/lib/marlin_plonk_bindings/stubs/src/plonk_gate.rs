@@ -1,7 +1,7 @@
 use plonk_circuits::gate::{GateType, GateType::*};
 use plonk_circuits::wires::{Col, Col::*, Wire, Wires};
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub enum CamlPlonkGateType {
     Zero,    // zero gate
     Generic, // generic arithmetic gate
@@ -69,7 +69,7 @@ impl From<CamlPlonkGateType> for GateType {
     }
 }
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub enum CamlPlonkCol {
     L,
     R,
@@ -108,7 +108,7 @@ impl From<CamlPlonkCol> for Col {
     }
 }
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub struct CamlPlonkWire {
     pub row: ocaml::Int,   // wire row
     pub col: CamlPlonkCol, // wire column
@@ -142,7 +142,7 @@ impl From<CamlPlonkWire> for Wire {
     }
 }
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub struct CamlPlonkWires {
     pub row: ocaml::Int,  // gate wire row
     pub l: CamlPlonkWire, // left input wire permutation
@@ -182,7 +182,7 @@ impl From<CamlPlonkWires> for Wires {
     }
 }
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub struct CamlPlonkGate<T> {
     pub typ: CamlPlonkGateType, // type of the gate
     pub wires: CamlPlonkWires,  // gate wires

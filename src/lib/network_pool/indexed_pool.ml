@@ -588,13 +588,15 @@ let handle_committed_txn :
        t
     -> Transaction_hash.User_command_with_valid_signature.t
     -> fee_payer_balance:Currency.Amount.t
+    -> fee_payer_nonce:Mina_base.Account.Nonce.t
     -> ( t * Transaction_hash.User_command_with_valid_signature.t Sequence.t
        , [ `Queued_txns_by_sender of
            string
            * Transaction_hash.User_command_with_valid_signature.t Sequence.t ]
        )
        Result.t =
- fun ({constraint_constants; _} as t) committed ~fee_payer_balance ->
+ fun ({constraint_constants; _} as t) committed ~fee_payer_balance
+     ~fee_payer_nonce ->
   let committed' =
     Transaction_hash.User_command_with_valid_signature.command committed
   in
@@ -632,9 +634,16 @@ let handle_committed_txn :
           |> Fn.flip remove_all_by_fee_and_hash_and_expiration_exn first_cmd
         in
         let new_queued_cmds, currency_reserved'', dropped_cmds =
-          drop_until_sufficient_balance ~constraint_constants
-            (rest_cmds, currency_reserved')
-            fee_payer_balance
+          (*removed the first cmd, check if there are anymore committed transactions from the fee payer*)
+          if Mina_base.Account.Nonce.(equal (succ first_nonce) fee_payer_nonce)
+          then
+            (* remove user_commands that consume more currency than what the latest fee_payer_balance is*)
+            drop_until_sufficient_balance ~constraint_constants
+              (rest_cmds, currency_reserved')
+              fee_payer_balance
+          else
+            (* Don't check if the balance is sufficient, there are other committed user_commands in the pool from the current fee payer that has been accounted for in the fee_payer_balance*)
+            (rest_cmds, currency_reserved', Sequence.empty)
         in
         let t2 =
           Sequence.fold dropped_cmds ~init:t1

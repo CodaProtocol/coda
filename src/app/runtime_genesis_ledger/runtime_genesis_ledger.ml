@@ -22,7 +22,7 @@ let main ~config_file ~genesis_dir ~proof_level () =
   in
   Deferred.Or_error.ok_exn @@ Deferred.Or_error.ignore
   @@ Genesis_ledger_helper.init_from_config_file ?genesis_dir
-       ~logger:(Logger.create ()) ~may_generate:true ~proof_level config
+       ~logger:(Logger.create ()) ~proof_level config
 
 let () =
   Command.run

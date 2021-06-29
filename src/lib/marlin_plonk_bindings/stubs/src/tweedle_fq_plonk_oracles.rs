@@ -18,7 +18,7 @@ use plonk_protocol_dlog::{
 
 use crate::tweedle_fq_plonk_verifier_index::CamlTweedleFqPlonkVerifierIndex;
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub struct CamlTweedleFqPlonkOracles {
     pub o: RandomOracles<Fq>,
     pub p_eval: (Fq, Fq),

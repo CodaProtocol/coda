@@ -101,7 +101,10 @@ module type Inputs_intf = sig
       -> Curve.Affine.Backend.t array
       -> t Async.Deferred.t
 
-    val batch_verify : Verifier_index.t array -> t array -> bool
+    val verify : Verifier_index.t -> t -> bool
+
+    val batch_verify :
+      Verifier_index.t array -> t array -> bool Async.Deferred.t
   end
 end
 
@@ -331,7 +334,9 @@ module Make (Inputs : Inputs_intf) = struct
   let batch_verify = batch_verify' (fun xs -> List.to_array xs)
 
   let verify ?message t vk xs : bool =
-    batch_verify'
-      (vec_to_array (module Scalar_field.Vector))
-      [(vk, t, xs, message)]
+    Backend.verify vk
+      (to_backend'
+         (Option.value ~default:[] message)
+         (vec_to_array (module Scalar_field.Vector) xs)
+         t)
 end

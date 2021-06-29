@@ -29,7 +29,7 @@ Mina is the first cryptocurrency with a lightweight, constant-sized blockchain. 
 
 ## Contributing
 
-Read the [Contributing Guide](https://minaprotocol.com/docs/contributing/) for information on how to make both technical and non-technical contributions.
+Read the [Contributing Guide](https://docs.minaprotocol.com/en/developers/contributing) for information on how to make both technical and non-technical contributions.
 
 ## Developers
 

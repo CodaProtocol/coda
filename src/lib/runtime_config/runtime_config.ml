@@ -316,10 +316,12 @@ module Json_layout = struct
   end
 
   module Daemon = struct
-    type t = {txpool_max_size: (int option[@default None])}
+    type t =
+      { txpool_max_size: (int option[@default None])
+      ; peer_list_url: (string option[@default None]) }
     [@@deriving yojson, dhall_type]
 
-    let fields = [|"txpool_max_size"|]
+    let fields = [|"txpool_max_size"; "peer_list_url"|]
 
     let of_yojson json = of_yojson_generic ~fields of_yojson json
   end
@@ -360,7 +362,8 @@ end
 (** JSON representation:
 
   { "daemon":
-      { "txpool_max_size": 1 }
+      { "txpool_max_size": 1
+      , "peer_list_url": "https://www.example.com/peer-list.txt" }
   , "genesis": { "k": 1, "delta": 1 }
   , "proof":
       { "level": "check"
@@ -747,7 +750,8 @@ module Genesis = struct
 end
 
 module Daemon = struct
-  type t = Json_layout.Daemon.t = {txpool_max_size: int option}
+  type t = Json_layout.Daemon.t =
+    {txpool_max_size: int option; peer_list_url: string option}
   [@@deriving bin_io_unversioned]
 
   let to_json_layout : t -> Json_layout.Daemon.t = Fn.id
@@ -762,7 +766,9 @@ module Daemon = struct
 
   let combine t1 t2 =
     { txpool_max_size=
-        opt_fallthrough ~default:t1.txpool_max_size t2.txpool_max_size }
+        opt_fallthrough ~default:t1.txpool_max_size t2.txpool_max_size
+    ; peer_list_url= opt_fallthrough ~default:t1.peer_list_url t2.peer_list_url
+    }
 end
 
 module Epoch_data = struct

@@ -97,6 +97,13 @@ module Lru_table (Q : Hash_queue.S) = struct
         Score.(is_non_negative (r.remaining_capacity - score))
 
   let create ~initial_capacity = {initial_capacity; table= Q.create ()}
+
+  let next_expires ({table; _} : t) (k : Q.Key.t) =
+    match Q.lookup table k with
+    | None ->
+        Time.now ()
+    | Some {elts; _} -> (
+      match Queue.peek elts with Some (_, time) -> time | None -> Time.now () )
 end
 
 module Ip = struct
@@ -135,6 +142,13 @@ let add {by_ip; by_peer_id} (sender : Envelope.Sender.t) ~now ~score =
         Peer_id.Lru.add by_peer_id id ~now ~score |> ignore ;
         `Within_capacity )
       else `Capacity_exceeded
+
+let next_expires {by_peer_id; _} (sender : Envelope.Sender.t) =
+  match sender with
+  | Local ->
+      Time.now ()
+  | Remote {peer_id; _} ->
+      Peer_id.Lru.next_expires by_peer_id peer_id
 
 module Summary = struct
   type r = {capacity_used: Score.t} [@@deriving to_yojson]

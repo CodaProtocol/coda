@@ -42,6 +42,18 @@ module Get_ledger = struct
     Rpc.Rpc.create ~name:"Get_ledger" ~version:0 ~bin_query ~bin_response
 end
 
+module Get_snarked_ledger = struct
+  type query = State_hash.Stable.Latest.t option
+  [@@deriving bin_io_unversioned]
+
+  type response = Account.Stable.Latest.t list Or_error.t
+  [@@deriving bin_io_unversioned]
+
+  let rpc : (query, response) Rpc.Rpc.t =
+    Rpc.Rpc.create ~name:"Get_snarked_ledger" ~version:0 ~bin_query
+      ~bin_response
+end
+
 module Get_staking_ledger = struct
   type query = Current | Next [@@deriving bin_io_unversioned]
 
@@ -102,6 +114,17 @@ module Reset_trust_status = struct
   let rpc : (query, response) Rpc.Rpc.t =
     Rpc.Rpc.create ~name:"Reset_trust_status" ~version:0 ~bin_query
       ~bin_response
+end
+
+module Chain_id_inputs = struct
+  type query = unit [@@deriving bin_io_unversioned]
+
+  type response =
+    State_hash.Stable.Latest.t * Genesis_constants.t * string list
+  [@@deriving bin_io_unversioned]
+
+  let rpc : (query, response) Rpc.Rpc.t =
+    Rpc.Rpc.create ~name:"Chain_id_inputs" ~version:0 ~bin_query ~bin_response
 end
 
 module Verify_proof = struct

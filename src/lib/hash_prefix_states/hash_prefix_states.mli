@@ -29,6 +29,8 @@ val vrf_message : Field.t State.t
 
 val vrf_output : Field.t State.t
 
+val vrf_evaluation : Field.t State.t
+
 val epoch_seed : Field.t State.t
 
 val protocol_state : Field.t State.t

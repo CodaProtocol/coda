@@ -2,30 +2,31 @@
  (package rosetta)
  (name rosetta)
  (public_name rosetta)
+ (modules rosetta)
  (modes native)
- (libraries
-   async
-   async_ssl
-   caqti
-   caqti-async
-   caqti-driver-postgresql
-   cohttp
-   ctypes
-   cohttp-async
-   core_kernel
-   logger
-   rosetta_models
-   lib
-   ppx_deriving_yojson.runtime
-   yojson
- )
+ (libraries lib)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps
-               graphql_ppx
-               ppx_coda
-               ppx_deriving.show
-               ppx_deriving_yojson
-               ppx_jane
-               ppx_version
- ))
+ (preprocess (pps ppx_version))
+)
+
+(executable
+ (package rosetta)
+ (name rosetta_testnet_signatures)
+ (public_name rosetta-testnet)
+ (modules rosetta_testnet_signatures)
+ (modes native)
+ (libraries lib mina_signature_kind.testnet)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_version))
+)
+
+(executable
+ (package rosetta)
+ (name rosetta_mainnet_signatures)
+ (public_name rosetta-mainnet)
+ (modules rosetta_mainnet_signatures)
+ (modes native)
+ (libraries lib mina_signature_kind.mainnet)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_version))
 )

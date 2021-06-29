@@ -253,20 +253,28 @@ module Uri = struct
     else Uri.to_string uri
 
   module Client = struct
+    let doc_builder =
+      Doc_builder.create ~display:to_string
+        ~examples:
+          [ Port.to_uri ~path:"graphql" Port.default_rest
+          ; Uri.of_string
+              ( "/dns4/peer1-rising-phoenix.o1test.net" ^ ":"
+              ^ Int.to_string Port.default_rest
+              ^/ "graphql" ) ]
+        "URI/LOCALHOST-PORT" "graphql rest server for daemon interaction"
+
+    let name = "rest-server"
+
+    let default = Port.to_uri ~path:"graphql" Port.default_rest
+
     let rest_graphql =
-      let doc_builder =
-        Doc_builder.create ~display:to_string
-          ~examples:
-            [ Port.to_uri ~path:"graphql" Port.default_rest
-            ; Uri.of_string
-                ( "/dns4/peer1-rising-phoenix.o1test.net" ^ ":"
-                ^ Int.to_string Port.default_rest
-                ^/ "graphql" ) ]
-          "URI/LOCALHOST-PORT" "graphql rest server for daemon interaction"
-      in
       create ~name:"--rest-server" ~aliases:["rest-server"]
         ~arg_type:(arg_type ~path:"graphql") doc_builder
-        (Resolve_with_default (Port.to_uri ~path:"graphql" Port.default_rest))
+        (Resolve_with_default default)
+
+    let rest_graphql_opt =
+      create ~name:"--rest-server" ~aliases:["rest-server"]
+        ~arg_type:(arg_type ~path:"graphql") doc_builder Optional
   end
 
   module Archive = struct

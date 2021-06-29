@@ -95,7 +95,7 @@ let build_subtrees_of_breadcrumbs ~logger ~precomputed_values ~verifier
                 let open Deferred.Let_syntax in
                 match%bind
                   O1trace.trace_recurring "Breadcrumb.build" (fun () ->
-                      Deferred.Or_error.try_with (fun () ->
+                      Deferred.Or_error.try_with ~here:[%here] (fun () ->
                           Transition_frontier.Breadcrumb.build ~logger
                             ~precomputed_values ~verifier ~trust_system ~parent
                             ~transition:mostly_validated_transition

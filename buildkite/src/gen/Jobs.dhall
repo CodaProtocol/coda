@@ -2,4 +2,3 @@
 -- dhall configuration can still execute locally without running codegen.
 let Pipeline = ../Pipeline/Dsl.dhall in
 [ ] : List Pipeline.CompoundType
-

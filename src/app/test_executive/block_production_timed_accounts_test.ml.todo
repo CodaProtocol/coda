@@ -54,8 +54,6 @@ module Make (Engine : Intf.Engine.S) (Dsl : Intf.Dsl.S with module Engine := Eng
       (scale_exn supercharged_coinbase supercharged_coinbase_blocks)
     |> Option.value_exn
 
-  let expected_error_event_reprs = []
-
   let run network t =
     let open Network in
     let open Malleable_error.Let_syntax in

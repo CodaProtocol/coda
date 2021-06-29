@@ -22,9 +22,14 @@ variable "rule_filter" {
   description = "Filter to apply to monitoring search space for managing the scope of alert rule checks"
 }
 
-variable "rule_timeframe" {
+variable "alert_timeframe" {
   type        = string
-  description = "Span of time a rule must be violated prior to triggering an alert"
+  description = "Range of time to inspect for alert rule violations"
+}
+
+variable "alert_duration" {
+  type        = string
+  description = "Duration an alert is evaluated as in violation prior to becoming active "
 }
 
 variable "pagerduty_alert_filter" {

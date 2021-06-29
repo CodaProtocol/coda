@@ -29,7 +29,7 @@ module Make () = struct
   [%%versioned_binable
   module Stable = struct
     module V1 = struct
-      type t = T1.t [@@deriving hash, sexp, compare]
+      type t = T1.t [@@deriving hash, sexp, compare, equal]
 
       let to_latest = Fn.id
 

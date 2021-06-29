@@ -13,6 +13,14 @@ let%test_module "Archive node unit tests" =
     let precomputed_values =
       {(Lazy.force Precomputed_values.for_unit_tests) with proof_level}
 
+    let constraint_constants = precomputed_values.constraint_constants
+
+    let verifier =
+      Async.Thread_safe.block_on_async_exn (fun () ->
+          Verifier.create ~logger ~proof_level ~constraint_constants
+            ~conf_dir:None
+            ~pids:(Child_processes.Termination.create_pid_table ()) )
+
     module Genesis_ledger = (val Genesis_ledger.for_unit_tests)
 
     let archive_uri =
@@ -43,14 +51,15 @@ let%test_module "Archive node unit tests" =
         ~fee_range:10 ()
 
     let fee_transfer_gen =
-      Fee_transfer.Single.Gen.with_random_receivers ~keys ~max_fee:10
+      Fee_transfer.Single.Gen.with_random_receivers ~keys ~min_fee:0
+        ~max_fee:10
         ~token:(Quickcheck.Generator.return Token_id.default)
 
     let coinbase_gen =
       Coinbase.Gen.with_random_receivers ~keys ~min_amount:20 ~max_amount:100
         ~fee_transfer:
           (Coinbase.Fee_transfer.Gen.with_random_receivers ~keys
-             ~max_fee:(Currency.Fee.of_int 10))
+             ~min_fee:Currency.Fee.zero)
 
     let%test_unit "User_command: read and write" =
       let conn = Lazy.force conn_lazy in
@@ -139,10 +148,9 @@ let%test_module "Archive node unit tests" =
         ( Quickcheck.Generator.with_size ~size:10
         @@ Quickcheck_lib.gen_imperative_list
              (Transition_frontier.For_tests.gen_genesis_breadcrumb
-                ~precomputed_values ())
+                ~precomputed_values ~verifier ())
              (Transition_frontier.Breadcrumb.For_tests.gen_non_deferred
-                ?logger:None ~precomputed_values ?verifier:None
-                ?trust_system:None
+                ?logger:None ~precomputed_values ~verifier ?trust_system:None
                 ~accounts_with_secret_keys:(Lazy.force Genesis_ledger.accounts))
         )
         ~f:(fun breadcrumbs ->
@@ -211,7 +219,7 @@ let%test_module "Archive node unit tests" =
              (Transition_frontier.For_tests.gen_genesis_breadcrumb
                 ~precomputed_values ())
              (Transition_frontier.Breadcrumb.For_tests.gen_non_deferred
-                ?logger:None ~precomputed_values ?verifier:None
+                ?logger:None ~precomputed_values ~verifier
                 ?trust_system:None
                 ~accounts_with_secret_keys:(Lazy.force Genesis_ledger.accounts))
         )

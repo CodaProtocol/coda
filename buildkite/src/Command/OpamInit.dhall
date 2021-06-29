@@ -1,6 +1,6 @@
 let Prelude = ../External/Prelude.dhall
 let Cmd = ../Lib/Cmds.dhall
-let Coda = ../Command/Coda.dhall
+let Mina = ../Command/Mina.dhall
 let S = ../Lib/SelectFiles.dhall
 
 let r = Cmd.run
@@ -16,7 +16,7 @@ let commands : List Text -> List Cmd.Type = \(environment : List Text) ->
           "> opam_ci_cache.sig"),
     Cmd.cacheThrough
       Cmd.Docker::{
-        image = (../Constants/ContainerImages.dhall).codaToolchain,
+        image = (../Constants/ContainerImages.dhall).minaToolchain,
         extraEnv = environment
       }
       file
@@ -29,9 +29,9 @@ let commands : List Text -> List Cmd.Type = \(environment : List Text) ->
 let andThenRunInDocker : List Text -> Text -> List Cmd.Type =
   \(environment : List Text) ->
   \(innerScript : Text) ->
-    [ Coda.fixPermissionsCommand ] # (commands environment) # [
+    [ Mina.fixPermissionsCommand ] # (commands environment) # [
       Cmd.runInDocker
-        (Cmd.Docker::{ image = (../Constants/ContainerImages.dhall).codaToolchain, extraEnv = environment })
+        (Cmd.Docker::{ image = (../Constants/ContainerImages.dhall).minaToolchain, extraEnv = environment })
         (unpackageScript ++ " && " ++ innerScript)
     ]
 

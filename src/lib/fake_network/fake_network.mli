@@ -29,6 +29,7 @@ module Generator : sig
 
   type peer_config =
        precomputed_values:Precomputed_values.t
+    -> verifier:Verifier.t
     -> max_frontier_length:int
     -> peer_state Generator.t
 
@@ -38,6 +39,7 @@ module Generator : sig
 
   val gen :
        precomputed_values:Precomputed_values.t
+    -> verifier:Verifier.t
     -> max_frontier_length:int
     -> (peer_config, 'n num_peers) Vect.t
     -> 'n num_peers t Generator.t

@@ -24,6 +24,8 @@ end)
 
 [%%versioned
 module Stable = struct
+  [@@@no_toplevel_latest_type]
+
   module V1 = struct
     module T = struct
       type t = Field.t [@@deriving sexp, compare, hash, version {asserted}]

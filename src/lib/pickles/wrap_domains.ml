@@ -1,6 +1,7 @@
 open Core_kernel
 open Pickles_types
 open Import
+open Poly_types
 open Hlist
 
 (* Compute the domains corresponding to wrap_main *)

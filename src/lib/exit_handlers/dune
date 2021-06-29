@@ -4,5 +4,5 @@
  (library_flags -linkall)
  (libraries core_kernel async_kernel async_unix logger)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_let))
+ (preprocess (pps ppx_coda ppx_version ppx_here ppx_let))
  (synopsis "Exit handlers"))

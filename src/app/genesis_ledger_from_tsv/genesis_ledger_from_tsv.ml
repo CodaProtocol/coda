@@ -26,7 +26,11 @@ let add_account pk =
   | `Duplicate ->
       false
 
-let valid_pk pk = Or_error.is_ok @@ Public_key.Compressed.of_base58_check pk
+let valid_pk pk =
+  try
+    Public_key.of_base58_check_decompress_exn pk |> ignore ;
+    true
+  with _ -> false
 
 let no_delegatee pk = String.is_empty pk || String.equal pk "0"
 

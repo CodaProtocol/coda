@@ -250,6 +250,13 @@ module Status = struct
     let block_production_keys =
       list_string_entry "Block producers running" ~to_string:Fn.id
 
+    let coinbase_receiver =
+      map_entry "Coinbase receiver" ~f:(function
+        | None ->
+            "Block producer"
+        | Some pk ->
+            pk )
+
     let histograms = option_entry "Histograms" ~f:Histograms.to_text
 
     let next_block_production =
@@ -395,6 +402,7 @@ module Status = struct
         (Transition_frontier.Full_catchup_tree.Node.State.Enum.t * int) list
         option
     ; block_production_keys: string list
+    ; coinbase_receiver: string option
     ; histograms: Histograms.t option
     ; consensus_time_best_tip:
         Consensus.Data.Consensus_time.Stable.Latest.t option
@@ -417,9 +425,10 @@ module Status = struct
       ~highest_unvalidated_block_length_received ~highest_block_length_received
       ~uptime_secs ~ledger_merkle_root ~state_hash ~chain_id ~commit_id
       ~conf_dir ~peers ~user_commands_sent ~snark_worker ~block_production_keys
-      ~histograms ~consensus_time_best_tip ~global_slot_since_genesis_best_tip
-      ~consensus_time_now ~consensus_mechanism ~consensus_configuration
-      ~next_block_production ~snark_work_fee ~addrs_and_ports ~catchup_status
+      ~coinbase_receiver ~histograms ~consensus_time_best_tip
+      ~global_slot_since_genesis_best_tip ~consensus_time_now
+      ~consensus_mechanism ~consensus_configuration ~next_block_production
+      ~snark_work_fee ~addrs_and_ports ~catchup_status
     |> List.filter_map ~f:Fn.id
 
   let to_text (t : t) =

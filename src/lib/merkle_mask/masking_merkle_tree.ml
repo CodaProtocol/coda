@@ -229,7 +229,7 @@ module Make (Inputs : Inputs_intf.S) = struct
       fixup_merkle_path t parent_merkle_path address
 
     (* given a Merkle path corresponding to a starting address, calculate
-       addresses and hash for each node affected by the starting hash; that is,
+       addresses and hashes for each node affected by the starting hash; that is,
        along the path from the account address to root *)
     let addresses_and_hashes_from_merkle_path_exn merkle_path starting_address
         starting_hash : (Addr.t * Hash.t) list =
@@ -418,8 +418,19 @@ module Make (Inputs : Inputs_intf.S) = struct
           match t.current_location with
           | None ->
               Some parent_loc
-          | Some our_loc ->
-              Some (max parent_loc our_loc) )
+          | Some our_loc -> (
+            match (parent_loc, our_loc) with
+            | Account parent_addr, Account our_addr ->
+                (* Addr.compare is Bitstring.compare, essentially String.compare *)
+                let loc =
+                  if Addr.compare parent_addr our_addr >= 0 then parent_loc
+                  else our_loc
+                in
+                Some loc
+            | _ ->
+                failwith
+                  "last_filled: expected account locations for the parent and \
+                   mask" ) )
 
     include Merkle_ledger.Util.Make (struct
       module Location = Location
@@ -751,11 +762,6 @@ module Make (Inputs : Inputs_intf.S) = struct
                 Ok (`Added, location) ) )
       | Some location ->
           Ok (`Existed, location)
-
-    let get_or_create_account_exn t account_id account =
-      get_or_create_account t account_id account
-      |> Result.map_error ~f:(fun err -> raise (Error.to_exn err))
-      |> Result.ok_exn
 
     let sexp_of_location = Location.sexp_of_t
 

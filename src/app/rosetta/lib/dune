@@ -24,6 +24,7 @@
    secrets
    unsigned_extended
  )
+ (preprocessor_deps ../../../config.mlh)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps
                graphql_ppx
@@ -31,9 +32,16 @@
                ppx_deriving.eq
                ppx_deriving.show
                ppx_deriving_yojson
-               ppx_jane
                ppx_inline_test
                ppx_assert
                ppx_version
+               ppx_let
+               ppx_here
+               ppx_optcomp
+               ppx_bin_prot
+               ppx_sexp_conv
+               ppx_compare
+               ppx_hash
+               ppx_custom_printf
                h_list.ppx
 )))

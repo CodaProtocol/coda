@@ -70,7 +70,7 @@ let local_configs ?block_production_interval
       | Some timestamp ->
           Genesis_constants.genesis_timestamp_of_string timestamp
       | None ->
-          (Lazy.force Precomputed_values.compiled).consensus_constants
+          (Lazy.force Precomputed_values.compiled_inputs).consensus_constants
             .genesis_state_timestamp |> Block_time.to_time
     in
     Core.Time.(diff (now ())) genesis_state_timestamp

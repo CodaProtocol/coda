@@ -7,7 +7,7 @@ let print_rpc_error error =
   eprintf "RPC connection error: %s\n" (Error.to_string_hum error)
 
 let dispatch rpc query (host_and_port : Host_and_port.t) =
-  Deferred.Or_error.try_with_join (fun () ->
+  Deferred.Or_error.try_with_join ~here:[%here] (fun () ->
       Tcp.with_connection (Tcp.Where_to_connect.of_host_and_port host_and_port)
         ~timeout:(Time.Span.of_sec 1.) (fun _ r w ->
           let open Deferred.Let_syntax in

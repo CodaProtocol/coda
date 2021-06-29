@@ -26,13 +26,13 @@ let commands : List Cmd.Type =
       ),
       -- Dockerhub: Build and release toolchain image
       Cmd.run (
-        "source ${deployEnv} && docker build --rm --file dockerfiles/Dockerfile-toolchain --tag codaprotocol/mina-toolchain:\\\$DOCKER_TAG . && " ++
-          "docker push codaprotocol/mina-toolchain:\\\$DOCKER_TAG"
+        "source ${deployEnv} && cat dockerfiles/Dockerfile-toolchain | docker build --rm --tag codaprotocol/mina-toolchain:\\\$DOCKER_TAG-\\\$GITHASH - && " ++
+          "docker push codaprotocol/mina-toolchain:\\\$DOCKER_TAG-\\\$GITHASH"
       ),
       -- GCR: Build and release toolchain image
       Cmd.run (
-        "source ${deployEnv} && docker tag codaprotocol/mina-toolchain:\\\$DOCKER_TAG gcr.io/o1labs-192920/mina-toolchain:\\\$DOCKER_TAG && " ++
-          "docker push gcr.io/o1labs-192920/mina-toolchain:\\\$DOCKER_TAG"
+        "source ${deployEnv} && docker tag codaprotocol/mina-toolchain:\\\$DOCKER_TAG-\\\$GITHASH gcr.io/o1labs-192920/mina-toolchain:\\\$DOCKER_TAG-\\\$GITHASH && " ++
+          "docker push gcr.io/o1labs-192920/mina-toolchain:\\\$DOCKER_TAG-\\\$GITHASH"
       )
   ]
 

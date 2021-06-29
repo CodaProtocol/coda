@@ -123,20 +123,26 @@ def send_update(block_data, block_height):
 
     assert response.getcode() == 200, "Non-200 from BP flush endpoint! [{}] - ".format(response.getcode(), response.read())
 
-if __name__ == '__main__':
-    logging.info("Starting Mina Block Producer Sidecar")
-    # Go ensure the node is up and happy
+def check_mina_node_sync_state_and_fetch_head():
     while True:
         try:
-            mina_sync_status, head_block_id = fetch_mina_status()
-            if mina_sync_status == "SYNCED" or mina_sync_status == "CATCHUP":
+            mina_sync_status, current_head = fetch_mina_status()
+            if mina_sync_status == "SYNCED":
                 logging.debug("Mina sync status is acceptable ({}), continuing!".format(mina_sync_status))
                 break
             logging.info("Mina sync status is {}. Sleeping for 5s and trying again".format(mina_sync_status))
-        except Exception as e:
-            logging.exception(e)
+        except Exception as fetch_exception:
+            logging.exception(fetch_exception)
 
         time.sleep(5)
+
+    return current_head
+
+if __name__ == '__main__':
+    logging.info("Starting Mina Block Producer Sidecar")
+
+    # On init ensure our node is synced and happy
+    head_block_id = check_mina_node_sync_state_and_fetch_head()
 
     # Go back FINALIZATION_THRESHOLD blocks from the tip to have a finalized block
     current_finalized_tip = head_block_id - FINALIZATION_THRESHOLD
@@ -145,7 +151,7 @@ if __name__ == '__main__':
     while True:
         try:
             logging.info("Fetching block {}...".format(current_finalized_tip))
-            
+
             block_data = fetch_block(current_finalized_tip)
 
             logging.info("Got block data ", block_data)
@@ -153,9 +159,24 @@ if __name__ == '__main__':
             send_update(block_data, current_finalized_tip)
 
             current_finalized_tip = block_data['daemonStatus']['blockchainLength'] - FINALIZATION_THRESHOLD # Go set a new finalized block
+
             logging.info("Finished! New tip {}...".format(current_finalized_tip))
+
             time.sleep(FETCH_INTERVAL)
         except Exception as e:
+            # If we encounter an error at all, log it, sleep, and then kick
+            # off the init process to go fetch the current tip/head to ensure
+            # we never try to fetch past 290 blocks (k=290)
             logging.exception(e)
+
             logging.error("Sleeping for {}s and trying again".format(ERROR_SLEEP_INTERVAL))
+
             time.sleep(ERROR_SLEEP_INTERVAL)
+
+            head_block_id = check_mina_node_sync_state_and_fetch_head()
+
+            logging.info("Found new head at {}".format(head_block_id))
+
+            current_finalized_tip = head_block_id - FINALIZATION_THRESHOLD
+
+            logging.info("Continuing with finalized tip block of {}".format(current_finalized_tip))

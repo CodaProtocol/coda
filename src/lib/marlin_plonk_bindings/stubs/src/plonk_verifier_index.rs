@@ -1,10 +1,10 @@
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub struct CamlPlonkDomain<Fr> {
     pub log_size_of_group: ocaml::Int,
     pub group_gen: Fr,
 }
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub struct CamlPlonkVerificationEvals<PolyComm> {
     pub sigma_comm0: PolyComm,
     pub sigma_comm1: PolyComm,
@@ -26,13 +26,13 @@ pub struct CamlPlonkVerificationEvals<PolyComm> {
     pub emul3_comm: PolyComm,
 }
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub struct CamlPlonkVerificationShifts<Fr> {
     pub r: Fr,
     pub o: Fr,
 }
 
-#[derive(ocaml::ToValue, ocaml::FromValue)]
+#[derive(ocaml::IntoValue, ocaml::FromValue)]
 pub struct CamlPlonkVerifierIndex<Fr, URS, PolyComm> {
     pub domain: CamlPlonkDomain<Fr>,
     pub max_poly_size: ocaml::Int,

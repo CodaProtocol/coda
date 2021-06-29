@@ -62,8 +62,7 @@ let%test_module "Database integration test" =
               in
               List.iter accounts ~f:(fun account ->
                   let account_id = Account.identifier account in
-                  ignore @@ DB.get_or_create_account_exn db account_id account
-              ) ;
+                  ignore @@ DB.get_or_create_account db account_id account ) ;
               let binary_tree = Binary_tree.set_accounts accounts in
               Sequence.iter
                 (enumerate_dir_combinations Depth.depth |> Sequence.of_list)

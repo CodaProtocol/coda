@@ -22,6 +22,9 @@
 /src/app/reformat/ @MinaProtocol/infra-eng-reviewers
 /src/app/trace-tool/ @MinaProtocol/protocol-eng-reviewers
 /src/app/runtime_genesis_ledger/ @MinaProtocol/protocol-eng-reviewers
+/src/app/archive_blocks/ @MinaProtocol/protocol-eng-reviewers
+/src/app/extract_blocks/ @MinaProtocol/protocol-eng-reviewers
+/src/app/patch_archive_test/ @MinaProtocol/protocol-eng-reviewers
 
 /src/lib/ @MinaProtocol/protocol-eng-reviewers
 

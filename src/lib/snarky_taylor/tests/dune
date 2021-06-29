@@ -1,6 +1,6 @@
 (library
  (name snarky_taylor_tests)
  (inline_tests)
- (libraries snarky_taylor snarky)
+ (libraries snarky_taylor snarky snark_params)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_inline_test ppx_let ppx_version)))

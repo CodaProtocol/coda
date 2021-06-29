@@ -43,4 +43,7 @@ module type S = sig
     -> Internal_transition.t
     -> Pending_coinbase_witness.t
     -> Proof.t Deferred.Or_error.t
+
+  val create_genesis_block :
+    t -> Genesis_proof.Inputs.t -> Blockchain.t Deferred.Or_error.t
 end

@@ -2,9 +2,8 @@
  (name gen_keys)
  (flags -g)
  (libraries ppxlib cache_dir remove_snark_keys_trigger mina_base
-            transaction_snark blockchain_snark async core)
- (preprocessor_deps ../../../config.mlh)
+            transaction_snark blockchain_snark async core genesis_ledger_helper_lib)
  (preprocess
-  (pps ppx_version ppx_optcomp ppx_let ppxlib.metaquot))
+  (pps ppx_version ppx_let ppxlib.metaquot))
  (instrumentation (backend bisect_ppx))
  (modes native))

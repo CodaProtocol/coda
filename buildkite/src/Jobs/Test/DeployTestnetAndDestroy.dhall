@@ -7,7 +7,7 @@ let DeployTestnet = ../../Command/DeployTestnet.dhall
 
 
 let spec = DeployTestnet.DeploySpec::{
-  deps = [ { name = "MinaArtifact", key = "mina-docker-image" } ],
+  deps = [ { name = "MinaArtifact", key = "devnet-docker-image" } ],
   postDeploy = "sleep 10 && terraform destroy -auto-approve"
 }
 

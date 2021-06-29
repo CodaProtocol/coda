@@ -2,6 +2,7 @@ module SC = Scalar_challenge
 open Core
 module P = Proof
 open Pickles_types
+open Poly_types
 open Hlist
 open Backend
 open Tuple_lib

@@ -137,9 +137,12 @@ module Timing_info = struct
     let%bind pk_id = Public_key.find (module Conn) acc.public_key in
     Conn.find
       (Caqti_request.find Caqti_type.int typ
-         "SELECT public_key_id, token, initial_balance, \
-          initial_minimum_balance, cliff_time, cliff_amount, vesting_period, \
-          vesting_increment FROM timing_info WHERE public_key_id = ?")
+         {sql| SELECT public_key_id, token, initial_balance,
+                      initial_minimum_balance, cliff_time, cliff_amount,
+                      vesting_period, vesting_increment
+               FROM timing_info
+               WHERE public_key_id = ?
+         |sql})
       pk_id
 
   let find_by_pk_opt (module Conn : CONNECTION) public_key =
@@ -147,9 +150,12 @@ module Timing_info = struct
     let%bind pk_id = Public_key.find (module Conn) public_key in
     Conn.find_opt
       (Caqti_request.find_opt Caqti_type.int typ
-         "SELECT public_key_id, token, initial_balance, \
-          initial_minimum_balance, cliff_time, cliff_amount, vesting_period, \
-          vesting_increment FROM timing_info WHERE public_key_id = ?")
+         {sql| SELECT public_key_id, token, initial_balance,
+                     initial_minimum_balance, cliff_time, cliff_amount,
+                     vesting_period, vesting_increment
+               FROM timing_info
+               WHERE public_key_id = ?
+         |sql})
       pk_id
 
   let add_if_doesn't_exist (module Conn : CONNECTION) (acc : Account.t) =
@@ -745,17 +751,34 @@ module Balance = struct
 end
 
 module Block_and_internal_command = struct
+  type t =
+    { block_id: int
+    ; internal_command_id: int
+    ; sequence_no: int
+    ; secondary_sequence_no: int
+    ; receiver_balance_id: int }
+  [@@deriving hlist]
+
+  let typ =
+    let open Caqti_type_spec in
+    let spec = Caqti_type.[int; int; int; int; int] in
+    let encode t = Ok (hlist_to_tuple spec (to_hlist t)) in
+    let decode t = Ok (of_hlist (tuple_to_hlist spec t)) in
+    Caqti_type.custom ~encode ~decode (to_rep spec)
+
   let add (module Conn : CONNECTION) ~block_id ~internal_command_id
       ~sequence_no ~secondary_sequence_no ~receiver_balance_id =
     Conn.exec
-      (Caqti_request.exec
-         Caqti_type.(tup2 (tup4 int int int int) int)
+      (Caqti_request.exec typ
          {sql| INSERT INTO blocks_internal_commands
                 (block_id, internal_command_id, sequence_no, secondary_sequence_no, receiver_balance)
                 VALUES (?, ?, ?, ?, ?)
          |sql})
-      ( (block_id, internal_command_id, sequence_no, secondary_sequence_no)
-      , receiver_balance_id )
+      { block_id
+      ; internal_command_id
+      ; sequence_no
+      ; secondary_sequence_no
+      ; receiver_balance_id }
 
   let find (module Conn : CONNECTION) ~block_id ~internal_command_id
       ~sequence_no ~secondary_sequence_no =

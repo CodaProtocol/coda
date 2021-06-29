@@ -75,6 +75,8 @@ let%test_module "Command line tests" =
       let test_failed = ref false in
       let port = 1337 in
       let client_delay = 40. in
+      let retry_delay = 15. in
+      let retry_attempts = 15 in
       let config_dir, genesis_ledger_dir = create_config_directories () in
       Monitor.protect
         ~finally:(fun () ->
@@ -91,13 +93,28 @@ let%test_module "Command line tests" =
           match%map
             let open Deferred.Or_error.Let_syntax in
             let%bind _ = start_daemon config_dir genesis_ledger_dir port in
-            (* it takes awhile for the daemon to become available *)
+            (* It takes a while for the daemon to become available. *)
             let%bind () =
               Deferred.map
                 (after @@ Time.Span.of_sec client_delay)
                 ~f:Or_error.return
             in
-            let%bind _ = start_client port in
+            let%bind _ =
+              let rec go retries_remaining =
+                let open Deferred.Let_syntax in
+                match%bind start_client port with
+                | Error _ when retries_remaining > 0 ->
+                    Core.Printf.printf
+                      "Daemon not responding.. retrying (%i/%i)\n"
+                      (retry_attempts - retries_remaining)
+                      retry_attempts ;
+                    let%bind () = after @@ Time.Span.of_sec retry_delay in
+                    go (retries_remaining - 1)
+                | ret ->
+                    return ret
+              in
+              go retry_attempts
+            in
             let%map _ = stop_daemon port in
             ()
           with

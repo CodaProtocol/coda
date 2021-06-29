@@ -13,11 +13,11 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 #[derive(Copy, Clone)]
 pub struct CamlBn382Fp(pub Fp);
 
-pub type CamlBn382FpPtr = ocaml::Pointer<CamlBn382Fp>;
+pub type CamlBn382FpPtr<'a> = ocaml::Pointer<'a, CamlBn382Fp>;
 
-extern "C" fn caml_bn_382_fp_compare_raw(x: ocaml::Value, y: ocaml::Value) -> libc::c_int {
-    let x: CamlBn382FpPtr = ocaml::FromValue::from_value(x);
-    let y: CamlBn382FpPtr = ocaml::FromValue::from_value(y);
+extern "C" fn caml_bn_382_fp_compare_raw(x: ocaml::Raw, y: ocaml::Raw) -> libc::c_int {
+    let x: CamlBn382FpPtr = unsafe { x.as_pointer() };
+    let y: CamlBn382FpPtr = unsafe { y.as_pointer() };
 
     match x.as_ref().0.cmp(&y.as_ref().0) {
         Less => -1,
@@ -220,8 +220,8 @@ pub fn caml_bn_382_fp_to_bytes(x: CamlBn382FpPtr) -> ocaml::Value {
     let str = unsafe { ocaml::sys::caml_alloc_string(len) };
     unsafe {
         core::ptr::copy_nonoverlapping(x.as_ptr() as *const u8, ocaml::sys::string_val(str), len);
+        ocaml::Value::new(str)
     }
-    ocaml::Value(str)
 }
 
 #[ocaml::func]

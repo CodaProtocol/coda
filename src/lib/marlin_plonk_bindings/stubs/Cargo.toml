@@ -23,7 +23,7 @@ num-bigint = { version = "0.2.3" }
 sprs = { version = "0.7.1" }
 rand_core = { version = "0.5" }
 rayon = { version = "1" }
-ocaml = { version = "0.18.1" }
+ocaml = { version = "0.22.0" }
 
 oracle = { path = "../../marlin/oracle" }
 dlog_solver = { path = "../../marlin/dlog_solver" }

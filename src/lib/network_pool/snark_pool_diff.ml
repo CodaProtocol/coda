@@ -28,7 +28,7 @@ module Make
   type t =
     | Add_solved_work of Work.t * Ledger_proof.t One_or_two.t Priced_proof.t
     | Empty
-  [@@deriving compare, sexp, to_yojson]
+  [@@deriving compare, sexp, to_yojson, hash]
 
   type verified = t [@@deriving compare, sexp, to_yojson]
 
@@ -40,7 +40,7 @@ module Make
     { work: Work.t
     ; fee: Currency.Fee.t
     ; prover: Signature_lib.Public_key.Compressed.t }
-  [@@deriving yojson]
+  [@@deriving yojson, hash]
 
   let to_compact = function
     | Add_solved_work (work, {proof= _; fee= {fee; prover}}) ->
@@ -128,10 +128,8 @@ module Make
           match has_lower_fee pool work ~fee:fee.fee ~sender with
           | Ok () ->
               verify ()
-          | _ ->
-              Deferred.Or_error.error_string
-                "snark pool diff fee is not high enough to be included in \
-                 snark pool" )
+          | Error e ->
+              Deferred.return (Error e) )
 
   (* This is called after verification has occurred.*)
   let unsafe_apply (pool : Pool.t) (t : t Envelope.Incoming.t) =

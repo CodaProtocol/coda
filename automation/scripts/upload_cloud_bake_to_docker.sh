@@ -24,14 +24,14 @@ done
 # AUTOMATION_PATHSPEC=3ca9bdc
 
 echo Testnet is ${TESTNET}
-echo Initial Docker Image is codaprotocol/coda-daemon:${DOCKER_TAG}
-echo Coda Automation Pathspec is ${AUTOMATION_PATHSPEC}
+echo Initial Docker Image is codaprotocol/mina-daemon:${DOCKER_TAG}
+echo Mina Automation Pathspec is ${AUTOMATION_PATHSPEC}
 echo Config File Path is ${CONFIG_FILE}
 
 first7=$(echo ${AUTOMATION_PATHSPEC} | cut -c1-7)
 
-hub_baked_tag="codaprotocol/coda-daemon-baked:${DOCKER_TAG}-${TESTNET}-${first7}"
-gcr_baked_tag="gcr.io/o1labs-192920/coda-daemon-baked:${DOCKER_TAG}-${TESTNET}-${first7}"
+hub_baked_tag="codaprotocol/mina-daemon-baked:${DOCKER_TAG}-${TESTNET}-${first7}"
+gcr_baked_tag="gcr.io/o1labs-192920/mina-daemon-baked:${DOCKER_TAG}-${TESTNET}-${first7}"
 
 docker tag "$gcr_baked_tag" "$hub_baked_tag" 
 docker push "$hub_baked_tag"

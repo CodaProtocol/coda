@@ -6,7 +6,7 @@ let optional ~f = function `Null -> None | json -> Some (f json)
 
 let public_key json =
   Yojson.Basic.Util.to_string json
-  |> Signature_lib.Public_key.Compressed.of_base58_check_exn
+  |> Signature_lib.Public_key.of_base58_check_decompress_exn
 
 let public_key_array = Array.map ~f:public_key
 

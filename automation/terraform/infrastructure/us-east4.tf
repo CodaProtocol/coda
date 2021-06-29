@@ -1,8 +1,8 @@
 locals {
-  east4_k8s_context = "gke_o1labs-192920_us-east4_coda-infra-east4"
   east4_region      = "us-east4"
-  k8s_context       = "gke_o1labs-192920_us-east4_coda-infra-east4"
-  bk_k8s_context    = "gke_o1labs-192920_us-east4_buildkite-infra-east4"
+  
+  east4_k8s_context = "gke_o1labs-192920_us-east4_coda-infra-east4"
+  bk_east4_k8s_context    = "gke_o1labs-192920_us-east4_buildkite-infra-east4"
 
   east4_prometheus_helm_values = {
     server = {
@@ -24,7 +24,7 @@ locals {
           write_relabel_configs = [
             {
               source_labels : ["__name__"]
-              regex : "(buildkite.*|container.*|Coda.*|watchdog.*)"
+              regex : "(buildkite.*|container.*|Coda.*|watchdog.*|go.*|process.*|Mina.*)"
               action : "keep"
             }
           ]
@@ -301,59 +301,4 @@ resource "helm_release" "bk_east4_prometheus" {
   wait         = true
   depends_on   = [google_container_cluster.buildkite_infra_east4]
   force_update = true
-}
-
-# Utilities
-
-provider kubernetes {
-  config_context = local.east4_k8s_context
-}
-
-resource "kubernetes_cron_job" "integration-testnet-cleanup" {
-  metadata {
-    name      = "integration-test-cleanup"
-    namespace = "default"
-  }
-  spec {
-    concurrency_policy            = "Replace"
-    failed_jobs_history_limit     = 5
-    schedule                      = "0 8 * * *"
-    starting_deadline_seconds     = 10
-    successful_jobs_history_limit = 10
-    job_template {
-      metadata {}
-      spec {
-        backoff_limit              = 5
-        ttl_seconds_after_finished = 10
-        template {
-          metadata {}
-          spec {
-            container {
-              name  = "integration-test-janitor"
-              image = "gcr.io/o1labs-192920/watchdog:0.3.8"
-              args = [
-                "/scripts/network-utilities.py",
-                "janitor",
-                "cleanup-namespace-resources",
-                "--namespace-pattern",
-                ".*integration|auto|ci-net.*",
-                "--k8s-context",
-                "gke_o1labs-192920_us-west1_mina-integration-west1",
-                "--kube-config-file",
-                "/root/.kube/config"
-              ]
-              env {
-                name  = "GCLOUD_APPLICATION_CREDENTIALS_JSON"
-                value = base64decode(google_service_account_key.janitor_svc_key.private_key)
-              }
-              env {
-                name  = "CLUSTER_SERVICE_EMAIL"
-                value = google_service_account.gcp_janitor_account.email
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 }

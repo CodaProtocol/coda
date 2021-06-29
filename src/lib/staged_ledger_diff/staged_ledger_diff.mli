@@ -141,6 +141,8 @@ module With_valid_signatures_and_proofs : sig
 
   type t = {diff: diff} [@@deriving sexp, to_yojson]
 
+  val empty_diff : t
+
   val commands : t -> User_command.Valid.t With_status.t list
 end
 
@@ -192,3 +194,11 @@ val coinbase :
   -> supercharge_coinbase:bool
   -> t
   -> Currency.Amount.t option
+
+val net_return :
+     constraint_constants:Genesis_constants.Constraint_constants.t
+  -> supercharge_coinbase:bool
+  -> t
+  -> Currency.Amount.t option
+
+val empty_diff : t

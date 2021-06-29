@@ -47,7 +47,7 @@ let possible_paths base =
 
 let load_from_s3 s3_bucket_prefix s3_install_path ~logger =
   Deferred.map ~f:Result.join
-  @@ Monitor.try_with (fun () ->
+  @@ Monitor.try_with ~here:[%here] (fun () ->
          let each_uri (uri_string, file_path) =
            let open Deferred.Let_syntax in
            [%log trace] "Downloading file from S3"

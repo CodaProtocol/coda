@@ -21,6 +21,7 @@ module Engine = struct
          logger:Logger.t
       -> test_name:string
       -> cli_inputs:Cli_inputs.t
+      -> debug:bool
       -> test_config:Test_config.t
       -> images:Test_config.Container_images.t
       -> t
@@ -32,16 +33,26 @@ module Engine = struct
 
       val id : t -> string
 
+      val network_keypair : t -> Network_keypair.t option
+
       val start : fresh_state:bool -> t -> unit Malleable_error.t
 
       val stop : t -> unit Malleable_error.t
 
       val send_payment :
-           ?retry_on_graphql_error:bool
-        -> logger:Logger.t
+           logger:Logger.t
         -> t
-        -> sender:Signature_lib.Public_key.Compressed.t
-        -> receiver:Signature_lib.Public_key.Compressed.t
+        -> sender_pub_key:Signature_lib.Public_key.Compressed.t
+        -> receiver_pub_key:Signature_lib.Public_key.Compressed.t
+        -> amount:Currency.Amount.t
+        -> fee:Currency.Fee.t
+        -> unit Deferred.Or_error.t
+
+      val must_send_payment :
+           logger:Logger.t
+        -> t
+        -> sender_pub_key:Signature_lib.Public_key.Compressed.t
+        -> receiver_pub_key:Signature_lib.Public_key.Compressed.t
         -> amount:Currency.Amount.t
         -> fee:Currency.Fee.t
         -> unit Malleable_error.t
@@ -50,10 +61,36 @@ module Engine = struct
            logger:Logger.t
         -> t
         -> account_id:Mina_base.Account_id.t
+        -> Currency.Balance.t Async_kernel.Deferred.Or_error.t
+
+      val must_get_balance :
+           logger:Logger.t
+        -> t
+        -> account_id:Mina_base.Account_id.t
         -> Currency.Balance.t Malleable_error.t
 
       val get_peer_id :
+           logger:Logger.t
+        -> t
+        -> (string * string list) Async_kernel.Deferred.Or_error.t
+
+      val must_get_peer_id :
         logger:Logger.t -> t -> (string * string list) Malleable_error.t
+
+      val get_best_chain :
+        logger:Logger.t -> t -> string list Async_kernel.Deferred.Or_error.t
+
+      val must_get_best_chain :
+        logger:Logger.t -> t -> string list Malleable_error.t
+
+      val dump_archive_data :
+        logger:Logger.t -> t -> data_file:string -> unit Malleable_error.t
+
+      val dump_container_logs :
+        logger:Logger.t -> t -> log_file:string -> unit Malleable_error.t
+
+      val dump_precomputed_blocks :
+        logger:Logger.t -> t -> unit Malleable_error.t
     end
 
     type t
@@ -64,13 +101,19 @@ module Engine = struct
 
     val genesis_constants : t -> Genesis_constants.t
 
+    val seeds : t -> Node.t list
+
     val block_producers : t -> Node.t list
 
     val snark_coordinators : t -> Node.t list
 
     val archive_nodes : t -> Node.t list
 
+    val all_nodes : t -> Node.t list
+
     val keypairs : t -> Signature_lib.Keypair.t list
+
+    val initialize : logger:Logger.t -> t -> unit Malleable_error.t
   end
 
   module type Network_manager_intf = sig
@@ -165,6 +208,7 @@ module Dsl = struct
       ; snarked_ledgers_generated: int
       ; blocks_generated: int
       ; node_initialization: bool String.Map.t
+      ; gossip_received: Gossip_state.t String.Map.t
       ; best_tips_by_node: State_hash.t String.Map.t }
 
     val listen :
@@ -198,10 +242,18 @@ module Dsl = struct
     val nodes_to_synchronize : Engine.Network.Node.t list -> t
 
     val payment_to_be_included_in_frontier :
-         sender:Public_key.Compressed.t
-      -> receiver:Public_key.Compressed.t
+         sender_pub_key:Public_key.Compressed.t
+      -> receiver_pub_key:Public_key.Compressed.t
       -> amount:Amount.t
       -> t
+  end
+
+  module type Util_intf = sig
+    module Engine : Engine.S
+
+    val pub_key_of_node :
+         Engine.Network.Node.t
+      -> Signature_lib.Public_key.Compressed.t Malleable_error.t
   end
 
   module type S = sig
@@ -220,7 +272,15 @@ module Dsl = struct
        and module Event_router := Event_router
        and module Network_state := Network_state
 
+    module Util : Util_intf with module Engine := Engine
+
     type t
+
+    val section_hard : string -> 'a Malleable_error.t -> 'a Malleable_error.t
+
+    val section : string -> unit Malleable_error.t -> unit Malleable_error.t
+
+    val network_state : t -> Network_state.t
 
     val wait_for : t -> Wait_condition.t -> unit Malleable_error.t
 
@@ -232,15 +292,16 @@ module Dsl = struct
       -> network_state_reader:Network_state.t Broadcast_pipe.Reader.t
       -> [`Don't_call_in_tests of t]
 
-    type error_accumulator
+    type log_error_accumulator
 
     val watch_log_errors :
          logger:Logger.t
       -> event_router:Event_router.t
       -> on_fatal_error:(Logger.Message.t -> unit)
-      -> error_accumulator
+      -> log_error_accumulator
 
-    val lift_accumulated_errors : error_accumulator -> Test_error.Set.t
+    val lift_accumulated_log_errors :
+      log_error_accumulator -> Test_error.remote_error Test_error.Set.t
   end
 end
 
@@ -259,8 +320,6 @@ module Test = struct
     type dsl
 
     val config : Test_config.t
-
-    val expected_error_event_reprs : Structured_log_events.repr list
 
     val run : network -> dsl -> unit Malleable_error.t
   end

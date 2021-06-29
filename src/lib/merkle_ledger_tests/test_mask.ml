@@ -87,7 +87,8 @@ module Make (Test : Test_intf) = struct
   let create_new_account_exn mask account =
     let public_key = Account.identifier account in
     let action, location =
-      Mask.Attached.get_or_create_account_exn mask public_key account
+      Mask.Attached.get_or_create_account mask public_key account
+      |> Or_error.ok_exn
     in
     match action with
     | `Existed ->
@@ -98,7 +99,8 @@ module Make (Test : Test_intf) = struct
   let create_existing_account_exn mask account =
     let public_key = Account.identifier account in
     let action, location =
-      Mask.Attached.get_or_create_account_exn mask public_key account
+      Mask.Attached.get_or_create_account mask public_key account
+      |> Or_error.ok_exn
     in
     match action with
     | `Existed ->
@@ -110,7 +112,8 @@ module Make (Test : Test_intf) = struct
   let parent_create_new_account_exn parent account =
     let public_key = Account.identifier account in
     let action, location =
-      Maskable.get_or_create_account_exn parent public_key account
+      Maskable.get_or_create_account parent public_key account
+      |> Or_error.ok_exn
     in
     match action with
     | `Existed ->
@@ -615,7 +618,9 @@ module Make (Test : Test_intf) = struct
         let ledger = Maskable.register_mask maskable mask in
         let key = List.nth_exn (Account_id.gen_accounts 1) 0 in
         let start_hash = merkle_root ledger in
-        match get_or_create_account_exn ledger key Account.empty with
+        match
+          get_or_create_account ledger key Account.empty |> Or_error.ok_exn
+        with
         | `Existed, _ ->
             failwith
               "create_empty with empty ledger somehow already has that key?"
@@ -722,7 +727,8 @@ module Make (Test : Test_intf) = struct
         let k = Account_id.gen_accounts 1 |> List.hd_exn in
         let acct1 = Account.create k (Balance.of_int 10) in
         let loc =
-          snd (Mask.Attached.get_or_create_account_exn attached_mask k acct1)
+          Mask.Attached.get_or_create_account attached_mask k acct1
+          |> Or_error.ok_exn |> snd
         in
         let acct2 = Account.create k (Balance.of_int 5) in
         Maskable.set maskable loc acct2 ;

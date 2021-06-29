@@ -32,6 +32,9 @@ Pipeline.build
           S.strictlyStart (S.contains "buildkite/src/Jobs/Release/MinaArtifact"),
           S.exactly "buildkite/scripts/build-artifact" "sh",
           S.exactly "buildkite/scripts/connect-to-testnet-on-develop" "sh",
+          S.exactly "dockerfiles/Dockerfile-mina-daemon" "",
+          S.exactly "dockerfiles/Dockerfile-mina-daemon-puppeteered" "",
+          S.exactly "dockerfiles/puppeteer-context/mina_daemon_puppeteer" "py",
           S.exactly "dockerfiles/scripts/healthcheck-utilities" "sh",
           S.strictlyStart (S.contains "scripts")
         ],
@@ -44,12 +47,12 @@ Pipeline.build
       Command.build
         Command.Config::{
           commands = OpamInit.andThenRunInDocker [
-            "DUNE_PROFILE=testnet_postake_medium_curves",
+            "DUNE_PROFILE=devnet",
             "AWS_ACCESS_KEY_ID",
             "AWS_SECRET_ACCESS_KEY",
-            "CODA_BRANCH=$BUILDKITE_BRANCH",
-            "CODA_COMMIT_SHA1=$BUILDKITE_COMMIT",
-            -- add zexe standardization preprocessing step (see: https://github.com/CodaProtocol/coda/pull/5777)
+            "MINA_BRANCH=$BUILDKITE_BRANCH",
+            "MINA_COMMIT_SHA1=$BUILDKITE_COMMIT",
+            -- add zexe standardization preprocessing step (see: https://github.com/MinaProtocol/mina/pull/5777)
             "PREPROCESSOR=./scripts/zexe-standardize.sh"
           ] "./buildkite/scripts/build-artifact.sh" # [ Cmd.run "buildkite/scripts/buildkite-artifact-helper.sh ./DOCKER_DEPLOY_ENV" ],
           label = "Build Mina daemon debian package",
@@ -62,18 +65,31 @@ Pipeline.build
       -- daemon image
       let daemonSpec = DockerImage.ReleaseSpec::{
         deps=dependsOn,
-        service="coda-daemon"
+        service="mina-daemon"
       }
 
       in
 
       DockerImage.generateStep daemonSpec,
 
+      -- mainnet image
+      let mainnetSpec = DockerImage.ReleaseSpec::{
+        deps=dependsOn,
+        service="mina-daemon",
+        version = "\\\${MINA_VERSION}-mainnet",
+        step_key="mainnet-docker-image",
+        extra_args = "--build-arg deb_version=\\\${MINA_DEB_VERSION} --build-arg deb_release=\\\${MINA_DEB_RELEASE} --build-arg deb_codename=\\\${MINA_DEB_CODENAME} --build-arg network=mainnet --build-arg MINA_VERSION=\\\${MINA_VERSION} --build-arg MINA_BRANCH=\\\${MINA_GIT_BRANCH}"
+      }
+
+      in
+
+      DockerImage.generateStep mainnetSpec,
+
       -- puppeteered image
       let puppeteeredSpec = DockerImage.ReleaseSpec::{
-        deps=dependsOn # [{ name = "MinaArtifact", key = "mina-docker-image" }],
-        service="\\\${CODA_SERVICE}-puppeteered",
-        extra_args="--build-arg coda_deb_version=\\\${CODA_DEB_VERSION} --build-arg CODA_VERSION=\\\${CODA_VERSION} --build-arg CODA_BRANCH=\\\${CODA_GIT_BRANCH} --build-arg deb_repo=\\\${CODA_DEB_REPO}",
+        deps=dependsOn # [{ name = "MinaArtifact", key = "devnet-docker-image" }],
+        service="\\\${MINA_SERVICE}-puppeteered",
+        extra_args = "--build-arg network=devnet --build-arg MINA_VERSION=\\\${MINA_VERSION}-devnet",
         step_key="puppeteered-docker-image"
       }
 
@@ -85,7 +101,7 @@ Pipeline.build
       let rosettaSpec = DockerImage.ReleaseSpec::{
         deps=rosettaDependsOn,
         deploy_env_file="export-git-env-vars.sh",
-        service="coda-rosetta",
+        service="mina-rosetta",
         version="\\\${DOCKER_TAG}",
         commit = "\\\${GITHASH}",
         extra_args="--build-arg MINA_BRANCH=\\\${BUILDKITE_BRANCH} --build-arg MINA_REPO=\\\${BUILDKITE_PULL_REQUEST_REPO} --cache-from gcr.io/o1labs-192920/mina-rosetta-opam-deps:develop",
@@ -100,7 +116,7 @@ Pipeline.build
       let rosettaDuneSpec = DockerImage.ReleaseSpec::{
         deps=rosettaDependsOn,
         deploy_env_file="export-git-env-vars.sh",
-        service="coda-rosetta",
+        service="mina-rosetta",
         version="dev-\\\${DOCKER_TAG}",
         commit = "\\\${GITHASH}",
         extra_args="--build-arg DUNE_PROFILE=dev --build-arg MINA_BRANCH=\\\${BUILDKITE_BRANCH} --build-arg MINA_REPO=\\\${BUILDKITE_PULL_REQUEST_REPO} --cache-from gcr.io/o1labs-192920/mina-rosetta-opam-deps:develop",

@@ -2,7 +2,6 @@
  (public_name genesis_ledger_helper)
  (name genesis_ledger_helper)
  (inline_tests)
- (libraries snark_keys core_kernel mina_base signature_lib genesis_constants runtime_config cache_dir genesis_ledger genesis_proof precomputed_values)
- (preprocessor_deps "../../config.mlh")
+ (libraries core_kernel mina_base signature_lib genesis_constants runtime_config cache_dir genesis_ledger genesis_proof precomputed_values mina_user_error genesis_ledger_helper_lib)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_coda ppx_jane ppx_version ppx_inline_test ppx_let ppx_deriving.std ppx_deriving_yojson ppx_custom_printf)))

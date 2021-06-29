@@ -12,7 +12,7 @@ let check_and_set_lockfile ~logger conf_dir =
   | `No -> (
       let open Async in
       match%map
-        Monitor.try_with ~extract_exn:true (fun () ->
+        Monitor.try_with ~here:[%here] ~extract_exn:true (fun () ->
             Writer.with_file ~exclusive:true lockfile ~f:(fun writer ->
                 let pid = Unix.getpid () in
                 return (Writer.writef writer "%d\n" (Pid.to_int pid)) ) )
@@ -35,7 +35,7 @@ let check_and_set_lockfile ~logger conf_dir =
   | `Yes -> (
       let open Async in
       match%map
-        Monitor.try_with ~extract_exn:true (fun () ->
+        Monitor.try_with ~here:[%here] ~extract_exn:true (fun () ->
             Reader.with_file ~exclusive:true lockfile ~f:(fun reader ->
                 let%bind pid =
                   let rm_and_raise () =
@@ -153,7 +153,7 @@ let export_logs_to_tar ?basename ~conf_dir =
       let hw_info = "hardware.info" in
       let hw_info_file = conf_dir ^/ hw_info in
       match%map
-        Monitor.try_with ~extract_exn:true (fun () ->
+        Monitor.try_with ~here:[%here] ~extract_exn:true (fun () ->
             Writer.with_file ~exclusive:true hw_info_file ~f:(fun writer ->
                 Deferred.List.map (Option.value_exn hw_info_opt)
                   ~f:(fun line -> return (Writer.write_line writer line)) ) )

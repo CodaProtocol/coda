@@ -2,7 +2,7 @@ apiVersion: v2
 name: common-utilities
 description: A Helm chart for Mina Protocol's common chart utilities
 type: library
-version: 0.0.8
+version: 0.0.9
 appVersion: 0.0.1
 annotations:
   artifacthub.io/changes: |

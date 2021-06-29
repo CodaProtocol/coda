@@ -1,8 +1,7 @@
-(executable
- (package signer)
- (name signer)
- (public_name signer)
- (modes native)
+(library
+ (name signer_cli)
+ (public_name signer.cli)
+ (modules signer_cli)
  (libraries
    async
    async_ssl
@@ -13,6 +12,63 @@
    ppx_deriving_yojson.runtime
    yojson
  )
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps
+               graphql_ppx
+               ppx_coda
+               ppx_deriving.show
+               ppx_deriving_yojson
+               ppx_jane
+               ppx_version
+               ppx_deriving.eq
+ ))
+)
+
+(executable
+ (package signer)
+ (name signer)
+ (public_name signer)
+ (modes native)
+ (modules signer)
+ (libraries signer_cli)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps
+               graphql_ppx
+               ppx_coda
+               ppx_deriving.show
+               ppx_deriving_yojson
+               ppx_jane
+               ppx_version
+               ppx_deriving.eq
+ ))
+)
+
+(executable
+ (package signer)
+ (name signer_testnet_signatures)
+ (public_name signer-testnet)
+ (modes native)
+ (modules signer_testnet_signatures)
+ (libraries signer_cli)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps
+               graphql_ppx
+               ppx_coda
+               ppx_deriving.show
+               ppx_deriving_yojson
+               ppx_jane
+               ppx_version
+               ppx_deriving.eq
+ ))
+)
+
+(executable
+ (package signer)
+ (name signer_mainnet_signatures)
+ (public_name signer-mainnet)
+ (modes native)
+ (modules signer_mainnet_signatures)
+ (libraries signer_cli)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps
                graphql_ppx

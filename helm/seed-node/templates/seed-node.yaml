@@ -18,6 +18,7 @@ spec:
         role: seed
         class: {{ default "undefined" $config.class }}
         version: {{ trunc 6 (split ":" $.Values.coda.image)._1 | trimSuffix "-" }}
+        syncStatus: INIT
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: {{ $.Values.coda.ports.metrics | quote }}
@@ -57,6 +58,9 @@ spec:
           "-enable-peer-exchange", "true",
           {{- if $.Values.coda.logPrecomputedBlocks }}
           "-log-precomputed-blocks", "true",
+          {{- end -}}
+          {{- if $.Values.coda.logTxnPoolGossip }}
+          "-log-txn-pool-gossip", "true",
           {{- end -}}
           {{- if $.Values.coda.maxConnections }}
           "--max-connections", {{ $.Values.coda.maxConnections | quote }},
@@ -109,19 +113,20 @@ spec:
         {{- end }}
         ports:
         - name: client-port
-          protocol: TCP 
+          protocol: TCP
           containerPort: {{ $.Values.coda.ports.client }}
         - name: graphql-port
-          protocol: TCP 
+          protocol: TCP
           containerPort: {{ $.Values.coda.ports.graphql }}
         - name: metrics-port
-          protocol: TCP 
+          protocol: TCP
           containerPort: {{ $.Values.coda.ports.metrics }}
         - name: external-port
-          protocol: TCP 
+          protocol: TCP
           containerPort: {{ default $.Values.coda.ports.p2p $config.externalPort }}
           hostPort: {{ default $.Values.coda.ports.external $config.externalPort }}
-{{- include "healthcheck.seed.allChecks" $.Values | indent 8 }}
+{{$data := dict "name" $config.name "healthcheck" $.Values.healthcheck }}
+{{- include "healthcheck.seed.allChecks" $data | indent 8 }}
         imagePullPolicy: Always
         volumeMounts:
         {{- if $config.libp2pSecret }}
@@ -198,5 +203,22 @@ spec:
   - name: tcp-p2p
     port: {{ default $.Values.coda.ports.p2p $config.externalPort }}
     targetPort: external-port
+---
+{{- if $.Values.coda.exposeGraphql }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $config.name }}-graphql
+spec:
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  selector:
+    app: {{ $config.name }}
+  ports:
+  - name: http-graphql
+    protocol: TCP
+    port: 80
+    targetPort: {{ $.Values.coda.ports.graphql }}
+{{- end }}
 ---
 {{ end }}

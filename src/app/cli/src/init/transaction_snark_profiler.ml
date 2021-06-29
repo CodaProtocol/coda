@@ -116,7 +116,7 @@ let rec pair_up = function
   | _ ->
       failwith "Expected even length list"
 
-let precomputed_values = Precomputed_values.compiled
+let precomputed_values = Precomputed_values.compiled_inputs
 
 let state_body =
   Mina_state.(
@@ -322,6 +322,8 @@ let main num_transactions repeats preeval () =
       let module T = Transaction_snark.Make (struct
         let constraint_constants =
           Genesis_constants.Constraint_constants.compiled
+
+        let proof_level = Genesis_constants.Proof_level.Full
       end) in
       run (profile (module T)) num_transactions repeats preeval )
 

@@ -2,7 +2,7 @@
 # The "build-deps" stage
 # - Installs all compilers/interpreters, tools, and OS packages on debian buster-slim
 #################################################################################################
-FROM debian:buster-slim AS build-deps
+FROM debian:stretch-slim AS build-deps
 
 # Ocaml Version
 ARG OCAML_VERSION=4.07
@@ -12,7 +12,7 @@ ARG OCAML_PACKAGE=ocaml-variants
 ARG OPAM_VERSION=2.0.7
 
 # Golang version number used to detemine tarball name
-ARG GO_VERSION=1.13.10
+ARG GO_VERSION=1.14.15
 
 # Rust Version passed into rustup-init, can also be "stable", "nightly" or similar
 ARG RUST_VERSION=1.45.2
@@ -268,9 +268,6 @@ RUN eval $(opam config env) \
     src/app/generate_keypair/generate_keypair.exe \
     src/app/rosetta/test-agent/agent.exe \
     src/app/rosetta/ocaml-signer/signer.exe \
-  && _build/default/src/app/runtime_genesis_ledger/runtime_genesis_ledger.exe \
-    --config-file src/app/rosetta/demo-config.json \
-    --genesis-dir ${HOME}/demo-genesis \
   && mv _build/default/src/app $HOME/app \
   && rm -rf _build
 
@@ -282,7 +279,7 @@ RUN eval $(opam config env) \
 # The "production" Stage
 # - sets up the final container with built binaries and a running postgresql archive node setup
 #################################################################################################
-FROM debian:buster-slim AS production
+FROM debian:stretch-slim AS production
 
 ARG POSTGRES_DATA_DIR=/data/postgresql
 ARG MINA_DAEMON_PORT=10101
@@ -292,11 +289,15 @@ ARG PK=B62qiZfzW27eavtPrnF6DeDSAKEjXuGFdkouC3T5STRa6rrYLiDUP2p
 
 ENV DEBIAN_FRONTEND noninteractive
 
+# Workaround terrible postgresql package requirements with man
+RUN mkdir /usr/share/man/man7 /usr/share/man/man1
+
 # Dependencies
 # buster-slim configures apt to not store any cache, so no need to rm it
 # TODO: make sure this is the minimum runtime deps
 RUN apt-get -y update \
   && apt -y install \
+    apt-utils \
     curl \
     ca-certificates \
     dnsutils \
@@ -305,10 +306,11 @@ RUN apt-get -y update \
     libffi6 \
     libgmp10 \
     libgomp1 \
-    libjemalloc-dev \
+    libjemalloc1 \
     libssl1.1 \
     postgresql \
     postgresql-contrib \
+    man \
     tzdata
 
 # Make all directories for configuration and empty s3 cache dirs
@@ -327,10 +329,7 @@ COPY --from=builder /home/opam/mina/src/app/rosetta/config.json /data/config.jso
 # COPY --from=builder /tmp/s3_cache_dir /tmp/s3_cache_dir
 # COPY --from=builder /tmp/mina_cache_dir /tmp/mina_cache_dir
 
-# Set up mina config dir with demo mode keys and genesis
-COPY --from=builder /home/opam/demo-genesis ${MINA_CONFIG_DIR}/demo-genesis
-# Fix a bad symlink by also putting this data in /home/opam
-COPY --from=builder /home/opam/demo-genesis /home/opam/demo-genesis
+# Copy the demo daemon.json.template
 COPY --from=builder /home/opam/mina/src/app/rosetta/demo-config.json ${MINA_CONFIG_DIR}/daemon.json.template
 
 RUN mkdir -p --mode=700 ${MINA_CONFIG_DIR}/wallets/store/ \
@@ -341,13 +340,16 @@ RUN mkdir -p --mode=700 ${MINA_CONFIG_DIR}/wallets/store/ \
 
 USER postgres
 
+# TODO: derive this value from the installed package version
+ARG POSTGRES_VERSION=9.6
+
 # TODO: use POSTGRES_DATA_DIR variable more consistently and ensure proper escaping
 # TODO: move this to a more useful and easy to maintain script in the rosetta directory for this purpose
-RUN pg_dropcluster --stop 11 main \
-    && pg_createcluster --start 11 -d ${POSTGRES_DATA_DIR} main \
-    && echo "data_directory = '/data/postgresql'" >> /etc/postgresql/11/main/postgresql.conf \
-    && echo "listen_addresses='*'" >> /etc/postgresql/11/main/postgresql.conf \
-    && echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/11/main/pg_hba.conf \
+RUN pg_dropcluster --stop ${POSTGRES_VERSION} main \
+    && pg_createcluster --start ${POSTGRES_VERSION} -d ${POSTGRES_DATA_DIR} main \
+    && echo "data_directory = '/data/postgresql'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf \
+    && echo "listen_addresses='*'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf \
+    && echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/${POSTGRES_VERSION}/main/pg_hba.conf \
     && /etc/init.d/postgresql start \
     && psql --command "CREATE USER pguser WITH SUPERUSER PASSWORD 'pguser';" \
     && createdb -O pguser archiver \

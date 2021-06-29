@@ -19,11 +19,17 @@ let%test_module "network pool test" =
 
     let time_controller = Block_time.Controller.basic ~logger
 
+    let verifier =
+      Async.Thread_safe.block_on_async_exn (fun () ->
+          Verifier.create ~logger ~proof_level ~constraint_constants
+            ~conf_dir:None
+            ~pids:(Child_processes.Termination.create_pid_table ()) )
+
     module Mock_snark_pool =
       Snark_pool.Make (Mocks.Base_ledger) (Mocks.Staged_ledger)
         (Mocks.Transition_frontier)
 
-    let config verifier =
+    let config =
       Mock_snark_pool.Resource_pool.make_config ~verifier ~trust_system
         ~disk_location:"/tmp/snark-pool"
 
@@ -50,12 +56,6 @@ let%test_module "network pool test" =
             ; prover= Signature_lib.Public_key.Compressed.empty } }
       in
       Async.Thread_safe.block_on_async_exn (fun () ->
-          let%bind verifier =
-            Verifier.create ~logger ~proof_level
-              ~pids:(Child_processes.Termination.create_pid_table ())
-              ~conf_dir:None
-          in
-          let config = config verifier in
           let network_pool =
             Mock_snark_pool.create ~config ~logger ~constraint_constants
               ~consensus_constants ~time_controller ~incoming_diffs:pool_reader
@@ -124,12 +124,6 @@ let%test_module "network pool test" =
         let%bind () = Async.Scheduler.yield_until_no_jobs_remain () in
         let tf = Mocks.Transition_frontier.create [] in
         let frontier_broadcast_pipe_r, _ = Broadcast_pipe.create (Some tf) in
-        let%bind verifier =
-          Verifier.create ~logger ~proof_level
-            ~pids:(Child_processes.Termination.create_pid_table ())
-            ~conf_dir:None
-        in
-        let config = config verifier in
         let network_pool =
           Mock_snark_pool.create ~config ~logger ~constraint_constants
             ~consensus_constants ~time_controller ~incoming_diffs:pool_reader

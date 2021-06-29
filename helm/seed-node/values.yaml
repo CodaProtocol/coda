@@ -3,6 +3,7 @@ coda:
   runtimeConfig:
   generateGenesisProof: true
   logPrecomputedBlocks: true
+  logTxnPoolGossip: false
   maxConnections: 200
   image: codaprotocol/coda-daemon:0.0.12-beta-develop-589b507
   seedPeers:
@@ -13,6 +14,7 @@ coda:
     graphql: "3085"
     metrics: "10001"
     p2p: "10909"
+  exposeGraphql: false
 
 seed:
   active: true

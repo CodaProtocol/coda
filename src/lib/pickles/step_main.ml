@@ -2,6 +2,7 @@ module S = Sponge
 open Core
 open Pickles_types
 open Common
+open Poly_types
 open Hlist
 open Import
 open Impls.Step

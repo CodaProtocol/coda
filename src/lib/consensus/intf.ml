@@ -376,6 +376,8 @@ module type S = sig
 
       type t = Stable.Latest.t [@@deriving to_yojson, sexp]
 
+      val genesis_data : genesis_epoch_ledger:Mina_base.Ledger.t Lazy.t -> t
+
       val precomputed_handler :
            constraint_constants:Genesis_constants.Constraint_constants.t
         -> genesis_epoch_ledger:Mina_base.Ledger.t Lazy.t
@@ -570,6 +572,7 @@ module type S = sig
     *)
 
     type t = [`Producer | `Other of Public_key.Compressed.t]
+    [@@deriving yojson]
   end
 
   module Hooks : sig

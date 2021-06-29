@@ -66,18 +66,16 @@ let coinbase_merkle_tree =
 
 let vrf_message = salt vrf_message
 
-[%%if
-mainnet]
-
-let signature = salt signature_mainnet
-
-[%%else]
-
-let signature = salt signature_testnet
-
-[%%endif]
+let signature =
+  match Mina_signature_kind.t with
+  | Mainnet ->
+      salt signature_mainnet
+  | Testnet ->
+      salt signature_testnet
 
 let vrf_output = salt vrf_output
+
+let vrf_evaluation = salt vrf_evaluation
 
 let epoch_seed = salt epoch_seed
 

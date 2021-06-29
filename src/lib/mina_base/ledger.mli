@@ -179,6 +179,9 @@ module Transaction_applied : sig
   val user_command_status : t -> Transaction_status.t
 end
 
+(** Raises if the ledger is full, or if an account already exists for the given
+    [Account_id.t].
+*)
 val create_new_account_exn : t -> Account_id.t -> Account.t -> unit
 
 val apply_user_command :
@@ -235,7 +238,8 @@ val merkle_root_after_user_command_exn :
   -> Signed_command.With_valid_signature.t
   -> Ledger_hash.t * [`Next_available_token of Token_id.t]
 
-val create_empty : t -> Account_id.t -> Path.t * Account.t
+(** Raises if the ledger is full. *)
+val create_empty_exn : t -> Account_id.t -> Path.t * Account.t
 
 val num_accounts : t -> int
 

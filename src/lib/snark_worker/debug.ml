@@ -1,9 +1,8 @@
 open Core
 open Async
+open Mina_base
 
 module Inputs = struct
-  module Ledger_proof = Ledger_proof.Debug
-
   module Worker_state = struct
     include Unit
 
@@ -17,9 +16,24 @@ module Inputs = struct
     let worker_wait_time = 0.5
   end
 
-  let perform_single () ~message s =
+  let perform_single () ~message s :
+      (Ledger_proof.t * Time.Span.t) Deferred.Or_error.t =
+    (* Use a dummy proof. *)
+    let stmt =
+      match s with
+      | Snark_work_lib.Work.Single.Spec.Transition (stmt, _, _) ->
+          stmt
+      | Merge (stmt, _, _) ->
+          stmt
+    in
+    let sok_digest = Sok_message.digest message in
     Deferred.Or_error.return
-      ( ( Snark_work_lib.Work.Single.Spec.statement s
-        , Mina_base.Sok_message.digest message )
-      , Time.Span.zero )
+    @@ ( Transaction_snark.create ~source:stmt.source ~target:stmt.target
+           ~supply_increase:stmt.supply_increase
+           ~pending_coinbase_stack_state:stmt.pending_coinbase_stack_state
+           ~next_available_token_before:stmt.next_available_token_before
+           ~next_available_token_after:stmt.next_available_token_after
+           ~fee_excess:stmt.fee_excess ~sok_digest
+           ~proof:Proof.transaction_dummy
+       , Time.Span.zero )
 end

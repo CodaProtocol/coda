@@ -356,9 +356,12 @@ module Protocol = struct
 end
 
 module T = struct
+  (* bin_io is for printing chain id inputs *)
   type t =
-    {protocol: Protocol.t; txpool_max_size: int; num_accounts: int option}
-  [@@deriving to_yojson]
+    { protocol: Protocol.Stable.Latest.t
+    ; txpool_max_size: int
+    ; num_accounts: int option }
+  [@@deriving to_yojson, bin_io_unversioned]
 
   let hash (t : t) =
     let str =

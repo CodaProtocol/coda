@@ -4,9 +4,9 @@ open Mina_base
 
 type t = unit
 
-type ledger_proof = Ledger_proof.Debug.t
+type ledger_proof = Ledger_proof.t
 
-let create ~logger:_ ~proof_level ~pids:_ ~conf_dir:_ =
+let create ~logger:_ ~proof_level ~constraint_constants:_ ~pids:_ ~conf_dir:_ =
   match proof_level with
   | Genesis_constants.Proof_level.Full ->
       failwith "Unable to handle proof-level=Full"
@@ -36,12 +36,15 @@ let verify_commands _ (cs : User_command.Verifiable.t list) :
   |> Deferred.Or_error.return
 
 let verify_transaction_snarks _ ts =
-  (*Don't check if the proof has default sok becasue they were probably not
-  intended to be checked. If it has some value then check that against the
-  message passed. This is particularly used to test that invalid proofs are not
-  added to the snark pool*)
+  (* Don't check if the proof has default sok, becasue they were probably not
+     intended to be checked. If it has some value then check that against the
+     message passed.
+     This is particularly used to test that invalid proofs are not added to the
+     snark pool
+  *)
   List.for_all ts ~f:(fun (proof, message) ->
       let msg_digest = Sok_message.digest message in
-      Sok_message.Digest.(equal (snd proof) default)
-      || Mina_base.Sok_message.Digest.equal (snd proof) msg_digest )
+      let sok_digest = Transaction_snark.sok_digest proof in
+      Sok_message.Digest.(equal sok_digest default)
+      || Mina_base.Sok_message.Digest.equal sok_digest msg_digest )
   |> Deferred.Or_error.return

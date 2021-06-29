@@ -5,15 +5,15 @@ let name = "coda-shared-prefix-multiproducer-test"
 
 let main n enable_payments () =
   let logger = Logger.create () in
-  let precomputed_values = Lazy.force Precomputed_values.compiled in
+  let precomputed_values = Lazy.force Precomputed_values.compiled_inputs in
   let keypairs =
     List.map
-      (Lazy.force (Precomputed_values.accounts precomputed_values))
-      ~f:Precomputed_values.keypair_of_account_record_exn
+      (Lazy.force (Genesis_proof.Inputs.accounts precomputed_values))
+      ~f:Genesis_proof.Inputs.keypair_of_account_record_exn
   in
   let public_keys =
-    List.map ~f:Precomputed_values.pk_of_account_record
-      (Lazy.force (Precomputed_values.accounts precomputed_values))
+    List.map ~f:Genesis_proof.Inputs.pk_of_account_record
+      (Lazy.force (Genesis_proof.Inputs.accounts precomputed_values))
   in
   let snark_work_public_keys i = Some (List.nth_exn public_keys i) in
   let%bind testnet =

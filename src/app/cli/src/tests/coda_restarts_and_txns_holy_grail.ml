@@ -8,8 +8,10 @@ let main n () =
   let wait_time = Time.Span.of_min 2. in
   assert (n > 1) ;
   let logger = Logger.create () in
-  let precomputed_values = Lazy.force Precomputed_values.compiled in
-  let accounts = Lazy.force (Precomputed_values.accounts precomputed_values) in
+  let precomputed_values = Lazy.force Precomputed_values.compiled_inputs in
+  let accounts =
+    Lazy.force (Genesis_proof.Inputs.accounts precomputed_values)
+  in
   let snark_work_public_keys =
     Fn.const @@ Some (List.nth_exn accounts 5 |> snd |> Account.public_key)
   in
@@ -21,7 +23,7 @@ let main n () =
   in
   (* SEND TXNS *)
   let keypairs =
-    List.map accounts ~f:Precomputed_values.keypair_of_account_record_exn
+    List.map accounts ~f:Genesis_proof.Inputs.keypair_of_account_record_exn
   in
   let random_block_producer () = Random.int 2 + 1 in
   let random_non_block_producer () = Random.int 2 + 3 in

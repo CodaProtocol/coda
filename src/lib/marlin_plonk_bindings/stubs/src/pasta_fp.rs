@@ -176,8 +176,8 @@ pub fn caml_pasta_fp_to_bytes(x: ocaml::Pointer<Fp>) -> ocaml::Value {
     let str = unsafe { ocaml::sys::caml_alloc_string(len) };
     unsafe {
         core::ptr::copy_nonoverlapping(x.as_ptr() as *const u8, ocaml::sys::string_val(str), len);
+        ocaml::Value::new(str)
     }
-    ocaml::Value(str)
 }
 
 #[ocaml::func]

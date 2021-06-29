@@ -63,18 +63,18 @@ pub fn caml_tweedle_fp_plonk_proof_create(
     let auxiliary_input: &Vec<Fp> = &*auxiliary_input;
     let index: &DlogIndex<GAffine> = &index.as_ref().0;
 
-    ocaml::runtime::release_lock();
+    // NB: This method is designed only to be used by tests. However, since creating a new reference will cause `drop` to be called on it once we are done with it. Since `drop` calls `caml_shutdown` internally, we *really, really* do not want to do this, but we have no other way to get at the active runtime.
+    let runtime = unsafe { ocaml::Runtime::recover_handle() };
 
-    let map = GroupMap::<Fq>::setup();
-    let proof = DlogProof::create::<
-        DefaultFqSponge<TweedledeeParameters, PlonkSpongeConstants>,
-        DefaultFrSponge<Fp, PlonkSpongeConstants>,
-    >(&map, auxiliary_input, index, prev)
-    .unwrap();
-
-    ocaml::runtime::acquire_lock();
-
-    proof
+    // Release the runtime lock so that other threads can run using it while we generate the proof.
+    runtime.releasing_runtime(|| {
+        let map = GroupMap::<Fq>::setup();
+        DlogProof::create::<
+            DefaultFqSponge<TweedledeeParameters, PlonkSpongeConstants>,
+            DefaultFrSponge<Fp, PlonkSpongeConstants>,
+        >(&map, auxiliary_input, index, prev)
+        .unwrap()
+    })
 }
 
 pub fn proof_verify(

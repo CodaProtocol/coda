@@ -20,18 +20,23 @@ module Get_balance =
       }
       initialPeers
       daemonStatus {
-        peers { peerId }
+        chainId
       }
       account(publicKey: $public_key, token: $token_id) {
         balance {
           blockHeight @bsDecoder(fn: "Decoders.uint32")
           stateHash
           liquid @bsDecoder(fn: "Decoders.optional_uint64")
+          total @bsDecoder(fn: "Decoders.uint64")
         }
         nonce
       }
     }
 |}]
+
+module Balance_info = struct
+  type t = {liquid_balance: int64; total_balance: int64}
+end
 
 module Sql = struct
   module Balance_from_last_relevant_command = struct
@@ -176,11 +181,13 @@ LIMIT 1
         ~cliff_time ~cliff_amount ~vesting_period ~vesting_increment
         ~initial_minimum_balance
     in
-    let%bind computed_balance =
+    let%bind liquid_balance =
       match (last_relevant_command_info_opt, timing_info_opt) with
       | None, None ->
           (* We've never heard of this account, at least as of the block_identifier provided *)
-          (* TODO: This means they requested a block from before account creation. Should it error instead? Need to clarify with Coinbase team. *)
+          (* This means they requested a block from before account creation;
+         * this is ambiguous in the spec but Coinbase confirmed we can return 0.
+         * https://community.rosetta-api.org/t/historical-balance-requests-with-block-identifiers-from-before-account-was-created/369 *)
           Deferred.Result.return 0L
       | Some (_, last_relevant_command_balance), None ->
           (* This account has no special vesting, so just use its last known balance *)
@@ -205,8 +212,8 @@ LIMIT 1
             , last_relevant_command_balance )
         , Some timing_info ) ->
           (* This block was in the genesis ledger and has been involved in at least one user or internal command. We need
-           * to compute the change in its balance between the most recent command and the start block (if it has vesting
-           * it may have changed). *)
+         * to compute the change in its balance between the most recent command and the start block (if it has vesting
+         * it may have changed). *)
           let incremental_balance_between_slots =
             compute_incremental_balance timing_info
               ~start_slot:
@@ -220,7 +227,22 @@ LIMIT 1
                 + incremental_balance_between_slots)
             |> UInt64.to_int64 )
     in
-    Deferred.Result.return (requested_block_identifier, computed_balance)
+    let%bind total_balance =
+      match (last_relevant_command_info_opt, timing_info_opt) with
+      | None, None ->
+          (* We've never heard of this account, at least as of the block_identifier provided *)
+          (* TODO: This means they requested a block from before account creation. Should it error instead? Need to clarify with Coinbase team. *)
+          Deferred.Result.return 0L
+      | Some (_, last_relevant_command_balance), _ ->
+          (* This account was involved in a command and we don't care about its vesting, so just use the last known
+         * balance from the command *)
+          Deferred.Result.return last_relevant_command_balance
+      | None, Some timing_info ->
+          (* This account hasn't seen any transactions but was in the genesis ledger, so use its genesis balance  *)
+          Deferred.Result.return timing_info.initial_balance
+    in
+    let balance_info : Balance_info.t = {liquid_balance; total_balance} in
+    Deferred.Result.return (requested_block_identifier, balance_info)
 end
 
 module Balance = struct
@@ -230,10 +252,10 @@ module Balance = struct
       type 'gql t =
         { gql:
             ?token_id:string -> address:string -> unit -> ('gql, Errors.t) M.t
-        ; db_block_identifier_and_balance:
+        ; db_block_identifier_and_balance_info:
                block_query:Block_query.t
             -> address:string
-            -> (Block_identifier.t * int64, Errors.t) M.t
+            -> (Block_identifier.t * Balance_info.t, Errors.t) M.t
         ; validate_network_choice: 'gql Network.Validate_choice.Impl(M).t }
     end
 
@@ -255,7 +277,7 @@ module Balance = struct
                    (match token_id with Some s -> `String s | None -> `Null)
                  ())
               graphql_uri )
-      ; db_block_identifier_and_balance=
+      ; db_block_identifier_and_balance_info=
           (fun ~block_query ~address ->
             let (module Conn : Caqti_async.CONNECTION) = db in
             Sql.run (module Conn) block_query address )
@@ -292,15 +314,20 @@ module Balance = struct
 
                             method liquid =
                               Some (Unsigned.UInt64.of_int 66_000)
+
+                            method total = Unsigned.UInt64.of_int 66_000
                           end
 
                         method nonce = Some "2"
                      end)
                end )
-      ; db_block_identifier_and_balance=
+      ; db_block_identifier_and_balance_info=
           (fun ~block_query ~address ->
             let () = ignore (block_query, address) in
-            Result.return @@ (dummy_block_identifier, 0L) )
+            let balance_info : Balance_info.t =
+              {liquid_balance= 0L; total_balance= 0L}
+            in
+            Result.return @@ (dummy_block_identifier, balance_info) )
       ; validate_network_choice= Network.Validate_choice.Mock.succeed }
   end
 
@@ -333,6 +360,27 @@ module Balance = struct
         | Some account ->
             M.return account
       in
+      let make_balance_amount ~liquid_balance ~total_balance =
+        let amount =
+          ( match token_id with
+          | None ->
+              Amount_of.coda
+          | Some token_id ->
+              Amount_of.token token_id )
+            liquid_balance
+        in
+        let locked_balance =
+          Unsigned.UInt64.sub total_balance liquid_balance
+        in
+        let metadata =
+          `Assoc
+            [ ( "locked_balance"
+              , `Intlit (Unsigned.UInt64.to_string locked_balance) )
+            ; ( "total_balance"
+              , `Intlit (Unsigned.UInt64.to_string total_balance) ) ]
+        in
+        {amount with metadata= Some metadata}
+      in
       let metadata =
         Option.map
           ~f:(fun nonce -> `Assoc [("nonce", `Intlit nonce)])
@@ -364,34 +412,26 @@ module Balance = struct
             | Some liquid_balance ->
                 M.return liquid_balance
           in
+          let total_balance = (account#balance)#total in
           { Account_balance_response.block_identifier=
               { Block_identifier.index=
                   Unsigned.UInt32.to_int64 (account#balance)#blockHeight
               ; hash= state_hash }
-          ; balances=
-              [ ( match token_id with
-                | None ->
-                    Amount_of.coda
-                | Some token_id ->
-                    Amount_of.token token_id )
-                  liquid_balance ]
+          ; balances= [make_balance_amount ~liquid_balance ~total_balance]
           ; metadata }
       | Some partial_identifier ->
           (* TODO: Once multiple token_ids are possible we may need to add handling for that here *)
           let%bind block_query =
             Query.of_partial_identifier partial_identifier
           in
-          let%map block_identifier, balance =
-            env.db_block_identifier_and_balance ~block_query ~address
+          let%map block_identifier, {liquid_balance; total_balance} =
+            env.db_block_identifier_and_balance_info ~block_query ~address
           in
           { Account_balance_response.block_identifier
           ; balances=
-              [ ( match token_id with
-                | None ->
-                    Amount_of.coda
-                | Some token_id ->
-                    Amount_of.token token_id )
-                  (Unsigned.UInt64.of_int64 balance) ]
+              [ make_balance_amount
+                  ~liquid_balance:(Unsigned.UInt64.of_int64 liquid_balance)
+                  ~total_balance:(Unsigned.UInt64.of_int64 total_balance) ]
           ; metadata }
   end
 
@@ -417,7 +457,11 @@ module Balance = struct
                    [ { Amount.value= "66000"
                      ; currency=
                          {Currency.symbol= "CODA"; decimals= 9l; metadata= None}
-                     ; metadata= None } ]
+                     ; metadata=
+                         Some
+                           (`Assoc
+                             [ ("locked_balance", `Intlit "0")
+                             ; ("total_balance", `Intlit "66000") ]) } ]
                ; metadata= Some (`Assoc [("nonce", `Intlit "2")]) })
     end )
 end

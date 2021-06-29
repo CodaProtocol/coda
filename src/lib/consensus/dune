@@ -7,6 +7,7 @@
  (libraries
    snarky_taylor
    core_kernel
+   consensus.vrf
    mina_base
    block_time
    with_hash

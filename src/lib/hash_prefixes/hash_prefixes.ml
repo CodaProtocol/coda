@@ -58,6 +58,8 @@ let vrf_message = create "CodaVrfMessage"
 
 let vrf_output = create "CodaVrfOutput"
 
+let vrf_evaluation = create "MinaVrfEvaluation"
+
 let pending_coinbases = create "PendingCoinbases"
 
 let coinbase_stack_data = create "CoinbaseStackData"

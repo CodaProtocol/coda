@@ -7,9 +7,9 @@ include Heartbeat.Make ()
 
 let main () =
   let logger = Logger.create () in
-  let precomputed_values = Lazy.force Precomputed_values.compiled in
+  let precomputed_values = Lazy.force Precomputed_values.compiled_inputs in
   let largest_account_pk =
-    Precomputed_values.largest_account_pk_exn precomputed_values
+    Genesis_proof.Inputs.largest_account_pk_exn precomputed_values
   in
   Deferred.don't_wait_for (print_heartbeat logger) ;
   let n = 2 in

@@ -358,9 +358,27 @@ module type S = sig
        , Protocol_state.Value.t
        , Proof.t Async.Deferred.t )
        Pickles.Prover.t
+
+  val constraint_system_digests : (string * Md5_lib.t) list Lazy.t
 end
 
 let verify ts ~key = Pickles.verify (module Nat.N2) (module Statement) key ts
+
+let constraint_system_digests ~proof_level ~constraint_constants () =
+  let digest = Tick.R1CS_constraint_system.digest in
+  [ ( "blockchain-step"
+    , digest
+        (let main x =
+           let open Tick in
+           let%bind x1 = exists Mina_base.State_hash.typ in
+           let%bind x2 = exists Transaction_snark.Statement.With_sok.typ in
+           let%map _ =
+             step ~proof_level ~constraint_constants ~logger:(Logger.create ())
+               [x1; x2] x
+           in
+           ()
+         in
+         Tick.constraint_system ~exposing:[Mina_base.State_hash.typ] main) ) ]
 
 module Make (T : sig
   val tag : Transaction_snark.tag
@@ -387,21 +405,8 @@ end) : S = struct
 
   let step = with_handler step
 
+  let constraint_system_digests =
+    lazy (constraint_system_digests ~proof_level ~constraint_constants ())
+
   module Proof = (val p)
 end
-
-let constraint_system_digests ~proof_level ~constraint_constants () =
-  let digest = Tick.R1CS_constraint_system.digest in
-  [ ( "blockchain-step"
-    , digest
-        (let main x =
-           let open Tick in
-           let%bind x1 = exists Mina_base.State_hash.typ in
-           let%bind x2 = exists Transaction_snark.Statement.With_sok.typ in
-           let%map _ =
-             step ~proof_level ~constraint_constants ~logger:(Logger.create ())
-               [x1; x2] x
-           in
-           ()
-         in
-         Tick.constraint_system ~exposing:[Mina_base.State_hash.typ] main) ) ]

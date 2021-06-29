@@ -76,11 +76,21 @@ let%test_module "transaction_status" =
 
     let precomputed_values = Lazy.force Precomputed_values.for_unit_tests
 
+    let proof_level = precomputed_values.proof_level
+
+    let constraint_constants = precomputed_values.constraint_constants
+
     module Genesis_ledger = (val precomputed_values.genesis_ledger)
 
     let trust_system = Trust_system.null ()
 
     let pool_max_size = precomputed_values.genesis_constants.txpool_max_size
+
+    let verifier =
+      Async.Thread_safe.block_on_async_exn (fun () ->
+          Verifier.create ~logger ~proof_level ~constraint_constants
+            ~conf_dir:None
+            ~pids:(Child_processes.Termination.create_pid_table ()) )
 
     let key_gen =
       let open Quickcheck.Generator in
@@ -92,14 +102,12 @@ let%test_module "transaction_status" =
           (Option.value_exn random_key_opt) )
 
     let gen_frontier =
-      Transition_frontier.For_tests.gen ~logger ~precomputed_values
+      Transition_frontier.For_tests.gen ~logger ~precomputed_values ~verifier
         ~trust_system ~max_length ~size:frontier_size ()
 
     let gen_user_command =
       Signed_command.Gen.payment ~sign_type:`Real ~max_amount:100 ~fee_range:10
         ~key_gen ~nonce:(Account_nonce.of_int 1) ()
-
-    let proof_level = Genesis_constants.Proof_level.for_unit_tests
 
     let create_pool ~frontier_broadcast_pipe =
       let pool_reader, _ =
@@ -109,12 +117,7 @@ let%test_module "transaction_status" =
       let local_reader, local_writer =
         Strict_pipe.(create ~name:"transaction_status local diff" Synchronous)
       in
-      let%bind config =
-        let%map verifier =
-          Verifier.create ~logger ~proof_level
-            ~pids:(Child_processes.Termination.create_pid_table ())
-            ~conf_dir:None
-        in
+      let config =
         Transaction_pool.Resource_pool.make_config ~trust_system ~pool_max_size
           ~verifier
       in

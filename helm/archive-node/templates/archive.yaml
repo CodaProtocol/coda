@@ -16,6 +16,9 @@ spec:
         testnet: {{ .Values.testnetName }}
         role: archive-node
         version: {{ trunc 6 (split ":" .Values.coda.image)._1 | trimSuffix "-" }}
+        {{- if .Values.archive.enableLocalDaemon }}
+        syncStatus: INIT
+        {{- end }}
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: {{ .Values.archive.ports.metrics | quote }}
@@ -35,6 +38,9 @@ spec:
           "-log-json",
           {{- if .Values.coda.logSnarkWorkGossip }}
           "-log-snark-work-gossip", "true",
+          {{- end -}}
+          {{- if $.Values.coda.logTxnPoolGossip }}
+          "-log-txn-pool-gossip", "true",
           {{- end -}}
           {{- range .Values.coda.seedPeers }}
           "-peer", {{ . | quote }},
@@ -92,7 +98,9 @@ spec:
           protocol: TCP 
           containerPort: {{ .Values.coda.ports.p2p }}
           hostPort: {{ .Values.coda.ports.p2p }}
-{{- include "healthcheck.daemon.allChecks" .Values | indent 8 }}
+{{$name := include "archive-node.fullname" . }}
+{{$data := dict "name" $name "healthcheck" $.Values.healthcheck }}
+{{- include "healthcheck.daemon.allChecks" $data | indent 8 }}
         imagePullPolicy: Always
         volumeMounts: 
         - name: config-dir

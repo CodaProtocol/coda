@@ -15,13 +15,12 @@ let main () =
     if i = snark_worker_and_block_producer_id then Some i else None
   in
   let%bind precomputed_values, _runtime_config =
-    Genesis_ledger_helper.init_from_config_file ~logger ~may_generate:false
-      ~proof_level:None
+    Genesis_ledger_helper.inputs_from_config_file ~logger ~proof_level:None
       (Lazy.force runtime_config)
     >>| Or_error.ok_exn
   in
   let largest_public_key =
-    Precomputed_values.largest_account_pk_exn precomputed_values
+    Genesis_proof.Inputs.largest_account_pk_exn precomputed_values
   in
   let snark_work_public_keys i =
     if i = snark_worker_and_block_producer_id then Some largest_public_key
@@ -70,7 +69,7 @@ let main () =
     wait_for_snark_worker_proof new_block_pipe1 largest_public_key
   in
   let new_snark_worker =
-    Precomputed_values.find_new_account_record_exn_ precomputed_values
+    Genesis_proof.Inputs.find_new_account_record_exn_ precomputed_values
       [largest_public_key]
     |> Precomputed_values.pk_of_account_record
   in

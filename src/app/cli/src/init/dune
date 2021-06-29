@@ -16,7 +16,7 @@
    consensus mina_transition mina_version
    mina_user_error
    o1trace protocol_version node_status transition_frontier web_client_pipe
-   web_request graphql_lib genesis_ledger_helper)
+   web_request graphql_lib genesis_ledger_helper bash_colors)
  (instrumentation (backend bisect_ppx))
  (preprocessor_deps ../../../../config.mlh)
  (preprocess (pps ppx_coda graphql_ppx ppx_version ppx_jane ppx_deriving_yojson)))

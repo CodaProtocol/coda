@@ -178,6 +178,8 @@ module type Network_pool_base_intf = sig
 
   val broadcasts : t -> resource_pool_diff Linear_pipe.Reader.t
 
+  val create_rate_limiter : unit -> Rate_limiter.t
+
   val apply_and_broadcast :
        t
     -> resource_pool_diff_verified Envelope.Incoming.t
@@ -241,7 +243,7 @@ module type Snark_pool_diff_intf = sig
     { work: Transaction_snark_work.Statement.t
     ; fee: Currency.Fee.t
     ; prover: Signature_lib.Public_key.Compressed.t }
-  [@@deriving yojson]
+  [@@deriving yojson, hash]
 
   include
     Resource_pool_diff_intf
@@ -281,6 +283,8 @@ module type Transaction_pool_diff_intf = sig
       | Expired
       | Overloaded
     [@@deriving sexp, yojson]
+
+    val to_string_hum : t -> string
   end
 
   module Rejected : sig

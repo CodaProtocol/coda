@@ -125,6 +125,9 @@ val decompress : Compressed.t -> t option
 
 val decompress_exn : Compressed.t -> t
 
+(** Same as [Compressed.of_base58_check_exn] except that [of_base58_check_decompress_exn] fails if [decompress_exn] fails *)
+val of_base58_check_decompress_exn : string -> Compressed.t
+
 [%%ifdef consensus_mechanism]
 
 val compress_var : var -> (Compressed.var, _) Checked.t

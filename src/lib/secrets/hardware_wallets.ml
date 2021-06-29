@@ -29,7 +29,7 @@ let decode_field (type field) (module Tick : Tick_intf with type field = field)
     : string -> field =
  fun field ->
   Bytes.of_string field
-  |> B58.decode Base58_check.coda_alphabet
+  |> B58.decode Base58_check.mina_alphabet
   |> Bytes.to_list |> List.rev |> Bytes.of_char_list |> Bytes.to_string
   |> String.foldi ~init:Bigint.zero ~f:(fun i acc byte ->
          Bigint.(acc lor (of_int (Char.to_int byte) lsl Int.( * ) 8 i)) )

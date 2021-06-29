@@ -4,7 +4,8 @@ locals {
   janitor_roles = [
     "roles/container.developer",
     "roles/container.viewer",
-    "roles/compute.viewer"
+    "roles/compute.viewer",
+    "roles/container.serviceAgent"
   ]
 }
 

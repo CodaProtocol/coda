@@ -1,8 +1,10 @@
 open Core
 
 module type S = sig
+  (** a Merkle hash associated with the root node *)
   type root_hash
 
+  (** a Merkle hash associated any non-root node *)
   type hash
 
   type account
@@ -19,7 +21,7 @@ module type S = sig
 
   type index = int
 
-  (* no deriving, purposely; signatures that include this one may add deriving *)
+  (** no deriving, purposely; signatures that include this one may add deriving *)
   type t
 
   module Addr : module type of Merkle_address
@@ -39,8 +41,15 @@ module type S = sig
      and type path = Path.t
      and type t := t
 
-  (** list of accounts, in increasing order of their storage locations *)
+  (** list of accounts in the ledger *)
   val to_list : t -> account list
+
+  (** iterate over all indexes and accounts *)
+  val iteri : t -> f:(index -> account -> unit) -> unit
+
+  (** fold over accounts in the ledger, passing the Merkle address *)
+  val foldi :
+    t -> init:'accum -> f:(Addr.t -> 'accum -> account -> 'accum) -> 'accum
 
   (** the set of [account_id]s are ledger elements to skip during the fold,
       because they're in a mask
@@ -52,11 +61,9 @@ module type S = sig
     -> f:(Addr.t -> 'accum -> account -> 'accum)
     -> 'accum
 
-  val iteri : t -> f:(index -> account -> unit) -> unit
-
-  val foldi :
-    t -> init:'accum -> f:(Addr.t -> 'accum -> account -> 'accum) -> 'accum
-
+  (** fold over accounts until stop condition reached when calling [f]; calls [finish] for
+     result
+ *)
   val fold_until :
        t
     -> init:'accum
@@ -81,22 +88,26 @@ module type S = sig
   *)
   val next_available_token : t -> token_id
 
+  (** Sets the next available token in the ledger,
+      to be returned by [next_available_token]
+  *)
   val set_next_available_token : t -> token_id -> unit
 
   val location_of_account : t -> account_id -> Location.t option
 
+  (** This may return an error if the ledger is full. *)
   val get_or_create_account :
     t -> account_id -> account -> ([`Added | `Existed] * Location.t) Or_error.t
 
-  val get_or_create_account_exn :
-    t -> account_id -> account -> [`Added | `Existed] * Location.t
-
+  (** the ledger should not be used after calling [close] *)
   val close : t -> unit
 
+  (** for account locations in the ledger, the last (rightmost) filled location *)
   val last_filled : t -> Location.t option
 
   val get_uuid : t -> Uuid.t
 
+  (** return Some [directory] for ledgers that use a file system, else None *)
   val get_directory : t -> string option
 
   val get : t -> Location.t -> account option
@@ -111,6 +122,9 @@ module type S = sig
 
   val index_of_account_exn : t -> account_id -> int
 
+  (** meant to be a fast operation: the root hash is stored, rather
+      than calculated dynamically
+  *)
   val merkle_root : t -> root_hash
 
   val merkle_path : t -> Location.t -> Path.t

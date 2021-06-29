@@ -22,6 +22,8 @@ module Make
     ; blocks_generated: int
     ; node_initialization: bool String.Map.t
           [@to_yojson map_to_yojson ~f:(fun b -> `Bool b)]
+    ; gossip_received: Gossip_state.t String.Map.t
+          [@to_yojson map_to_yojson ~f:Gossip_state.to_yojson]
     ; best_tips_by_node: State_hash.t String.Map.t
           [@to_yojson map_to_yojson ~f:State_hash.to_yojson] }
   [@@deriving to_yojson]
@@ -33,6 +35,7 @@ module Make
     ; snarked_ledgers_generated= 0
     ; blocks_generated= 0
     ; node_initialization= String.Map.empty
+    ; gossip_received= String.Map.empty
     ; best_tips_by_node= String.Map.empty }
 
   let listen ~logger event_router =
@@ -82,6 +85,37 @@ module Make
                        ~data:new_best_tip
                    in
                    {state with best_tips_by_node= best_tips_by_node'} ) ) )) ;
+    let handle_gossip_received event_type =
+      ignore
+        (Event_router.on event_router event_type
+           ~f:(fun node gossip_with_direction ->
+             update ~f:(fun state ->
+                 { state with
+                   gossip_received=
+                     Map.update state.gossip_received (Node.id node)
+                       ~f:(fun gossip_state_opt ->
+                         let gossip_state =
+                           match gossip_state_opt with
+                           | None ->
+                               Gossip_state.create (Node.id node)
+                           | Some state ->
+                               state
+                         in
+                         [%log debug] "GOSSIP RECEIVED by $node"
+                           ~metadata:[("node", `String (Node.id node))] ;
+                         [%log debug] "GOSSIP RECEIVED recevied event: $event"
+                           ~metadata:
+                             [ ( "event"
+                               , Event_type.event_to_yojson
+                                   (Event_type.Event
+                                      (event_type, gossip_with_direction)) ) ] ;
+                         Gossip_state.add gossip_state event_type
+                           gossip_with_direction ;
+                         gossip_state ) } ) ))
+    in
+    handle_gossip_received Block_gossip ;
+    handle_gossip_received Snark_work_gossip ;
+    handle_gossip_received Transactions_gossip ;
     ignore
       (Event_router.on event_router Event_type.Node_initialization
          ~f:(fun node () ->

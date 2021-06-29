@@ -51,7 +51,7 @@ type payment = {
 };
 
 type codaSDK;
-[@bs.module "./client_sdk.bc.js"] external codaSDK: codaSDK = "codaSDK";
+[@bs.module "./client_sdk.bc.js"] external codaSDK: codaSDK = "minaSDK";
 
 [@bs.send] external genKeys: (codaSDK, unit) => keypair = "genKeys";
 /**
@@ -404,4 +404,21 @@ let verifyStakeDelegationSignature =
       },
     },
   );
+};
+
+[@bs.send]
+external signedRosettaTransactionToSignedCommand: (codaSDK, string) => string =
+  "signedRosettaTransactionToSignedCommand";
+
+/**
+  * Converts a Rosetta signed transaction to a JSON string that is
+  * compatible with GraphQL. The JSON string is a representation of
+  * a `Signed_command` which is what our GraphQL expects.
+  *
+  * @param signedRosettaTxn - A signed Rosetta transaction
+  * @returns A string that represents the JSON conversion of a signed Rosetta transaction`.
+  */
+[@genType]
+let signedRosettaTransactionToSignedCommand = (signedRosettaTxn: string) => {
+  signedRosettaTransactionToSignedCommand(codaSDK, signedRosettaTxn);
 };

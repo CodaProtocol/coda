@@ -2,6 +2,5 @@
  (name ledger_proof)
  (public_name ledger_proof)
  (libraries core_kernel mina_base transaction_snark)
- (preprocessor_deps "../../config.mlh")
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_optcomp ppx_bin_prot ppx_sexp_conv ppx_hash ppx_compare ppx_version ppx_deriving_yojson)))
+ (preprocess (pps ppx_bin_prot ppx_sexp_conv ppx_hash ppx_compare ppx_version ppx_deriving_yojson)))

@@ -12,7 +12,6 @@
    mina_state
    genesis_ledger_helper
    coda_runtime_config
-   snark_keys
    snark_params
    snarky.backendless
    staged_ledger)

@@ -31,7 +31,7 @@ let payload_common_of_js (payload_common_js : payload_common_js) =
   let fee = Js.to_string fee_js |> Currency.Fee.of_string in
   let fee_payer_pk =
     payload_common_js##.feePayer
-    |> Js.to_string |> Signature_lib.Public_key.Compressed.of_base58_check_exn
+    |> Js.to_string |> Signature_lib.Public_key.of_base58_check_decompress_exn
   in
   let fee_token = Token_id.default in
   let nonce_js = payload_common_js##.nonce in
@@ -57,11 +57,11 @@ type payment_js =
 let payment_body_of_js payment_payload =
   let source_pk =
     payment_payload##.source |> Js.to_string
-    |> Signature_lib.Public_key.Compressed.of_base58_check_exn
+    |> Signature_lib.Public_key.of_base58_check_decompress_exn
   in
   let receiver_pk =
     payment_payload##.receiver |> Js.to_string
-    |> Signature_lib.Public_key.Compressed.of_base58_check_exn
+    |> Signature_lib.Public_key.of_base58_check_decompress_exn
   in
   let token_id = Token_id.default in
   let amount =
@@ -86,11 +86,11 @@ type stake_delegation_js =
 let stake_delegation_body_of_js delegation_payload =
   let delegator =
     Js.to_string delegation_payload##.delegator
-    |> Signature_lib.Public_key.Compressed.of_base58_check_exn
+    |> Signature_lib.Public_key.of_base58_check_decompress_exn
   in
   let new_delegate =
     Js.to_string delegation_payload##.newDelegate
-    |> Signature_lib.Public_key.Compressed.of_base58_check_exn
+    |> Signature_lib.Public_key.of_base58_check_decompress_exn
   in
   Signed_command_payload.Body.Stake_delegation
     (Set_delegate {delegator; new_delegate})

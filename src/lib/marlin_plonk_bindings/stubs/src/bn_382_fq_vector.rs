@@ -3,15 +3,15 @@ use algebra::bn_382::fq::Fq;
 use std::convert::TryInto;
 
 pub struct CamlBn382FqVector(pub Vec<Fq>);
-pub type CamlBn382FqVectorPtr = ocaml::Pointer<CamlBn382FqVector>;
+pub type CamlBn382FqVectorPtr<'a> = ocaml::Pointer<'a, CamlBn382FqVector>;
 
 /* Note: The vector header is allocated in the OCaml heap, but the data held in
    the vector elements themselves are stored in the rust heap.
 */
 
-extern "C" fn caml_bn_382_fq_vector_finalize(v: ocaml::Value) {
-    let mut v: CamlBn382FqVectorPtr = ocaml::FromValue::from_value(v);
+extern "C" fn caml_bn_382_fq_vector_finalize(v: ocaml::Raw) {
     unsafe {
+        let mut v: CamlBn382FqVectorPtr = v.as_pointer();
         v.as_mut_ptr().drop_in_place();
     }
 }

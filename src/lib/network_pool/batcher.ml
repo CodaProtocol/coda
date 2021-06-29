@@ -394,9 +394,19 @@ module Snark_pool = struct
     ( module struct
       open Mina_base
 
-      let proof_level = Genesis_constants.Proof_level.for_unit_tests
+      let precomputed_values = Lazy.force Precomputed_values.for_unit_tests
+
+      let proof_level = precomputed_values.proof_level
+
+      let constraint_constants = precomputed_values.constraint_constants
 
       let logger = Logger.null ()
+
+      let verifier =
+        Async.Thread_safe.block_on_async_exn (fun () ->
+            Verifier.create ~logger ~proof_level ~constraint_constants
+              ~conf_dir:None
+              ~pids:(Child_processes.Termination.create_pid_table ()) )
 
       let gen_proofs =
         let open Quickcheck.Generator.Let_syntax in
@@ -434,11 +444,6 @@ module Snark_pool = struct
         Envelope.Incoming.gen data_gen
 
       let run_test proof_lists =
-        let%bind verifier =
-          Verifier.create ~logger ~proof_level
-            ~pids:(Child_processes.Termination.create_pid_table ())
-            ~conf_dir:None
-        in
         let batcher = create verifier in
         Deferred.List.iter proof_lists ~f:(fun (invalid_proofs, proof_list) ->
             let%map r = verify' batcher proof_list in

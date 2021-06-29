@@ -2,14 +2,14 @@ open Core_kernel
 open Mina_base
 
 module type S = sig
-  type t [@@deriving compare, sexp, yojson]
+  type t [@@deriving compare, sexp, yojson, hash]
 
   [%%versioned:
   module Stable : sig
     [@@@no_toplevel_latest_type]
 
     module V1 : sig
-      type nonrec t = t [@@deriving compare, sexp, yojson]
+      type nonrec t = t [@@deriving compare, sexp, yojson, hash]
 
       val to_latest : t -> t
 

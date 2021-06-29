@@ -15,10 +15,15 @@ module type Ledger_intf = sig
   val set : t -> location -> Account.t -> unit
 
   val get_or_create :
-    t -> Account_id.t -> [`Added | `Existed] * Account.t * location
+       t
+    -> Account_id.t
+    -> ([`Added | `Existed] * Account.t * location) Or_error.t
 
-  val get_or_create_account_exn :
-    t -> Account_id.t -> Account.t -> [`Added | `Existed] * location
+  val get_or_create_account :
+       t
+    -> Account_id.t
+    -> Account.t
+    -> ([`Added | `Existed] * location) Or_error.t
 
   val remove_accounts_exn : t -> Account_id.t list -> unit
 
@@ -419,12 +424,10 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
   let set_with_location ledger location account =
     match location with
     | `Existing location ->
-        set ledger location account
+        Ok (set ledger location account)
     | `New ->
-        ignore
-        @@ get_or_create_account_exn ledger
-             (Account.identifier account)
-             account
+        Or_error.ignore_m
+        @@ get_or_create_account ledger (Account.identifier account) account
 
   let get' ledger tag location =
     error_opt (sprintf "%s account not found" tag) (get ledger location)
@@ -653,7 +656,9 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
        succeeds, to ensure that the network is compensated for processing this
        command.
     *)
-    set_with_location ledger fee_payer_location fee_payer_account ;
+    let%bind () =
+      set_with_location ledger fee_payer_location fee_payer_account
+    in
     let next_available_token = next_available_token ledger in
     let source = Signed_command.source ~next_available_token user_command in
     let receiver =
@@ -1021,8 +1026,12 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
         , auxiliary_data
         , applied_body ) ->
         (* Update the ledger. *)
-        List.iter located_accounts ~f:(fun (location, account) ->
-            set_with_location ledger location account ) ;
+        let%bind () =
+          List.fold located_accounts ~init:(Ok ())
+            ~f:(fun acc (location, account) ->
+              let%bind () = acc in
+              set_with_location ledger location account )
+        in
         let applied_common =
           { applied_common with
             source_timing= Some source_timing
@@ -1182,8 +1191,12 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
                             Transaction_status.Balance_data.empty ) }
                 ; accounts= [Set_once.get_exn fee_payer_account [%here]] }
           | Ok (accts, applied) ->
-              List.iter accts ~f:(fun (location, account) ->
-                  set_with_location ledger location account ) ;
+              let%bind () =
+                List.fold accts ~init:(Ok ())
+                  ~f:(fun acc (location, account) ->
+                    let%bind () = acc in
+                    set_with_location ledger location account )
+              in
               Ok applied
         in
         let payload =
@@ -1234,7 +1247,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
             succeeds, to ensure that the network is compensated for processing this
             command.
           *)
-          set_with_location ledger loc acct' ;
+          ok_or_reject @@ set_with_location ledger loc acct' ;
           info
         in
         let apply_body = apply_body ~constraint_constants ~state_view in
@@ -1273,7 +1286,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
             let party_fee_payer loc acct p =
               let _, fee = native_excess_exn c in
               let acct = step_fee_payer acct (Amount.to_fee fee) in
-              set_with_location ledger loc acct ;
+              ok_or_reject @@ set_with_location ledger loc acct ;
               let delta =
                 (* delta = delta_remaining + (-fee)
                   delta_remaining = delta + fee
@@ -1475,7 +1488,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
            new account before we know that the transaction will go through and
            thus the creation fee has been paid.
         *)
-        let action, a, loc = get_or_create t account_id in
+        let%bind action, a, loc = get_or_create t account_id in
         let emptys = previous_empty_accounts action account_id in
         let%bind timing = modify_timing a in
         let%map balance = modify_balance action account_id a.balance ft.fee in
@@ -1487,7 +1500,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
            new account before we know that the transaction will go through and
            thus the creation fee has been paid.
         *)
-        let action1, a1, l1 = get_or_create t account_id1 in
+        let%bind action1, a1, l1 = get_or_create t account_id1 in
         let emptys1 = previous_empty_accounts action1 account_id1 in
         let account_id2 = Fee_transfer.Single.receiver ft2 in
         if Account_id.equal account_id1 account_id2 then (
@@ -1503,7 +1516,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
              new account before we know that the transaction will go through
              and thus the creation fee has been paid.
           *)
-          let action2, a2, l2 = get_or_create t account_id2 in
+          let%bind action2, a2, l2 = get_or_create t account_id2 in
           let emptys2 = previous_empty_accounts action2 account_id2 in
           let%bind balance1 =
             modify_balance action1 account_id1 a1.balance ft1.fee
@@ -1597,7 +1610,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
             error_opt "Coinbase fee transfer too large"
               (Amount.sub coinbase_amount fee)
           in
-          let action, transferee_account, transferee_location =
+          let%bind action, transferee_account, transferee_location =
             (* TODO(#4496): Do not use get_or_create here; we should not create
                a new account before we know that the transaction will go
                through and thus the creation fee has been paid.
@@ -1621,7 +1634,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
           , Some transferee_account.timing )
     in
     let receiver_id = Account_id.create receiver Token_id.default in
-    let action2, receiver_account, receiver_location =
+    let%bind action2, receiver_account, receiver_location =
       (* TODO(#4496): Do not use get_or_create here; we should not create a new
          account before we know that the transaction will go through and thus
          the creation fee has been paid.
@@ -1920,7 +1933,8 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
       |> Or_error.all
     in
     remove_accounts_exn ledger to_delete ;
-    List.iter to_update ~f:(Tuple2.uncurry (set_with_location ledger))
+    List.iter to_update ~f:(fun (location, account) ->
+        ignore @@ set_with_location ledger location account )
 
   let undo :
          constraint_constants:Genesis_constants.Constraint_constants.t

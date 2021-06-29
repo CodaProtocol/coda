@@ -475,19 +475,9 @@ module For_tests = struct
   *)
 
   (* a helper quickcheck generator which always returns the genesis breadcrumb *)
-  let gen_genesis_breadcrumb ?(logger = Logger.null ()) ?verifier
+  let gen_genesis_breadcrumb ?(logger = Logger.null ()) ~verifier
       ~(precomputed_values : Precomputed_values.t) () =
     let constraint_constants = precomputed_values.constraint_constants in
-    let verifier =
-      match verifier with
-      | Some x ->
-          x
-      | None ->
-          Async.Thread_safe.block_on_async_exn (fun () ->
-              Verifier.create ~logger
-                ~proof_level:precomputed_values.proof_level ~conf_dir:None
-                ~pids:(Child_processes.Termination.create_pid_table ()) )
-    in
     Quickcheck.Generator.create (fun ~size:_ ~random:_ ->
         let transition_receipt_time = Some (Time.now ()) in
         let genesis_transition =
@@ -524,19 +514,9 @@ module For_tests = struct
           ~staged_ledger:genesis_staged_ledger ~just_emitted_a_proof:false
           ~transition_receipt_time )
 
-  let gen_persistence ?(logger = Logger.null ()) ?verifier
+  let gen_persistence ?(logger = Logger.null ()) ~verifier
       ~(precomputed_values : Precomputed_values.t) () =
     let open Core in
-    let verifier =
-      match verifier with
-      | Some x ->
-          x
-      | None ->
-          Async.Thread_safe.block_on_async_exn (fun () ->
-              Verifier.create ~logger
-                ~proof_level:precomputed_values.proof_level ~conf_dir:None
-                ~pids:(Child_processes.Termination.create_pid_table ()) )
-    in
     let root_dir = "/tmp/coda_unit_test" in
     Quickcheck.Generator.create (fun ~size:_ ~random:_ ->
         let uuid = Uuid_unix.create () in
@@ -581,35 +561,25 @@ module For_tests = struct
             clean_temp_dirs x ) ;
         (persistent_root, persistent_frontier) )
 
-  let gen_genesis_breadcrumb_with_protocol_states ~logger ?verifier
+  let gen_genesis_breadcrumb_with_protocol_states ~logger ~verifier
       ~precomputed_values () =
     let open Quickcheck.Generator.Let_syntax in
     let%map root =
-      gen_genesis_breadcrumb ~logger ?verifier ~precomputed_values ()
+      gen_genesis_breadcrumb ~logger ~verifier ~precomputed_values ()
     in
     (* List of protocol states required to prove transactions in the scan state; empty scan state at genesis*)
     let protocol_states = [] in
     (root, protocol_states)
 
-  let gen ?(logger = Logger.null ()) ?verifier ?trust_system
+  let gen ?(logger = Logger.null ()) ~verifier ?trust_system
       ?consensus_local_state ~precomputed_values
       ?(root_ledger_and_accounts =
         ( Lazy.force (Precomputed_values.genesis_ledger precomputed_values)
         , Lazy.force (Precomputed_values.accounts precomputed_values) ))
       ?(gen_root_breadcrumb =
-        gen_genesis_breadcrumb_with_protocol_states ~logger ?verifier
+        gen_genesis_breadcrumb_with_protocol_states ~logger ~verifier
           ~precomputed_values ()) ~max_length ~size () =
     let open Quickcheck.Generator.Let_syntax in
-    let verifier =
-      match verifier with
-      | Some x ->
-          x
-      | None ->
-          Async.Thread_safe.block_on_async_exn (fun () ->
-              Verifier.create ~logger
-                ~proof_level:precomputed_values.proof_level ~conf_dir:None
-                ~pids:(Child_processes.Termination.create_pid_table ()) )
-    in
     let trust_system =
       Option.value trust_system ~default:(Trust_system.null ())
     in
@@ -653,7 +623,7 @@ module For_tests = struct
         ~protocol_states
     in
     let%map persistent_root, persistent_frontier =
-      gen_persistence ~logger ~precomputed_values ()
+      gen_persistence ~logger ~precomputed_values ~verifier ()
     in
     Async.Thread_safe.block_on_async_exn (fun () ->
         Persistent_frontier.reset_database_exn persistent_frontier ~root_data
@@ -698,7 +668,7 @@ module For_tests = struct
           @@ next_epoch_ledger consensus_local_state) ) ;
     frontier
 
-  let gen_with_branch ?logger ?verifier ?trust_system ?consensus_local_state
+  let gen_with_branch ?logger ~verifier ?trust_system ?consensus_local_state
       ~precomputed_values
       ?(root_ledger_and_accounts =
         ( Lazy.force (Precomputed_values.genesis_ledger precomputed_values)
@@ -707,12 +677,12 @@ module For_tests = struct
       ~branch_size () =
     let open Quickcheck.Generator.Let_syntax in
     let%bind frontier =
-      gen ?logger ?verifier ?trust_system ?consensus_local_state
+      gen ?logger ~verifier ?trust_system ?consensus_local_state
         ~precomputed_values ?gen_root_breadcrumb ~root_ledger_and_accounts
         ~max_length ~size:frontier_size ()
     in
     let%map make_branch =
-      Breadcrumb.For_tests.gen_seq ?logger ~precomputed_values ?verifier
+      Breadcrumb.For_tests.gen_seq ?logger ~precomputed_values ~verifier
         ?trust_system
         ~accounts_with_secret_keys:(snd root_ledger_and_accounts)
         branch_size

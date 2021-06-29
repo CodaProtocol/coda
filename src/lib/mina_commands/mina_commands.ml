@@ -140,6 +140,20 @@ module Receipt_chain_verifier = Merkle_list_verifier.Make (struct
     Receipt.Chain_hash.cons p parent_hash
 end)
 
+let chain_id_inputs (t : Mina_lib.t) =
+  (* these are the inputs to Blake2.digest_string in Mina.chain_id *)
+  let config = Mina_lib.config t in
+  let precomputed_values = config.precomputed_values in
+  let genesis_state_hash =
+    Precomputed_values.genesis_state_hash precomputed_values
+  in
+  let genesis_constants = precomputed_values.genesis_constants in
+  let snark_keys =
+    Lazy.force precomputed_values.constraint_system_digests
+    |> List.map ~f:(fun (_, digest) -> Md5.to_hex digest)
+  in
+  (genesis_state_hash, genesis_constants, snark_keys)
+
 let verify_payment t (addr : Account_id.t) (verifying_txn : User_command.t)
     (init_receipt, proof) =
   let open Participating_state.Let_syntax in
@@ -196,6 +210,13 @@ let get_status ~flag t =
   in
   let snark_work_fee = Currency.Fee.to_int @@ Mina_lib.snark_work_fee t in
   let block_production_keys = Mina_lib.block_production_pubkeys t in
+  let coinbase_receiver =
+    match Mina_lib.coinbase_receiver t with
+    | `Producer ->
+        None
+    | `Other pk ->
+        Some pk
+  in
   let consensus_mechanism = Consensus.name in
   let time_controller = config.time_controller in
   let consensus_time_now =
@@ -335,7 +356,9 @@ let get_status ~flag t =
     in
     match Transition_frontier.catchup_tree frontier with
     | Full full ->
-        Some (Hashtbl.to_alist full.states)
+        Some
+          (List.map (Hashtbl.to_alist full.states) ~f:(fun (state, hashes) ->
+               (state, State_hash.Set.length hashes) ))
     | _ ->
         None
   in
@@ -363,6 +386,8 @@ let get_status ~flag t =
   ; block_production_keys=
       Public_key.Compressed.Set.to_list block_production_keys
       |> List.map ~f:Public_key.Compressed.to_base58_check
+  ; coinbase_receiver=
+      Option.map ~f:Public_key.Compressed.to_base58_check coinbase_receiver
   ; histograms
   ; next_block_production
   ; consensus_time_now

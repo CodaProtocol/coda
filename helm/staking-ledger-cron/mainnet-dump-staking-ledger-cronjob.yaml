@@ -1,0 +1,32 @@
+# kubectl apply -f helm/staking-ledger-cron/mainnet-dump-staking-ledger-cronjob.yaml
+# the above command, with this accompanying file, needs only be run once.  it does not get run in CI.  this file is provided here for future reference
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: mainnet-dump-staking-ledger-cronjob
+spec:
+  schedule: "0 11 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          volumes:
+          - name: gcloud-keyfile
+            secret:
+              secretName: gcloud-keyfile
+              defaultMode: 256
+              items:
+              - key: keyfile
+                path: keyfile.json
+          containers:
+          - name: mainnet-dump-staking-ledger-container
+            image: minaprotocol/mina-daemon-baked:1.1.5-a42bdee
+            env:
+            - name: GCLOUD_KEYFILE
+              value: "/gcloud/keyfile.json"
+            volumeMounts:
+            - name: gcloud-keyfile
+              mountPath: "/gcloud/"
+            # command: ["/usr/bin/dumb-init", '/cron_job_dump_ledger.sh']
+            command: ["/bin/bash", "-c", 'mina daemon --generate-genesis-proof true --peer-list-url https://storage.googleapis.com/mina-seed-lists/mainnet_seeds.txt --background;sleep 480;echo "done sleeping";while true;do mina ledger export staking-epoch-ledger>staking_epoch_ledger.json;if [ "$?" -eq 0 ]&&[ "$(cat staking_epoch_ledger.json)" != "Ledger not found: current staking ledger not available" ];then echo "staking epoch ledger dumped!";break;else echo "waiting for staking ledger to become available, sleeping for 30s";sleep 30;fi;done;mina ledger export next-epoch-ledger>next_epoch_ledger.json;echo "next epoch ledger dumped!";EPOCHNUM="$(mina client status|grep "Best tip consensus time"|grep -o "epoch=[0-9]*"|sed "s/[^0-9]*//g")";STAKING_HASH="$(mina ledger hash --ledger-file staking_epoch_ledger.json)";STAKING_MD5="$(md5sum staking_epoch_ledger.json|cut -d " " -f 1)";LEDGER_FILENAME=staking-"$EPOCHNUM"-"$STAKING_HASH"-"$STAKING_MD5".json;mv ./staking_epoch_ledger.json ./$LEDGER_FILENAME;NEXT_STAKING_HASH="$(mina ledger hash --ledger-file next_epoch_ledger.json)";NEXT_STAKING_MD5="$(md5sum next_epoch_ledger.json|cut -d " " -f 1)";NEXT_FILENAME=next-staking-"$EPOCHNUM"-"$NEXT_STAKING_HASH"-"$NEXT_STAKING_MD5".json;mv ./next_epoch_ledger.json ./$NEXT_FILENAME;echo "upload to a GCP cloud storage bucket";gsutil -o Credentials:gs_service_key_file=/gcloud/keyfile.json cp $LEDGER_FILENAME gs://mina-staking-ledgers;gsutil -o Credentials:gs_service_key_file=/gcloud/keyfile.json cp $NEXT_FILENAME gs://mina-staking-ledgers' ]
+          restartPolicy: Never

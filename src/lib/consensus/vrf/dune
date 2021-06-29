@@ -1,0 +1,24 @@
+(library
+ (name consensus_vrf)
+ (public_name consensus.vrf)
+ (libraries
+   core_kernel
+   fold_lib
+   mina_base
+   mina_numbers
+   snark_params
+   snarky_taylor
+   vrf_lib)
+ (inline_tests)
+ (instrumentation (backend bisect_ppx))
+ (preprocess
+  (pps
+    h_list.ppx
+    ppx_assert
+    ppx_compare
+    ppx_deriving_yojson
+    ppx_hash
+    ppx_inline_test
+    ppx_let
+    ppx_sexp_conv
+    ppx_version)))

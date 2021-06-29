@@ -5,6 +5,8 @@ coda:
   generateGenesisProof: true
   logLevel: "Debug"
   logSnarkWorkGossip: false
+  logPrecomputedBlocks: false
+  logTxnPoolGossip: false
   image: codaprotocol/coda-daemon:0.0.16-beta7-develop
   privkeyPass: "naughty blue worm"
   seedPeers:
@@ -15,6 +17,7 @@ coda:
     graphql: "3085"
     metrics: "10001"
     p2p: "10909"
+  exposeGraphql: false
 
 userAgent:
   image: ""

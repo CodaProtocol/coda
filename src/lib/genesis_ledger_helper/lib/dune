@@ -1,0 +1,6 @@
+(library
+ (name genesis_ledger_helper_lib)
+ (public_name genesis_ledger_helper.lib)
+ (libraries genesis_constants runtime_config mina_base core)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_coda ppx_jane ppx_version ppx_inline_test ppx_let ppx_deriving.std ppx_deriving_yojson ppx_custom_printf)))

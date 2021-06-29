@@ -18,6 +18,7 @@ spec:
         role: block-producer
         class: {{ default "undefined" $config.class }}
         version: {{ trunc 6 (split ":" $.Values.coda.image)._1 | trimSuffix "-" }}
+        syncStatus: INIT
       annotations:
         prometheus.io/scrape: 'true'
         prometheus.io/port: {{ $.Values.coda.ports.metrics | quote }}
@@ -57,7 +58,7 @@ spec:
           mountPath: /root/wallet-keys
         - name: config-dir
           mountPath: /root/.mina-config
-        env: 
+        env:
           - name: CODA_PRIVKEY_PASS
             value: {{ $.Values.coda.privkeyPass | quote }}
       {{ if $config.libp2pSecret -}}
@@ -83,7 +84,7 @@ spec:
         image: {{ $.Values.userAgent.image }}
         command: ["bash"]
         args: ["-c", "python3 agent.py"]
-        env: 
+        env:
           {{ if ne $.Values.userAgent.minFee "" -}}
           - name: AGENT_MIN_FEE
             value: {{ $.Values.userAgent.minFee | quote }}
@@ -117,7 +118,7 @@ spec:
             value: {{ $.Values.coda.privkeyPass | quote }}
           - name: PYTHONUNBUFFERED
             value: "1"
-        ports: 
+        ports:
         - name: metrics-port
           containerPort: {{ $.Values.userAgent.ports.metrics }}
 {{- include "healthcheck.userAgent.allChecks" $.Values | indent 8 }}
@@ -177,6 +178,12 @@ spec:
           {{- if $.Values.coda.logSnarkWorkGossip }}
           "-log-snark-work-gossip", "true",
           {{- end -}}
+          {{- if $.Values.coda.logPrecomputedBlocks }}
+          "-log-precomputed-blocks", "true",
+          {{- end -}}
+          {{- if $.Values.coda.logTxnPoolGossip }}
+          "-log-txn-pool-gossip", "true",
+          {{- end -}}
           {{- if $config.isolated }}
           "-isolate-network", "true",
           {{- end -}}
@@ -228,7 +235,7 @@ spec:
           value: "/gcloud/keyfile.json"
         - name: NETWORK_NAME
           value: {{ $.Values.testnetName }}
-        - name: GCLOUD_BLOCK_UPLOAD_BUCKET 
+        - name: GCLOUD_BLOCK_UPLOAD_BUCKET
           value: "mina_network_block_data"
         - name: CODA_PRIVKEY_PASS
           value: {{ $.Values.coda.privkeyPass | quote }}
@@ -242,19 +249,20 @@ spec:
           value: "true"
         ports:
         - name: client-port
-          protocol: TCP 
+          protocol: TCP
           containerPort: {{ $.Values.coda.ports.client }}
         - name: graphql-port
-          protocol: TCP 
+          protocol: TCP
           containerPort: {{ $.Values.coda.ports.graphql }}
         - name: metrics-port
-          protocol: TCP 
+          protocol: TCP
           containerPort: {{ $.Values.coda.ports.metrics }}
         - name: external-port
-          protocol: TCP 
+          protocol: TCP
           containerPort: {{ default $.Values.coda.ports.p2p $config.externalPort }}
           hostPort: {{ default $.Values.coda.ports.external $config.externalPort }}
-{{- include "healthcheck.daemon.allChecks" $.Values | indent 8 }}
+{{$data := dict "name" $config.name "healthcheck" $.Values.healthcheck }}
+{{- include "healthcheck.daemon.allChecks" $data | indent 8 }}
         imagePullPolicy: Always
         volumeMounts:
         - name: wallet-keys
@@ -352,5 +360,22 @@ spec:
   - name: tcp-p2p
     port: {{ default $.Values.coda.ports.p2p $config.externalPort }}
     targetPort: external-port
+---
+{{- if $.Values.coda.exposeGraphql }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $config.name }}-graphql
+spec:
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  selector:
+    app: {{ $config.name }}
+  ports:
+  - name: http-graphql
+    protocol: TCP
+    port: 80
+    targetPort: {{ $.Values.coda.ports.graphql }}
+{{- end }}
 ---
 {{ end }}

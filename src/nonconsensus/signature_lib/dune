@@ -10,6 +10,7 @@
    hash_prefix_states_nonconsensus
    non_zero_curve_point_nonconsensus
    random_oracle_nonconsensus
+   mina_signature_kind
    snark_params_nonconsensus
    yojson)
  (preprocessor_deps ../../config.mlh)

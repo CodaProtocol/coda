@@ -1,4 +1,5 @@
 open Core_kernel
+open Pickles_types.Poly_types
 open Pickles_types.Hlist
 
 module B = struct

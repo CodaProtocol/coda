@@ -1,3 +1,7 @@
 (* same as testnet_postake_medium_curves, but always starts at genesis = 0 *)
 [%%import "/src/config/testnet_postake_medium_curves.mlh"]
 [%%import "/src/config/fork.mlh"]
+
+(* This profile is only used for the test executive binary, so we don't need
+   snark keys, a valid genesis proof, etc. *)
+[%%import "/src/config/proof_level/none.mlh"]

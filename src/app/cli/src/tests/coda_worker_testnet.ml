@@ -27,7 +27,7 @@ module Api = struct
         so eventually the counter _must_ become 0, ensuring progress. *)
     ; root_lengths: int Array.t
     ; restart_signals: (restart_type * unit Ivar.t) Option.t Array.t
-    ; precomputed_values: Precomputed_values.t }
+    ; precomputed_values: Genesis_proof.Inputs.t }
 
   let create ~precomputed_values configs workers start_writer =
     let status =
@@ -392,7 +392,8 @@ let start_payment_check logger root_pipe (testnet : Api.t) =
          | _ ->
              Deferred.unit ) ))
 
-let events ~(precomputed_values : Precomputed_values.t) workers start_reader =
+let events ~(precomputed_values : Genesis_proof.Inputs.t) workers start_reader
+    =
   let event_r, event_w = Linear_pipe.create () in
   let root_r, root_w = Linear_pipe.create () in
   let connect_worker i worker =
@@ -458,7 +459,8 @@ let start_checks logger (workers : Coda_process.t array) start_reader
    *   change network connectivity *)
 let test ?archive_process_location ?is_archive_rocksdb ~name logger n
     block_production_keys snark_work_public_keys work_selection_method
-    ~max_concurrent_connections ~(precomputed_values : Precomputed_values.t) =
+    ~max_concurrent_connections ~(precomputed_values : Genesis_proof.Inputs.t)
+    =
   let logger = Logger.extend logger [("worker_testnet", `Bool true)] in
   let block_production_interval =
     precomputed_values.constraint_constants.block_window_duration_ms

@@ -1,17 +1,7 @@
-[%%import "../../config.mlh"]
-
 module Failure = Verification_failure
 
 module Dummy : module type of Dummy
 
 module Prod : module type of Prod
 
-[%%if proof_level = "full"]
-
-include module type of Prod
-
-[%%else]
-
-include module type of Dummy
-
-[%%endif]
+include Verifier_intf.S with type ledger_proof = Ledger_proof.t

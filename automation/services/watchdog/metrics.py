@@ -21,7 +21,7 @@ def collect_cluster_crashes(v1, namespace, cluster_crashes):
   print('collecting cluster crashes / restarts')
   pods = v1.list_namespaced_pod(namespace, watch=False)
 
-  containers = list(itertools.chain(*[ pod.to_dict()['status']['container_statuses'] for pod in pods.items ]))
+  containers = list(itertools.chain(*[ pod.to_dict()['status']['container_statuses'] for pod in pods.items if pod.status.phase == 'Running' ]))
   mina_containers = list(filter(lambda c: c['name'] in [ 'coda', 'seed', 'coordinator', 'archive' ], containers))
 
   def restarted_recently(c):
@@ -52,22 +52,26 @@ def pods_with_no_new_logs(v1, namespace, nodes_with_no_new_logs):
   print('counting pods with no new logs')
   pods = v1.list_namespaced_pod(namespace, watch=False)
 
-  ten_minutes = 10 * 60
+  one_hour = 60 * 60
 
   count = 0
+  total_running_pods = 0
   for pod in pods.items:
-    containers = pod.status.container_statuses
-    mina_containers = list(filter(lambda c: c.name in [ 'coda', 'seed', 'coordinator' ], containers))
-    if len(mina_containers) != 0:
-      name = pod.metadata.name
-      recent_logs = v1.read_namespaced_pod_log(name=name, namespace=namespace, since_seconds=ten_minutes, container=mina_containers[0].name)
-      if len(recent_logs) == 0:
-        count += 1
+    if pod.status.phase == 'Running':
+      total_running_pods += 1
+      containers = pod.status.container_statuses
+      mina_containers = list(filter(lambda c: c.name in [ 'coda', 'seed', 'coordinator' ], containers))
+      if len(mina_containers) != 0:
+        name = pod.metadata.name
+        recent_logs = v1.read_namespaced_pod_log(name=name, namespace=namespace, since_seconds=one_hour, container=mina_containers[0].name)
+        if len(recent_logs) == 0:
+          print("Pod {} has no logs for the last hour".format(name))
+          count += 1
+    else:
+      print("Pod {} is not running. Phase: {}, reason: {}".format(pod.metadata.name,pod.status.phase, pod.status.reason))
 
-  total_count = len(pods.items)
-
-  fraction_no_new_logs = float(count) / float(total_count)
-  print(count, 'of', total_count, 'pods have no logs in the last 10 minutes')
+  fraction_no_new_logs = float(count) / float(total_running_pods)
+  print(count, 'of', total_running_pods, 'pods have no logs in the last 10 minutes')
 
   nodes_with_no_new_logs.set(fraction_no_new_logs)
 
@@ -98,15 +102,16 @@ def daemon_containers(v1, namespace):
   pods = v1.list_namespaced_pod(namespace, watch=False)
 
   for pod in pods.items:
-    containers = pod.status.container_statuses
-    for c in containers:
-      if c.name in [ 'coda', 'mina', 'seed']:
-        yield (pod.metadata.name, c.name)
+    if pod.status.phase == 'Running':
+      containers = pod.status.container_statuses
+      for c in containers:
+        if c.name in [ 'coda', 'mina', 'seed']:
+          yield (pod.metadata.name, c.name)
 
 def get_chain_id(v1, namespace):
   for (pod_name, container_name) in daemon_containers(v1, namespace):
-    resp = util.exec_on_pod(v1, namespace, pod_name, container_name, 'mina client status --json')
     try:
+      resp = util.exec_on_pod(v1, namespace, pod_name, container_name, 'mina client status --json')      
       resp = resp.strip()
       if resp[0] != '{':
         #first line could be 'Using password from environment variable CODA_PRIVKEY_PASS'
@@ -115,7 +120,7 @@ def get_chain_id(v1, namespace):
       print("Chain ID: {}".format(resp_dict['chain_id']))
       return resp_dict['chain_id']
     except Exception as e:
-      print("Exception when extracting chain id: {}\n mina client status response: {}".format(e, resp))
+      print("Exception when extracting chain id on pod {}: {}\n mina client status response: {}".format(pod_name, e, resp))
       continue
 
 def check_seed_list_up(v1, namespace, seeds_reachable):

@@ -19,7 +19,8 @@ Pipeline.build
   Pipeline.Config::{
     spec = JobSpec::{
       dirtyWhen = [
-        S.exactly "automation/terraform/modules/testnet-alerts/templates/testnet-alert-rules.yml" "tpl",
+        S.strictlyStart (S.contains "automation/terraform/modules/testnet-alerts"),
+        S.exactly "automation/terraform/monitoring/o1-testnet-alerts" "tf",
         S.strictlyStart (S.contains "buildkite/src/Jobs/Release/TestnetAlerts")
       ],
       path = "Release",
@@ -29,13 +30,14 @@ Pipeline.build
       Command.build
         Command.Config::{
           commands = [
-              Cmd.run "cd automation/terraform/monitoring && terraform init",
-              Cmd.run "terraform apply -auto-approve -target module.o1testnet_alerts.docker_container.sync_alert_rules" ]
+            --- destroy state prior to start to ensure reset
+            Cmd.run "cd automation/terraform/monitoring && terraform init && terraform destroy -auto-approve",
+            Cmd.run "terraform apply -auto-approve -target module.o1testnet_alerts.docker_container.sync_alert_rules"
+          ]
           , label = "Deploy Testnet alert rules"
           , key = "deploy-testnet-alerts"
           , target = Size.Medium
           , depends_on = [ { name = "TestnetAlerts", key = "lint-testnet-alerts" } ]
-          , soft_fail = Some (B/SoftFail.Boolean True)
           , docker = None Docker.Type
           , if = Some "build.branch == 'compatible' || build.env('DEPLOY_ALERTS') == 'true'"
         }

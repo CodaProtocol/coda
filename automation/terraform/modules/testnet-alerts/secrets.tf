@@ -36,3 +36,13 @@ data "aws_secretsmanager_secret" "discord_testnet_alerts_webhook_metadata" {
 data "aws_secretsmanager_secret_version" "discord_testnet_alerts_webhook" {
   secret_id = data.aws_secretsmanager_secret.discord_testnet_alerts_webhook_metadata.id
 }
+
+# Slack
+
+data "aws_secretsmanager_secret" "slack_testnet_alerts_webhook_metadata" {
+  name = "slack/testnet/alerts/webhook"
+}
+
+data "aws_secretsmanager_secret_version" "slack_testnet_alerts_webhook" {
+  secret_id = data.aws_secretsmanager_secret.slack_testnet_alerts_webhook_metadata.id
+}

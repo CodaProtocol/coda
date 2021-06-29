@@ -22,11 +22,14 @@ module Keys = struct
   let of_private_key_box secret_box_string =
     let json = Yojson.Safe.from_string secret_box_string in
     let sb : Secrets.Secret_box.t =
-      Secrets.Secret_box.of_yojson json |> Result.ok |> Option.value_exn
+      Secrets.Secret_box.of_yojson json
+      |> Result.ok
+      |> Option.value_exn ~here:[%here] ?error:None ?message:None
     in
     let output : Bytes.t =
       Secrets.Secret_box.decrypt ~password:(Bytes.of_string "") sb
-      |> Result.ok |> Option.value_exn
+      |> Result.ok
+      |> Option.value_exn ~here:[%here] ?error:None ?message:None
     in
     let sk = output |> Bigstring.of_bytes |> Private_key.of_bigstring_exn in
     (*printf !"Secret key hex bytes is: %s\n" (Coding.of_scalar sk) ;*)
@@ -49,7 +52,8 @@ let sign ~(keys : Keys.t) ~unsigned_transaction_string =
     User_command_info.Partial.to_user_command_payload
       ~nonce:unsigned_transaction.Transaction.Unsigned.nonce
       unsigned_transaction.command
-    |> Result.ok |> Option.value_exn
+    |> Result.ok
+    |> Option.value_exn ~here:[%here] ?error:None ?message:None
   in
   let signature =
     Schnorr.sign keys.keypair.private_key
@@ -83,7 +87,8 @@ let verify ~public_key_hex_bytes ~signed_transaction_string =
     User_command_info.Partial.to_user_command_payload
       ~nonce:signed_transaction.nonce
       signed_transaction.Transaction.Signed.command
-    |> Result.ok |> Option.value_exn
+    |> Result.ok
+    |> Option.value_exn ~here:[%here] ?error:None ?message:None
   in
   let message = Signed_command.to_input user_command_payload in
   Schnorr.verify signature

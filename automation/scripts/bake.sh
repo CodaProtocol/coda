@@ -31,17 +31,17 @@ while [ $# -gt 0 ]; do
 done
 
 echo Testnet is ${TESTNET}
-echo Initial Docker Image is codaprotocol/coda-daemon:${DOCKER_TAG}
+echo Initial Docker Image is codaprotocol/mina-daemon:${DOCKER_TAG}
 echo Mina Git Repo Pathspec is ${GIT_PATHSPEC}
 echo Config File Path is ${CONFIG_FILE}
 
 first7=$(echo ${GIT_PATHSPEC} | cut -c1-7)
 
-hub_baked_tag="codaprotocol/coda-daemon-baked:${DOCKER_TAG}-${TESTNET}-${first7}"
-gcr_baked_tag="gcr.io/o1labs-192920/coda-daemon-baked:${DOCKER_TAG}-${TESTNET}-${first7}"
+hub_baked_tag="codaprotocol/mina-daemon-baked:${DOCKER_TAG}-${TESTNET}-${first7}"
+gcr_baked_tag="gcr.io/o1labs-192920/mina-daemon-baked:${DOCKER_TAG}-${TESTNET}-${first7}"
 
 docker_tag_exists() {
-  curl --silent -f -lSL "https://index.docker.io/v1/repositories/codaprotocol/coda-daemon/tags/${DOCKER_TAG}" > /dev/null
+  curl --silent -f -lSL "https://index.docker.io/v1/repositories/codaprotocol/mina-daemon/tags/${DOCKER_TAG}" > /dev/null
 }
 
 # Consistent method for finding a directory to work from

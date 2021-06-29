@@ -528,7 +528,7 @@ let get_consensus_constants ~logger :
   in
   let%map proof, _ =
     Genesis_ledger_helper.init_from_config_file ~genesis_dir ~logger
-      ~may_generate:true ~proof_level:None config
+      ~proof_level:None config
   in
   Precomputed_values.consensus_constants proof
 

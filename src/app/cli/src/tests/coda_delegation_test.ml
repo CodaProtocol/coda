@@ -12,13 +12,14 @@ let runtime_config = Runtime_config.Test_configs.delegation
 let main () =
   let logger = Logger.create () in
   let%bind precomputed_values, _runtime_config =
-    Genesis_ledger_helper.init_from_config_file ~logger ~may_generate:false
-      ~proof_level:None
+    Genesis_ledger_helper.inputs_from_config_file ~logger ~proof_level:None
       (Lazy.force runtime_config)
     >>| Or_error.ok_exn
   in
   let num_block_producers = 3 in
-  let accounts = Lazy.force (Precomputed_values.accounts precomputed_values) in
+  let accounts =
+    Lazy.force (Genesis_proof.Inputs.accounts precomputed_values)
+  in
   let snark_work_public_keys ndx =
     List.nth_exn accounts ndx
     |> fun (_, acct) -> Some (Account.public_key acct)
@@ -53,7 +54,7 @@ let main () =
   let ((_, delegator_account) as delegator) = List.nth_exn accounts 2 in
   let delegator_pubkey = Account.public_key delegator_account in
   let delegator_keypair =
-    Precomputed_values.keypair_of_account_record_exn delegator
+    Genesis_proof.Inputs.keypair_of_account_record_exn delegator
   in
   (* zeroth account is delegatee *)
   let _, delegatee_account = List.nth_exn accounts 0 in

@@ -10,4 +10,4 @@
    blake2
    logger)
  (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_coda ppx_version ppx_let ppx_custom_printf)))
+ (preprocess (pps ppx_coda ppx_version ppx_here ppx_let ppx_custom_printf)))

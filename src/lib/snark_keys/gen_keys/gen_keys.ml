@@ -1,19 +1,15 @@
-[%%import
-"/src/config.mlh"]
-
 open Ppxlib
 open Asttypes
 open Parsetree
 open Longident
 open Core
 
-let hashes ~loc =
+let hashes ~constraint_constants ~loc =
   let module E = Ppxlib.Ast_builder.Make (struct
     let loc = loc
   end) in
   let open E in
   let f (_, x) = estring (Core.Md5.to_hex x) in
-  let constraint_constants = Genesis_constants.Constraint_constants.compiled in
   let proof_level = Genesis_constants.Proof_level.compiled in
   let ts =
     Transaction_snark.constraint_system_digests ~constraint_constants ()
@@ -43,13 +39,13 @@ let from_disk_expr ~loc id =
     in
     t]
 
-let str ~loc ~blockchain_verification_key_id ~transaction_snark
-    ~blockchain_snark =
+let str ~loc ~constraint_constants ~blockchain_verification_key_id
+    ~transaction_snark ~blockchain_snark =
   let module E = Ppxlib.Ast_builder.Make (struct
     let loc = loc
   end) in
   let open E in
-  let hashes = hashes ~loc in
+  let hashes = hashes ~constraint_constants ~loc in
   [%str
     open! Core_kernel
 
@@ -69,9 +65,6 @@ let ok_or_fail_expr ~loc =
 open Async
 
 let loc = Ppxlib.Location.none
-
-[%%if
-proof_level = "full"]
 
 let handle_dirty dirty =
   if Array.mem ~equal:String.equal Sys.argv "--generate-keys-only" then
@@ -131,68 +124,106 @@ let handle_dirty dirty =
   | `Cache_hit ->
       Deferred.unit
 
-let str ~loc =
-  let module T = Transaction_snark.Make (struct
-    let constraint_constants = Genesis_constants.Constraint_constants.compiled
-  end) in
-  let module B = Blockchain_snark.Blockchain_snark_state.Make (struct
-    let tag = T.tag
+let str ~proof_level ~constraint_constants ~loc =
+  if Genesis_constants.Proof_level.equal Full proof_level then
+    let module T = Transaction_snark.Make (struct
+      let constraint_constants = constraint_constants
 
-    let constraint_constants = Genesis_constants.Constraint_constants.compiled
+      let proof_level = proof_level
+    end) in
+    let module B = Blockchain_snark.Blockchain_snark_state.Make (struct
+      let tag = T.tag
 
-    let proof_level = Genesis_constants.Proof_level.compiled
-  end) in
-  let%map () =
-    handle_dirty
-      Pickles.(
-        List.map
-          [T.cache_handle; B.cache_handle]
-          ~f:Cache_handle.generate_or_load
-        |> List.reduce_exn ~f:Dirty.( + ))
-  in
-  let module E = Ppxlib.Ast_builder.Make (struct
-    let loc = loc
-  end) in
-  let open E in
-  str ~loc
-    ~blockchain_verification_key_id:
-      [%expr
-        let t =
-          lazy
-            (Sexp.of_string_conv_exn
-               [%e
-                 estring
-                   ( Pickles.Verification_key.Id.sexp_of_t
-                       (Lazy.force B.Proof.id)
-                   |> Sexp.to_string )]
-               Pickles.Verification_key.Id.t_of_sexp)
-        in
-        fun () -> Lazy.force t]
-    ~transaction_snark:(from_disk_expr ~loc (Lazy.force T.id))
-    ~blockchain_snark:(from_disk_expr ~loc (Lazy.force B.Proof.id))
+      let constraint_constants = constraint_constants
 
-[%%else]
-
-let str ~loc =
-  let e =
-    [%expr Async.Deferred.return (Lazy.force Pickles.Verification_key.dummy)]
-  in
-  return
-    (str ~loc
-       ~blockchain_verification_key_id:
-         [%expr Pickles.Verification_key.Id.dummy] ~transaction_snark:e
-       ~blockchain_snark:e)
-
-[%%endif]
+      let proof_level = proof_level
+    end) in
+    let%map () =
+      handle_dirty
+        Pickles.(
+          List.map
+            [T.cache_handle; B.cache_handle]
+            ~f:Cache_handle.generate_or_load
+          |> List.reduce_exn ~f:Dirty.( + ))
+    in
+    let module E = Ppxlib.Ast_builder.Make (struct
+      let loc = loc
+    end) in
+    let open E in
+    str ~loc ~constraint_constants
+      ~blockchain_verification_key_id:
+        [%expr
+          let t =
+            lazy
+              (Sexp.of_string_conv_exn
+                 [%e
+                   estring
+                     ( Pickles.Verification_key.Id.sexp_of_t
+                         (Lazy.force B.Proof.id)
+                     |> Sexp.to_string )]
+                 Pickles.Verification_key.Id.t_of_sexp)
+          in
+          fun () -> Lazy.force t]
+      ~transaction_snark:(from_disk_expr ~loc (Lazy.force T.id))
+      ~blockchain_snark:(from_disk_expr ~loc (Lazy.force B.Proof.id))
+  else
+    let e =
+      [%expr Async.Deferred.return (Lazy.force Pickles.Verification_key.dummy)]
+    in
+    return
+      (str ~loc ~constraint_constants
+         ~blockchain_verification_key_id:
+           [%expr Pickles.Verification_key.Id.dummy] ~transaction_snark:e
+         ~blockchain_snark:e)
 
 let main () =
+  (* Wrap any junk we print to stdout in a comment.. *)
+  Format.printf "(*@." ;
+  let config_file =
+    (* TODO-someday: Use a proper argument parser. *)
+    match Array.findi Sys.argv (fun _ -> String.equal "--config-file") with
+    | Some (i, _) ->
+        let filename =
+          match Sys.argv.(i + 1) with
+          | filename ->
+              filename
+          | exception _ ->
+              failwith "Expected an argument FILENAME for --config-file"
+        in
+        let json = Yojson.Safe.from_file ~fname:filename filename in
+        Runtime_config.Json_layout.of_yojson json
+        |> Result.ok_or_failwith |> Runtime_config.of_json_layout
+        |> Result.ok_or_failwith
+    | None ->
+        Runtime_config.default
+  in
+  let proof_level =
+    match
+      let open Option.Let_syntax in
+      let%bind proof = config_file.proof in
+      proof.level
+    with
+    | None ->
+        Genesis_constants.Proof_level.compiled
+    | Some Full ->
+        Full
+    | Some Check ->
+        Check
+    | Some None ->
+        None
+  in
+  let constraint_constants =
+    let default = Genesis_constants.Constraint_constants.compiled in
+    Option.value_map ~default
+      ~f:(Genesis_ledger_helper_lib.make_constraint_constants ~default)
+      config_file.proof
+  in
   if Array.mem ~equal:String.equal Sys.argv "--download-keys" then
     Key_cache.set_downloads_enabled true ;
-  let fmt =
-    Format.formatter_of_out_channel (Out_channel.create "snark_keys.ml")
-  in
-  let%bind str = str ~loc:Location.none in
-  Pprintast.top_phrase fmt (Ptop_def str) ;
+  let%bind str = str ~proof_level ~constraint_constants ~loc:Location.none in
+  (* End comment started at the top of this function *)
+  Format.printf "*)@." ;
+  Pprintast.top_phrase Format.std_formatter (Ptop_def str) ;
   exit 0
 
 let () =

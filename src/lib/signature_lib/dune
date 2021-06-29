@@ -7,6 +7,7 @@
    blake2
    core
    hash_prefix_states
+   mina_signature_kind
    non_zero_curve_point
    ppx_version.runtime
    random_oracle

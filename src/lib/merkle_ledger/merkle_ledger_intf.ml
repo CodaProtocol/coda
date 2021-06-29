@@ -1,5 +1,3 @@
-open Core
-
 module type S = sig
   type t [@@deriving bin_io, sexp]
 

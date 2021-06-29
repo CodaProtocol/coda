@@ -2,7 +2,7 @@ apiVersion: v2
 name: archive-node
 description: A Helm chart for Mina Protocol's archive node
 type: application
-version: 1.0.2
+version: 1.0.3
 appVersion: 1.16.0
 annotations:
   artifacthub.io/changes: |
@@ -13,7 +13,7 @@ dependencies:
     repository: "https://charts.bitnami.com/bitnami"
     condition: archive.enablePostgresDB
   - name: common-utilities
-    version: 0.0.8
+    version: 0.0.9
     repository: "https://coda-charts.storage.googleapis.com"
 icon: https://storage.googleapis.com/coda-charts/Mina_Icon_Secondary_RGB_Black.png
 keywords:

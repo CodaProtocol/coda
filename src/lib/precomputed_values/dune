@@ -7,7 +7,6 @@
    crypto_params
    dummy_values
    genesis_proof
-   snark_keys
    snarky.backendless)
  (ppx_runtime_libraries base)
  (preprocess

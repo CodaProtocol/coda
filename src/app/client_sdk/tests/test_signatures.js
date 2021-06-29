@@ -1,4 +1,4 @@
-var coda = require("../../../../_build/default/src/app/client_sdk/client_sdk.bc.js").codaSDK;
+var mina = require("../../../../_build/default/src/app/client_sdk/client_sdk.bc.js").minaSDK;
 
 var keypair = {
   privateKey:
@@ -45,13 +45,13 @@ var delegations = [
 
 var printSignature = s => console.log(`  { field: '${s.field}'\n  , scalar: '${s.scalar}'\n  },`);
 
-var payment_signatures = payments.map (t => coda.signPayment(keypair.privateKey, t))
+var payment_signatures = payments.map (t => mina.signPayment(keypair.privateKey, t))
 
-var delegation_signatures = delegations.map (t => coda.signStakeDelegation(keypair.privateKey, t))
+var delegation_signatures = delegations.map (t => mina.signStakeDelegation(keypair.privateKey, t))
 
 // verify signatures before printing them
-payment_signatures.forEach (t => { if (!coda.verifyPaymentSignature (t)) { console.error ("Payment signature did not verify"); process.exit (1) } })
-delegation_signatures.forEach (t => { if (!coda.verifyStakeDelegationSignature (t)) { console.error ("Delegation signature did not verify"); process.exit (1) } })
+payment_signatures.forEach (t => { if (!mina.verifyPaymentSignature (t)) { console.error ("Payment signature did not verify"); process.exit (1) } })
+delegation_signatures.forEach (t => { if (!mina.verifyStakeDelegationSignature (t)) { console.error ("Delegation signature did not verify"); process.exit (1) } })
 
 console.log("[");
 payment_signatures.forEach(t => printSignature (t.signature))

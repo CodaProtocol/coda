@@ -67,8 +67,6 @@ module type Inputs_intf = sig
      and type addr := Addr.t
      and type account := Account.t
 
-  (** Fetch all the accounts in subtrees of this size at once, rather than
-      recursively one at a time *)
   val account_subtree_height : int
 end
 

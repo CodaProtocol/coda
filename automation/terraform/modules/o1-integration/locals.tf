@@ -1,4 +1,5 @@
 locals {
+  graphql_ingress_dns = "${var.testnet_name}.graphql.test.o1test.net"
   snark_worker_host_port            = 10001
   block_producer_starting_host_port = 10010
 
@@ -9,4 +10,48 @@ locals {
     secret = "seed-discovery-keys",
     port = 10401
   }
+
+  seed_config = {
+    name               = "seed",
+    class              = "seed",
+    libp2p_secret      = local.seed_peer.secret,
+    external_port      = 10401,
+    node_port          = null,
+    external_ip        = null,
+    private_key_secret = null,
+    enableArchive      = false,
+    archiveAddress     = null
+  }
+
+  snark_coordinator_name = "snark-coordinator-${lower(substr(var.snark_worker_public_key, length(var.snark_worker_public_key) - 6, 6))}"
+
+  default_archive_node = {
+    image                   = var.coda_archive_image
+    serverPort              = "3086"
+    externalPort            = "11010"
+    enableLocalDaemon       = true
+    enablePostgresDB        = true
+
+    postgresHost            = "archive-1-postgresql"
+    postgresPort            = 5432
+    postgresDB              = "archive"
+    postgresqlUsername      = "postgres"
+    postgresqlPassword      = "foobar"
+    remoteSchemaFile        = var.mina_archive_schema
+
+    persistenceEnabled      = true
+    persistenceSize         = "8Gi"
+    persistenceStorageClass = "ssd-delete"
+    persistenceAccessModes  = ["ReadWriteOnce"]
+    preemptibleAllowed      = "false"
+  }
+
+  archive_node_configs = var.archive_configs != null ? [for item in var.archive_configs : merge(local.default_archive_node, item)] : [
+    for i in range(1, var.archive_node_count + 1) : merge(local.default_archive_node, {
+      name              = "archive-${i}"
+      postgresHost      = "archive-${i}-postgresql"
+    })
+  ]
+
+  archive_node_names         = var.archive_node_count == 0 ? [ "" ] : [for i in range(var.archive_node_count) : "archive-${i + 1}:3086"]
 }

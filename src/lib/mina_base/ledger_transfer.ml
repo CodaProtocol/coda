@@ -37,10 +37,16 @@ module From_sparse_ledger (Dest : Base_ledger_intf) : sig
     src:Sparse_ledger.t -> dest:Dest.t -> Dest.t Or_error.t
 end = struct
   let transfer_accounts ~src ~dest =
-    if Dest.depth dest = Sparse_ledger.depth src then (
-      Sparse_ledger.iteri src ~f:(fun _idx account ->
-          let id = Account.identifier account in
-          ignore (Dest.get_or_create_account_exn dest id account) ) ;
+    if Dest.depth dest = Sparse_ledger.depth src then
+      let open Or_error.Let_syntax in
+      let%bind () =
+        Or_error.try_with (fun () ->
+            Sparse_ledger.iteri src ~f:(fun _idx account ->
+                let id = Account.identifier account in
+                ignore
+                  ( Dest.get_or_create_account dest id account
+                  |> Or_error.ok_exn ) ) )
+      in
       let src_hash = Sparse_ledger.merkle_root src in
       let dest_hash = Dest.merkle_root dest in
       if not (Ledger_hash.equal src_hash dest_hash) then
@@ -48,7 +54,7 @@ end = struct
           "Merkle roots differ after transfer: expected %s, actual %s"
           (Ledger_hash.to_string src_hash)
           (Ledger_hash.to_string dest_hash)
-      else Ok dest )
+      else Ok dest
     else
       Or_error.errorf
         "Ledger depth of src and dest doesn't match: src %d, dest %d"

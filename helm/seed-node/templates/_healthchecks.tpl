@@ -23,7 +23,7 @@ readinessProbe:
     command: [
       "/bin/bash",
       "-c",
-      "source /healthcheck/utilities.sh && isDaemonSynced && peerCountGreaterThan 0"
+      "source /healthcheck/utilities.sh && isDaemonSynced && peerCountGreaterThan 0 && updateSyncStatusLabel {{ .name }}"
     ]
 {{- end }}
 

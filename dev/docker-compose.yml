@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  mina:
+    container_name: mina
+    build:
+        context: ../dockerfiles
+        dockerfile: Dockerfile-toolchain
+    volumes:
+      - "..:/mina" # mount the mina folder so that changes are reflected in the container
+      - "_opam:/mina/_opam" # exclude any existing local switch
+      - "opam:/home/opam/.opam" # cache opam stuff
+    stdin_open: true # docker run -i
+    tty: true # docker run -t
+
+# volumes
+volumes:
+  opam:
+  _opam:

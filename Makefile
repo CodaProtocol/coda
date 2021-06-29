@@ -6,7 +6,7 @@ GITHASH = $(shell git rev-parse --short=8 HEAD)
 GITLONGHASH = $(shell git rev-parse HEAD)
 
 MYUID = $(shell id -u)
-DOCKERNAME = codabuilder-$(MYUID)
+DOCKERNAME = minabuilder-$(MYUID)
 
 # Unique signature of libp2p code tree
 LIBP2P_HELPER_SIG = $(shell cd src/app/libp2p_helper ; find . -type f -print0  | xargs -0 sha1sum | sort | sha1sum | cut -f 1 -d ' ')
@@ -57,7 +57,7 @@ git_hooks: $(wildcard scripts/git_hooks/*)
 ########################################
 ## Code
 
-all: clean codabuilder containerstart build
+all: clean minabuilder containerstart build
 
 clean:
 	$(info Removing previous build artifacts)
@@ -65,7 +65,6 @@ clean:
 	@rm -rf src/$(COVERAGE_DIR)
 	@rm -rf src/app/libp2p_helper/result
 
-# TEMP HACK (for circle-ci)
 libp2p_helper:
 	make -C src/app/libp2p_helper
 
@@ -73,12 +72,17 @@ GENESIS_DIR := $(TMPDIR)/coda_cache_dir
 
 genesis_ledger:
 	$(info Building runtime_genesis_ledger)
-	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env CODA_COMMIT_SHA1=$(GITLONGHASH) dune exec --profile=$(DUNE_PROFILE) src/app/runtime_genesis_ledger/runtime_genesis_ledger.exe -- --genesis-dir $(GENESIS_DIR)
+	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env MINA_COMMIT_SHA1=$(GITLONGHASH) dune exec --profile=$(DUNE_PROFILE) src/app/runtime_genesis_ledger/runtime_genesis_ledger.exe -- --genesis-dir $(GENESIS_DIR)
 	$(info Genesis ledger and genesis proof generated)
 
 build: git_hooks reformat-diff libp2p_helper
 	$(info Starting Build)
-	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env CODA_COMMIT_SHA1=$(GITLONGHASH) dune build src/app/logproc/logproc.exe src/app/cli/src/mina.exe --profile=$(DUNE_PROFILE)
+	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env MINA_COMMIT_SHA1=$(GITLONGHASH) dune build src/app/logproc/logproc.exe src/app/cli/src/mina.exe --profile=$(DUNE_PROFILE)
+	$(info Build complete)
+
+build_all_sigs: git_hooks reformat-diff libp2p_helper
+	$(info Starting Build)
+	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env MINA_COMMIT_SHA1=$(GITLONGHASH) dune build src/app/logproc/logproc.exe src/app/cli/src/mina.exe src/app/cli/src/mina_testnet_signatures.exe src/app/cli/src/mina_mainnet_signatures.exe --profile=$(DUNE_PROFILE)
 	$(info Build complete)
 
 build_archive: git_hooks reformat-diff
@@ -86,9 +90,24 @@ build_archive: git_hooks reformat-diff
 	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/archive/archive.exe --profile=$(DUNE_PROFILE)
 	$(info Build complete)
 
+build_archive_all_sigs: git_hooks reformat-diff
+	$(info Starting Build)
+	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/archive/archive.exe src/app/archive/archive_testnet_signatures.exe src/app/archive/archive_mainnet_signatures.exe --profile=$(DUNE_PROFILE)
+	$(info Build complete)
+
 build_rosetta:
 	$(info Starting Build)
 	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/archive/archive.exe src/app/rosetta/rosetta.exe src/app/rosetta/ocaml-signer/signer.exe --profile=$(DUNE_PROFILE)
+	$(info Build complete)
+
+build_rosetta_all_sigs:
+	$(info Starting Build)
+	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/archive/archive.exe src/app/archive/archive_testnet_signatures.exe src/app/archive/archive_mainnet_signatures.exe src/app/rosetta/rosetta.exe src/app/rosetta/rosetta_testnet_signatures.exe src/app/rosetta/rosetta_mainnet_signatures.exe src/app/rosetta/ocaml-signer/signer.exe src/app/rosetta/ocaml-signer/signer_testnet_signatures.exe src/app/rosetta/ocaml-signer/signer_mainnet_signatures.exe --profile=$(DUNE_PROFILE)
+	$(info Build complete)
+
+build_intgtest:
+	$(info Starting Build)
+	dune build --profile=integration_tests src/app/test_executive/test_executive.exe src/app/logproc/logproc.exe
 	$(info Build complete)
 
 client_sdk :
@@ -126,14 +145,19 @@ replayer :
 	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/replayer/replayer.exe --profile=testnet_postake_medium_curves
 	$(info Build complete)
 
+delegation_compliance :
+	$(info Starting Build)
+	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/delegation_compliance/delegation_compliance.exe --profile=testnet_postake_medium_curves
+	$(info Build complete)
+
 missing_blocks_auditor :
 	$(info Starting Build)
 	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/missing_blocks_auditor/missing_blocks_auditor.exe --profile=testnet_postake_medium_curves
 	$(info Build complete)
 
-missing_subchain :
+extract_blocks :
 	$(info Starting Build)
-	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/missing_subchain/missing_subchain.exe --profile=testnet_postake_medium_curves
+	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/extract_blocks/extract_blocks.exe --profile=testnet_postake_medium_curves
 	$(info Build complete)
 
 archive_blocks :
@@ -141,12 +165,22 @@ archive_blocks :
 	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/archive_blocks/archive_blocks.exe --profile=testnet_postake_medium_curves
 	$(info Build complete)
 
+patch_archive_test :
+	$(info Starting Build)
+	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/patch_archive_test/patch_archive_test.exe --profile=testnet_postake_medium_curves
+	$(info Build complete)
+
 genesis_ledger_from_tsv :
 	$(info Starting Build)
 	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/genesis_ledger_from_tsv/genesis_ledger_from_tsv.exe --profile=testnet_postake_medium_curves
 	$(info Build complete)
 
-dev: codabuilder containerstart build
+swap_bad_balances :
+	$(info Starting Build)
+	ulimit -s 65532 && (ulimit -n 10240 || true) && dune build src/app/swap_bad_balances/swap_bad_balances.exe --profile=testnet_postake_medium_curves
+	$(info Build complete)
+
+dev: minabuilder containerstart build
 
 # update OPAM, pinned packages in Docker
 update-opam:
@@ -162,7 +196,7 @@ macos-portable:
 
 update-graphql:
 	@echo Make sure that the daemon is running with -rest-port 8080
-	python scripts/introspection_query.py > graphql_schema.json
+	python3 scripts/introspection_query.py > graphql_schema.json
 
 ########################################
 ## Lint
@@ -186,7 +220,7 @@ macos-setup-download:
 	./scripts/macos-setup-brew.sh
 
 setup-opam:
-	./scripts/setup-opam.sh
+	eval $$(opam config env) && ./scripts/setup-opam.sh
 
 macos-setup:
 	./scripts/macos-setup-brew.sh
@@ -219,22 +253,20 @@ docker-toolchain-rust:
 
 update-deps:
 	./scripts/update-toolchain-references.sh $(GITLONGHASH)
-	make render-circleci
 
 update-rust-deps:
 	./scripts/update-rust-toolchain-references.sh $(GITLONGHASH)
-	make render-circleci
 
-# Local 'codabuilder' docker image (based off docker-toolchain)
-codabuilder: git_hooks
-	docker build --file dockerfiles/Dockerfile --tag codabuilder .
+# Local 'minabuilder' docker image (based off docker-toolchain)
+minabuilder: git_hooks
+	docker build --file dockerfiles/Dockerfile-toolchain --tag minabuilder .
 
-# Restarts codabuilder
+# Restarts minabuilder
 containerstart: git_hooks
 	@./scripts/container.sh restart
 
 docker-rosetta:
-	docker build --file dockerfiles/Dockerfile-rosetta --tag codaprotocol/coda:rosetta-$(GITLONGHASH) .
+	docker build --file dockerfiles/Dockerfile-rosetta --tag codaprotocol/mina:rosetta-$(GITLONGHASH) .
 
 ########################################
 ## Artifacts
@@ -254,12 +286,12 @@ deb_optimized:
 
 build_pv_keys:
 	$(info Building keys)
-	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env CODA_COMMIT_SHA1=$(GITLONGHASH) dune exec --profile=$(DUNE_PROFILE) src/lib/snark_keys/gen_keys/gen_keys.exe -- --generate-keys-only
+	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env MINA_COMMIT_SHA1=$(GITLONGHASH) dune exec --profile=$(DUNE_PROFILE) src/lib/snark_keys/gen_keys/gen_keys.exe -- --generate-keys-only
 	$(info Keys built)
 
 build_or_download_pv_keys:
 	$(info Building keys)
-	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env CODA_COMMIT_SHA1=$(GITLONGHASH) dune exec --profile=$(DUNE_PROFILE) src/lib/snark_keys/gen_keys/gen_keys.exe -- --generate-keys-only
+	ulimit -s 65532 && (ulimit -n 10240 || true) && $(WRAPAPP) env MINA_COMMIT_SHA1=$(GITLONGHASH) dune exec --profile=$(DUNE_PROFILE) src/lib/snark_keys/gen_keys/gen_keys.exe -- --generate-keys-only
 	$(info Keys built)
 
 publish_deb:
@@ -273,12 +305,6 @@ genesiskeys:
 	@cp _build/default/src/lib/mina_base/sample_keypairs.ml /tmp/artifacts/.
 	@cp _build/default/src/lib/mina_base/sample_keypairs.json /tmp/artifacts/.
 
-codaslim:
-	@# FIXME: Could not reference .deb file in the sub-dir in the docker build
-	@cp _build/coda.deb .
-	@./scripts/rebuild-docker.sh codaslim dockerfiles/Dockerfile-codaslim
-	@rm coda.deb
-
 ##############################################
 ## Genesis ledger in OCaml from running daemon
 
@@ -287,9 +313,6 @@ genesis-ledger-ocaml:
 
 ########################################
 ## Tests
-
-render-circleci:
-	./scripts/test.py render .circleci/config.yml.jinja .mergify.yml.jinja
 
 test-ppx:
 	$(MAKE) -C src/lib/ppx_coda/tests
@@ -360,4 +383,4 @@ ml-docs:
 # https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
 # HACK: cat Makefile | egrep '^\w.*' | sed 's/:/ /' | awk '{print $1}' | grep -v myprocs | sort | xargs
 
-.PHONY: all build check-format clean client_sdk client_sdk_test_sigs codaslim containerstart deb dev codabuilder coda-docker coda-googlecloud coda-minikube reformat test test-all test-coda-block-production-sig test-coda-block-production-stake test-codapeers-sig test-codapeers-stake test-full-sig test-full-stake test-runtest test-transaction-snark-profiler-sig test-transaction-snark-profiler-stake update-deps render-circleci check-render-circleci docker-toolchain-rust toolchains doc_diagrams ml-docs macos-setup macos-setup-download setup-opam libp2p_helper dhall_types replayer missing_blocks_auditor missing_subchain archive_blocks genesis_ledger_from_tsv
+.PHONY: all build check-format clean client_sdk client_sdk_test_sigs containerstart deb dev minabuilder mina-docker reformat update-deps docker-toolchain-rust toolchains doc_diagrams ml-docs macos-setup macos-setup-download setup-opam libp2p_helper dhall_types replayer missing_blocks_auditor extract_blocks archive_blocks genesis_ledger_from_tsv

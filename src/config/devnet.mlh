@@ -32,7 +32,8 @@
 [%%define integration_tests false]
 [%%define force_updates false]
 
-[%%define download_snark_keys true]
+[%%define download_snark_keys false]
+[%%define generate_genesis_proof false]
 
 [%%define print_versioned_types false]
 

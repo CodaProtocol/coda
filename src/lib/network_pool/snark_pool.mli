@@ -77,7 +77,7 @@ module type Transition_frontier_intf = sig
 
   val snark_pool_refcount_pipe :
        t
-    -> (int * int Transaction_snark_work.Statement.Table.t)
+    -> Transition_frontier.Extensions.Snark_pool_refcount.view
        Pipe_lib.Broadcast_pipe.Reader.t
 end
 
@@ -103,7 +103,7 @@ module Diff_versioned : sig
             * Ledger_proof.Stable.V1.t One_or_two.Stable.V1.t
               Priced_proof.Stable.V1.t
         | Empty
-      [@@deriving compare, sexp]
+      [@@deriving compare, sexp, hash]
     end
   end]
 end

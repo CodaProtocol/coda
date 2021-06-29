@@ -11,4 +11,4 @@
  (deps
   (:< gen_keys/gen_keys.exe))
  (action
-  (run %{<} %{targets})))
+  (with-stdout-to snark_keys.ml (run %{<}))))

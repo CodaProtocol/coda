@@ -17,5 +17,6 @@
                ppx_assert
                ppx_coda
                ppx_version
+               ppx_here
                ppx_optcomp ppx_bin_prot ppx_let
                ppx_custom_printf)))

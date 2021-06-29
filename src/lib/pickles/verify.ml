@@ -166,66 +166,66 @@ let verify_heterogenous (ts : Instance.t list) =
         plonk )
   in
   let open Backend.Tock.Proof in
+  let open Async in
+  let%bind accumulator_check =
+    Ipa.Step.accumulator_check
+      (List.map ts ~f:(fun (T (_, _, _, _, T t)) ->
+           ( t.statement.proof_state.me_only.sg
+           , Ipa.Step.compute_challenges
+               t.statement.proof_state.deferred_values.bulletproof_challenges
+           ) ))
+  in
   Common.time "batch_step_dlog_check" (fun () ->
-      check
-        ( lazy "batch_step_dlog_check"
-        , Ipa.Step.accumulator_check
-            (List.map ts ~f:(fun (T (_, _, _, _, T t)) ->
-                 ( t.statement.proof_state.me_only.sg
-                 , Ipa.Step.compute_challenges
-                     t.statement.proof_state.deferred_values
-                       .bulletproof_challenges ) )) ) ) ;
-  Common.time "dlog_check" (fun () ->
-      check
-        ( lazy "dlog_check"
-        , batch_verify
-            (List.map2_exn ts in_circuit_plonks
-               ~f:(fun (T
-                         ( ( module
-                         Max_branching )
-                         , ( module
-                         A_value )
-                         , key
-                         , app_state
-                         , T t ))
-                  plonk
-                  ->
-                 let prepared_statement :
-                     _ Types.Dlog_based.Statement.In_circuit.t =
-                   { pass_through=
-                       Common.hash_pairing_me_only
-                         ~app_state:A_value.to_field_elements
-                         (Reduced_me_only.Pairing_based.prepare
-                            ~dlog_plonk_index:key.commitments
-                            {t.statement.pass_through with app_state})
-                   ; proof_state=
-                       { t.statement.proof_state with
-                         deferred_values=
-                           {t.statement.proof_state.deferred_values with plonk}
-                       ; me_only=
-                           Common.hash_dlog_me_only Max_branching.n
-                             (Reduced_me_only.Dlog_based.prepare
-                                t.statement.proof_state.me_only) } }
-                 in
-                 let input =
-                   tock_unpadded_public_input_of_statement prepared_statement
-                 in
-                 ( key.index
-                 , t.proof
-                 , input
-                 , Some
-                     (Vector.to_list
-                        (Vector.map2
-                           ~f:(fun g cs ->
-                             { Challenge_polynomial.challenges=
-                                 Vector.to_array
-                                   (Ipa.Wrap.compute_challenges cs)
-                             ; commitment= g } )
-                           (Vector.extend_exn t.statement.pass_through.sg
-                              Max_branching.n
-                              (Lazy.force Dummy.Ipa.Wrap.sg))
-                           t.statement.proof_state.me_only
-                             .old_bulletproof_challenges)) ) )) ) ) ;
+      check (lazy "batch_step_dlog_check", accumulator_check) ) ;
+  let%map dlog_check =
+    batch_verify
+      (List.map2_exn ts in_circuit_plonks
+         ~f:(fun (T
+                   ( ( module
+                   Max_branching )
+                   , ( module
+                   A_value )
+                   , key
+                   , app_state
+                   , T t ))
+            plonk
+            ->
+           let prepared_statement : _ Types.Dlog_based.Statement.In_circuit.t =
+             { pass_through=
+                 Common.hash_pairing_me_only
+                   ~app_state:A_value.to_field_elements
+                   (Reduced_me_only.Pairing_based.prepare
+                      ~dlog_plonk_index:key.commitments
+                      {t.statement.pass_through with app_state})
+             ; proof_state=
+                 { t.statement.proof_state with
+                   deferred_values=
+                     {t.statement.proof_state.deferred_values with plonk}
+                 ; me_only=
+                     Common.hash_dlog_me_only Max_branching.n
+                       (Reduced_me_only.Dlog_based.prepare
+                          t.statement.proof_state.me_only) } }
+           in
+           let input =
+             tock_unpadded_public_input_of_statement prepared_statement
+           in
+           ( key.index
+           , t.proof
+           , input
+           , Some
+               (Vector.to_list
+                  (Vector.map2
+                     ~f:(fun g cs ->
+                       { Challenge_polynomial.challenges=
+                           Vector.to_array (Ipa.Wrap.compute_challenges cs)
+                       ; commitment= g } )
+                     (Vector.extend_exn t.statement.pass_through.sg
+                        Max_branching.n
+                        (Lazy.force Dummy.Ipa.Wrap.sg))
+                     t.statement.proof_state.me_only.old_bulletproof_challenges))
+           ) ))
+  in
+  Common.time "dlog_check" (fun () -> check (lazy "dlog_check", dlog_check)) ;
   match result () with
   | Ok () ->
       true

@@ -10,7 +10,7 @@ set +x
 CLEAR='\033[0m'
 RED='\033[0;31m'
 # Array of valid service names
-VALID_SERVICES=('coda-archive', 'coda-daemon' 'coda-daemon-puppeteered' 'bot' 'coda-demo' 'coda-rosetta', 'leaderboard')
+VALID_SERVICES=('mina-archive', 'mina-daemon' 'mina-daemon-puppeteered' 'bot' 'mina-rosetta', 'leaderboard')
 
 function usage() {
   if [ -n "$1" ]; then
@@ -48,25 +48,23 @@ if [ -z "$EXTRA" ]; then EXTRA=""; fi;
 if [ $(echo ${VALID_SERVICES[@]} | grep -o "$SERVICE" - | wc -w) -eq 0 ]; then usage "Invalid service!"; fi
 
 case $SERVICE in
-coda-archive)
-  DOCKERFILE_PATH="scripts/archive/Dockerfile"
+mina-archive)
+  DOCKERFILE_PATH="dockerfiles/Dockerfile-mina-archive"
+  DOCKER_CONTEXT="dockerfiles/"
   ;;
 bot)
   DOCKERFILE_PATH="frontend/bot/Dockerfile"
   DOCKER_CONTEXT="frontend/bot"
   ;;
-coda-daemon)
-  DOCKERFILE_PATH="dockerfiles/Dockerfile-coda-daemon"
+mina-daemon)
+  DOCKERFILE_PATH="dockerfiles/Dockerfile-mina-daemon"
   DOCKER_CONTEXT="dockerfiles/"
   ;;
-coda-daemon-puppeteered)
-  DOCKERFILE_PATH="dockerfiles/Dockerfile-coda-daemon-puppeteered"
-  DOCKER_CONTEXT="dockerfiles/"
+mina-daemon-puppeteered)
+  DOCKERFILE_PATH="dockerfiles/Dockerfile-mina-daemon-puppeteered"
+  DOCKER_CONTEXT="dockerfiles/puppeteer-context"
   ;;
-coda-demo)
-  DOCKERFILE_PATH="dockerfiles/Dockerfile-coda-demo"
-  ;;
-coda-rosetta)
+mina-rosetta)
   if [[ "$BUILD_ROSETTA" != "true" ]]; then
     echo "BUILD_ROSETTA env var not set, short-circuiting to avoid slow builds."
     exit 0

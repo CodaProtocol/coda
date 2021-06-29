@@ -1,0 +1,75 @@
+ARG deb_codename=stretch
+FROM debian:${deb_codename}-slim
+# Run with `docker build --build-arg deb_version=<version>`
+ARG deb_version
+ARG deb_release=alpha
+ARG deb_codename=stretch
+ARG network=mainnet
+
+ENV DEBIAN_FRONTEND noninteractive
+
+# Dependencies
+RUN apt-get -y update && \
+  DEBIAN_FRONTEND=noninteractive apt-get -y upgrade && \
+  DEBIAN_FRONTEND=noninteractive apt-get -y install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    dnsutils \
+    dumb-init \
+    gettext \
+    gnupg2 \
+    jq \
+    libffi6 \
+    libgmp10 \
+    libgomp1 \
+    libssl1.1 \
+    libpq-dev \
+    libprocps6 \
+    libjemalloc1 \
+    procps \
+    tzdata && \
+  rm -rf /var/lib/apt/lists/*
+
+# Install google-cloud-sdk for GCLOUD_UPLOAD feature
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+  && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - \
+  && apt-get update \
+  && apt-get install -y google-cloud-sdk kubectl
+
+# Mina daemon package
+# jemalloc is also installed automatically here to match the package dependencies for this $deb_codename
+RUN echo "Building image with version $deb_version from repo $deb_release $deb_codename for network $network" \
+  && echo "deb [trusted=yes] http://packages.o1test.net $deb_codename $deb_release" > /etc/apt/sources.list.d/o1.list \
+  && apt-get update \
+  && apt-get install -y --allow-downgrades "mina-$network=$deb_version"
+
+
+# Move to a non-root UID in the future, for now stick to root for compatibility
+ARG UID=0
+
+# TODO: flesh out this feature + test
+# Create a mina user to execute the daemon with
+RUN mkdir /home/mina \
+  && adduser --uid 192920 --disabled-password --gecos '' mina \
+  && passwd -l mina \
+  && chown -R mina:mina /home/mina
+
+WORKDIR /home/mina
+USER mina
+
+## Reset workdir, USER, and ${UID} for root-owned version
+WORKDIR /root/
+USER 0
+
+COPY --chown=${UID} scripts/healthcheck-utilities.sh /healthcheck/utilities.sh
+COPY --chown=${UID} scripts/cron_job_dump_ledger.sh /cron_job_dump_ledger.sh
+COPY --chown=${UID} scripts/daemon-entrypoint.sh /entrypoint.sh
+# Solve this by marking scripts executable in git
+COPY --chown=${UID} ./auxiliary_entrypoints /entrypoint.d
+
+ENV CODA_TIME_OFFSET 0
+# for future use
+ENV MINA_TIME_OFFSET 0
+
+ENTRYPOINT ["/usr/bin/dumb-init", "/entrypoint.sh"]

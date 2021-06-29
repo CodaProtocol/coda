@@ -213,6 +213,14 @@ module With_valid_signatures_and_proofs = struct
 
   type t = {diff: diff} [@@deriving sexp, to_yojson]
 
+  let empty_diff : t =
+    { diff=
+        ( { completed_works= []
+          ; commands= []
+          ; coinbase= At_most_two.Zero
+          ; internal_command_balances= [] }
+        , None ) }
+
   let commands t =
     (fst t.diff).commands
     @ Option.value_map (snd t.diff) ~default:[] ~f:(fun d -> d.commands)
@@ -367,3 +375,32 @@ let commands (t : t) =
 let completed_works (t : t) =
   (fst t.diff).completed_works
   @ Option.value_map (snd t.diff) ~default:[] ~f:(fun d -> d.completed_works)
+
+let net_return
+    ~(constraint_constants : Genesis_constants.Constraint_constants.t)
+    ~supercharge_coinbase (t : t) =
+  let open Currency in
+  let open Option.Let_syntax in
+  let%bind coinbase = coinbase ~constraint_constants ~supercharge_coinbase t in
+  let%bind total_reward =
+    List.fold
+      ~init:(Some (Amount.to_fee coinbase))
+      (commands t)
+      ~f:(fun sum cmd ->
+        let%bind sum = sum in
+        Fee.( + ) sum (User_command.fee_exn (With_status.data cmd)) )
+  in
+  let%bind completed_works_fees =
+    List.fold ~init:(Some Fee.zero) (completed_works t) ~f:(fun sum work ->
+        let%bind sum = sum in
+        Fee.( + ) sum work.Transaction_snark_work.fee )
+  in
+  Amount.(of_fee total_reward - of_fee completed_works_fees)
+
+let empty_diff : t =
+  { diff=
+      ( { completed_works= []
+        ; commands= []
+        ; coinbase= At_most_two.Zero
+        ; internal_command_balances= [] }
+      , None ) }

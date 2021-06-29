@@ -2,7 +2,9 @@
 
 type t = char
 
-(* each of the following values should be distinct *)
+(** Base58Check version bytes for individual types
+    Each of the following values should be distinct
+*)
 
 let coinbase : t = '\x01'
 
@@ -50,9 +52,9 @@ let pending_coinbase_hash_builder : t = '\x19'
 
 let snapp_command : t = '\x1A'
 
-(* the following version bytes are non-sequential because existing testnet
-   user key infrastructure depend on them. don't change them while we 
-   care about user keys! *)
+(** The following version bytes are non-sequential; existing
+    user key infrastructure depends on them. don't change them!
+*)
 
 let private_key : t = '\x5A'
 

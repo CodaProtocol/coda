@@ -14,7 +14,7 @@ type tag =
 val verify :
      (Protocol_state.Value.t * Proof.t) list
   -> key:Pickles.Verification_key.t
-  -> bool
+  -> bool Async.Deferred.t
 
 val check :
      Witness.t
@@ -47,6 +47,8 @@ module type S = sig
        , Protocol_state.Value.t
        , Proof.t Async.Deferred.t )
        Pickles.Prover.t
+
+  val constraint_system_digests : (string * Md5_lib.t) list Lazy.t
 end
 
 module Make (T : sig

@@ -2,7 +2,10 @@ module "kubernetes_testnet" {
   providers = { google = google.gke }
   source    = "../kubernetes/testnet"
 
-  use_local_charts = true
+  use_local_charts    = true
+  expose_graphql      = var.deploy_graphql_ingress
+  healthcheck_enabled = false
+  deploy_watchdog     = false
 
   cluster_name   = var.cluster_name
   cluster_region = var.cluster_region
@@ -16,7 +19,6 @@ module "kubernetes_testnet" {
   coda_points_image  = var.coda_points_image
 
   log_level             = "Trace"
-  log_txn_pool_gossip   = true
   log_snark_work_gossip = true
 
   additional_peers = [local.seed_peer.multiaddr]
@@ -24,19 +26,15 @@ module "kubernetes_testnet" {
 
   seed_zone   = "us-west1-a"
   seed_region = "us-west1"
-  seed_configs = [
-    {
-      name               = "seed",
-      class              = "seed",
-      libp2p_secret      = local.seed_peer.secret,
-      external_port      = 10401,
-      node_port          = null,
-      external_ip        = null,
-      private_key_secret = null,
-      enableArchive      = false,
-      archiveAddress     = ""
-    }
-  ]
+  seed_configs = [local.seed_config]
+
+  archive_configs = local.archive_node_configs
+
+  log_precomputed_blocks = var.log_precomputed_blocks
+  log_txn_pool_gossip = true
+
+  archive_node_count   = var.archive_node_count
+  mina_archive_schema  = var.mina_archive_schema
 
   snark_worker_replicas   = var.snark_worker_replicas
   snark_worker_fee        = var.snark_worker_fee
@@ -57,8 +55,8 @@ module "kubernetes_testnet" {
       run_with_user_agent    = false
       run_with_bots          = false
       enable_peer_exchange   = true
-      enableArchive          = false
-      archiveAddress         = ""
+      enableArchive          = var.archive_node_count > 0
+      archiveAddress         = element(local.archive_node_names, index)
     }
   ]
 }

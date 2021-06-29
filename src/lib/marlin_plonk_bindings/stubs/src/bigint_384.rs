@@ -28,10 +28,10 @@ pub fn of_biguint(x: &BigUint) -> BigInteger384 {
 #[ocaml::func]
 pub fn caml_bigint_384_of_numeral(
     s: &[u8],
-    _len: u32,
-    base: u32,
+    _len: ocaml::Int,
+    base: ocaml::Int,
 ) -> Result<BigInteger384, ocaml::Error> {
-    match BigUint::parse_bytes(s, base) {
+    match BigUint::parse_bytes(s, base.try_into().unwrap()) {
         Some(data) => Ok(of_biguint(&data)),
         None => Err(ocaml::Error::invalid_argument("caml_bigint_384_of_numeral")
             .err()
@@ -112,8 +112,8 @@ pub fn caml_bigint_384_to_bytes(x: ocaml::Pointer<BigInteger384>) -> ocaml::Valu
     let x_ptr: *const BigInteger384 = x.as_ref();
     unsafe {
         core::ptr::copy_nonoverlapping(x_ptr as *const u8, ocaml::sys::string_val(str), len);
+        ocaml::Value::new(str)
     }
-    ocaml::Value(str)
 }
 
 #[ocaml::func]

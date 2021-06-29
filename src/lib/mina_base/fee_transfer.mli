@@ -40,7 +40,8 @@ module Single : sig
 
   module Gen : sig
     val with_random_receivers :
-         keys:Signature_keypair.t array
+         ?min_fee:int
+      -> keys:Signature_keypair.t array
       -> max_fee:int
       -> token:Token_id.t Quickcheck.Generator.t
       -> t Quickcheck.Generator.t

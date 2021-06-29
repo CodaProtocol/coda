@@ -1,6 +1,6 @@
 (library
  (name snarky_blake2_tests)
  (inline_tests)
- (libraries snarky_blake2 snarky)
+ (libraries snarky_blake2 snarky snark_params)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_inline_test ppx_let ppx_assert ppx_sexp_conv ppx_version)))

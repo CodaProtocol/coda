@@ -25,7 +25,7 @@ module Get_nonce =
         nonce
       }
       daemonStatus {
-        peers { peerId }
+        chainId
       }
       initialPeers
      }
@@ -141,7 +141,7 @@ module Options = struct
     Raw.of_yojson r
     |> Result.map_error ~f:(fun e ->
            Errors.create ~context:"Options of_json" (`Json_parse (Some e)) )
-    |> Result.bind ~f:(fun r ->
+    |> Result.bind ~f:(fun (r : Raw.t) ->
            let open Result.Let_syntax in
            let%map sender =
              Public_key.Compressed.of_base58_check r.sender
@@ -289,14 +289,24 @@ module Metadata = struct
           account#nonce
         |> Option.value ~default:Unsigned.UInt32.zero
       in
+      let suggested_fee =
+        Amount_of.coda
+          (MinaCurrency.Fee.to_uint64
+             Mina_compile_config.default_transaction_fee)
+      in
+      let amount_metadata =
+        `Assoc
+          [ ( "minimum_fee"
+            , Amount.to_yojson
+                (Amount_of.coda
+                   (MinaCurrency.Fee.to_uint64
+                      Mina_compile_config.minimum_user_command_fee)) ) ]
+      in
       { Construction_metadata_response.metadata=
           Metadata_data.create ~sender:options.Options.sender
             ~token_id:options.Options.token_id ~nonce
           |> Metadata_data.to_yojson
-      ; suggested_fee=
-          [ Amount_of.coda
-              (MinaCurrency.Fee.to_uint64
-                 Mina_compile_config.default_transaction_fee) ] }
+      ; suggested_fee= [{suggested_fee with metadata= Some amount_metadata}] }
   end
 
   module Real = Impl (Deferred.Result)

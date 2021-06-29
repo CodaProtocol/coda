@@ -112,7 +112,7 @@ type t =
   ; initialization_finish_signal: unit Ivar.t
   ; pipes: pipes
   ; wallets: Secrets.Wallets.t
-  ; coinbase_receiver: Consensus.Coinbase_receiver.t
+  ; coinbase_receiver: Consensus.Coinbase_receiver.t ref
   ; block_production_keypairs:
       (Agent.read_write Agent.flag, Keypair.And_compressed_pk.Set.t) Agent.t
   ; snark_job_state: Work_selector.State.t
@@ -146,6 +146,19 @@ let client_port t =
 let block_production_pubkeys t : Public_key.Compressed.Set.t =
   let public_keys, _ = Agent.get t.block_production_keypairs in
   Public_key.Compressed.Set.map public_keys ~f:snd
+
+let coinbase_receiver t = !(t.coinbase_receiver)
+
+let replace_coinbase_receiver t coinbase_receiver =
+  [%log' info t.config.logger]
+    "Changing the coinbase receiver for produced blocks from $old_receiver to \
+     $new_receiver"
+    ~metadata:
+      [ ( "old_receiver"
+        , Consensus.Coinbase_receiver.to_yojson !(t.coinbase_receiver) )
+      ; ( "new_receiver"
+        , Consensus.Coinbase_receiver.to_yojson coinbase_receiver ) ] ;
+  t.coinbase_receiver := coinbase_receiver
 
 let replace_block_production_keypairs t kps =
   Agent.update t.block_production_keypairs kps
@@ -187,7 +200,8 @@ module Snark_worker = struct
       snark_worker_process ~module_:__MODULE__ ~location:__LOC__ ;
     don't_wait_for
       ( match%bind
-          Monitor.try_with (fun () -> Process.wait snark_worker_process)
+          Monitor.try_with ~here:[%here] (fun () ->
+              Process.wait snark_worker_process )
         with
       | Ok signal_or_error -> (
         match signal_or_error with
@@ -483,35 +497,121 @@ let best_protocol_state = compose_of_option best_protocol_state_opt
 let best_ledger = compose_of_option best_ledger_opt
 
 let get_ledger t state_hash_opt =
-  let open Deferred.Or_error.Let_syntax in
+  let open Or_error.Let_syntax in
   let%bind state_hash =
-    Option.value_map state_hash_opt ~f:Deferred.Or_error.return
+    Option.value_map state_hash_opt ~f:Or_error.return
       ~default:
         ( match best_tip t with
         | `Active bc ->
-            Deferred.Or_error.return (Frontier_base.Breadcrumb.state_hash bc)
+            Or_error.return (Frontier_base.Breadcrumb.state_hash bc)
         | `Bootstrapping ->
-            Deferred.Or_error.error_string
+            Or_error.error_string
               "get_ledger: can't get staged ledger hash while bootstrapping" )
   in
-  let%bind frontier =
-    Deferred.return (t.components.transition_frontier |> peek_frontier)
-  in
-  match
-    List.find_map (Transition_frontier.all_breadcrumbs frontier) ~f:(fun b ->
-        let staged_ledger = Transition_frontier.Breadcrumb.staged_ledger b in
-        if
-          State_hash.equal
-            (Transition_frontier.Breadcrumb.state_hash b)
-            state_hash
-        then Some (Ledger.to_list (Staged_ledger.ledger staged_ledger))
-        else None )
-  with
-  | Some x ->
-      Deferred.Or_error.return x
+  let%bind frontier = t.components.transition_frontier |> peek_frontier in
+  match Transition_frontier.find frontier state_hash with
+  | Some b ->
+      let staged_ledger = Transition_frontier.Breadcrumb.staged_ledger b in
+      Ok (Ledger.to_list (Staged_ledger.ledger staged_ledger))
   | None ->
-      Deferred.Or_error.error_string
+      Or_error.error_string
         "get_ledger: state hash not found in transition frontier"
+
+let get_snarked_ledger t state_hash_opt =
+  let open Or_error.Let_syntax in
+  let%bind state_hash =
+    Option.value_map state_hash_opt ~f:Or_error.return
+      ~default:
+        ( match best_tip t with
+        | `Active bc ->
+            Or_error.return (Frontier_base.Breadcrumb.state_hash bc)
+        | `Bootstrapping ->
+            Or_error.error_string
+              "get_snarked_ledger: can't get snarked ledger hash while \
+               bootstrapping" )
+  in
+  let%bind frontier = t.components.transition_frontier |> peek_frontier in
+  match Transition_frontier.find frontier state_hash with
+  | Some b ->
+      let root_snarked_ledger =
+        Transition_frontier.root_snarked_ledger frontier
+      in
+      let ledger = Ledger.of_database root_snarked_ledger in
+      let path = Transition_frontier.path_map frontier b ~f:Fn.id in
+      let%bind _ =
+        List.fold_until ~init:(Ok ()) path
+          ~f:(fun _acc b ->
+            if Transition_frontier.Breadcrumb.just_emitted_a_proof b then
+              match
+                Staged_ledger.proof_txns_with_state_hashes
+                  (Transition_frontier.Breadcrumb.staged_ledger b)
+              with
+              | None ->
+                  Stop
+                    (Or_error.error_string
+                       (sprintf
+                          "No transactions corresponding to the emitted proof \
+                           for state_hash:%s"
+                          (State_hash.to_string
+                             (Transition_frontier.Breadcrumb.state_hash b))))
+              | Some txns -> (
+                match
+                  List.fold_until ~init:(Ok ())
+                    (Non_empty_list.to_list txns)
+                    ~f:(fun _acc (txn, state_hash) ->
+                      (*Validate transactions against the protocol state associated with the transaction*)
+                      match
+                        Transition_frontier.find_protocol_state frontier
+                          state_hash
+                      with
+                      | Some state -> (
+                          let txn_state_view =
+                            Mina_state.Protocol_state.body state
+                            |> Mina_state.Protocol_state.Body.view
+                          in
+                          match
+                            Ledger.apply_transaction
+                              ~constraint_constants:
+                                t.config.precomputed_values
+                                  .constraint_constants ~txn_state_view ledger
+                              txn.data
+                          with
+                          | Ok _ ->
+                              Continue (Ok ())
+                          | e ->
+                              Stop (Or_error.map e ~f:ignore) )
+                      | None ->
+                          Stop
+                            (Or_error.errorf
+                               !"Coudln't find protocol state with hash %s"
+                               (State_hash.to_string state_hash)) )
+                    ~finish:Fn.id
+                with
+                | Ok _ ->
+                    Continue (Ok ())
+                | e ->
+                    Stop e )
+            else Continue (Ok ()) )
+          ~finish:Fn.id
+      in
+      let snarked_ledger_hash =
+        Transition_frontier.Breadcrumb.blockchain_state b
+        |> Mina_state.Blockchain_state.snarked_ledger_hash
+      in
+      let merkle_root = Ledger.merkle_root ledger in
+      if Frozen_ledger_hash.equal snarked_ledger_hash merkle_root then (
+        let res = Ledger.to_list ledger in
+        ignore @@ Ledger.unregister_mask_exn ~loc:__LOC__ ledger ;
+        Ok res )
+      else
+        Or_error.errorf
+          "Expected snarked ledger hash %s but got %s for state hash %s"
+          (Frozen_ledger_hash.to_string snarked_ledger_hash)
+          (Frozen_ledger_hash.to_string merkle_root)
+          (State_hash.to_string state_hash)
+  | None ->
+      Or_error.error_string
+        "get_snarked_ledger: state hash not found in transition frontier"
 
 let get_account t aid =
   let open Participating_state.Let_syntax in
@@ -794,7 +894,7 @@ let next_epoch_ledger t =
   in
   if
     Mina_numbers.Length.(
-      equal root_epoch best_tip_epoch || equal root_epoch zero)
+      equal root_epoch best_tip_epoch || equal best_tip_epoch zero)
   then
     (*root is in the same epoch as the best tip and so the next epoch ledger in the local state will be updated by Proof_of_stake.frontier_root_transition. Next epoch ledger in genesis epoch is the genesis ledger*)
     `Finalized
@@ -966,7 +1066,8 @@ let start t =
     ~frontier_reader:t.components.transition_frontier
     ~transition_writer:t.pipes.producer_transition_writer
     ~log_block_creation:t.config.log_block_creation
-    ~precomputed_values:t.config.precomputed_values ;
+    ~precomputed_values:t.config.precomputed_values
+    ~block_reward_threshold:t.config.block_reward_threshold ;
   perform_compaction t ;
   Snark_worker.start t
 
@@ -982,6 +1083,42 @@ let start_with_precomputed_blocks t blocks =
   in
   start t
 
+let send_resource_pool_diff_or_wait ~rl ~diff_score ~max_per_15_seconds diff =
+  (* HACK: Pretend we're a remote peer so that we can rate limit
+                 ourselves.
+              *)
+  let us =
+    { Network_peer.Peer.host= Unix.Inet_addr.of_string "127.0.0.1"
+    ; libp2p_port= 0
+    ; peer_id= "" }
+  in
+  let score = diff_score diff in
+  let rec able_to_send_or_wait () =
+    match
+      Network_pool.Rate_limiter.add rl (Remote us) ~now:(Time.now ()) ~score
+    with
+    | `Within_capacity ->
+        Deferred.return ()
+    | `Capacity_exceeded ->
+        if score > max_per_15_seconds then (
+          (* This will never pass the rate limiting; pass it on
+                             to progress in the queue. *)
+          ignore
+            ( Network_pool.Rate_limiter.add rl (Remote us) ~now:(Time.now ())
+                ~score:0
+              : [`Within_capacity | `Capacity_exceeded] ) ;
+          Deferred.return () )
+        else
+          let%bind () =
+            after
+              Time.(
+                diff (now ())
+                  (Network_pool.Rate_limiter.next_expires rl (Remote us)))
+          in
+          able_to_send_or_wait ()
+  in
+  able_to_send_or_wait ()
+
 let create ?wallets (config : Config.t) =
   let catchup_mode = if config.super_catchup then `Super else `Normal in
   let constraint_constants = config.precomputed_values.constraint_constants in
@@ -990,13 +1127,14 @@ let create ?wallets (config : Config.t) =
   Async.Scheduler.within' ~monitor (fun () ->
       trace "coda" (fun () ->
           let%bind prover =
-            Monitor.try_with
+            Monitor.try_with ~here:[%here]
               ~rest:
                 (`Call
                   (fun exn ->
+                    let err = Error.of_exn ~backtrace:`Get exn in
                     [%log' warn config.logger]
                       "unhandled exception from daemon-side prover server: $exn"
-                      ~metadata:[("exn", `String (Exn.to_string_mach exn))] ))
+                      ~metadata:[("exn", Error_json.error_to_yojson err)] ))
               (fun () ->
                 trace "prover" (fun () ->
                     Prover.create ~logger:config.logger
@@ -1006,18 +1144,21 @@ let create ?wallets (config : Config.t) =
             >>| Result.ok_exn
           in
           let%bind verifier =
-            Monitor.try_with
+            Monitor.try_with ~here:[%here]
               ~rest:
                 (`Call
                   (fun exn ->
+                    let err = Error.of_exn ~backtrace:`Get exn in
                     [%log' warn config.logger]
                       "unhandled exception from daemon-side verifier server: \
                        $exn"
-                      ~metadata:[("exn", `String (Exn.to_string_mach exn))] ))
+                      ~metadata:[("exn", Error_json.error_to_yojson err)] ))
               (fun () ->
                 trace "verifier" (fun () ->
                     Verifier.create ~logger:config.logger
                       ~proof_level:config.precomputed_values.proof_level
+                      ~constraint_constants:
+                        config.precomputed_values.constraint_constants
                       ~pids:config.pids ~conf_dir:(Some config.conf_dir) ) )
             >>| Result.ok_exn
           in
@@ -1035,15 +1176,15 @@ let create ?wallets (config : Config.t) =
           Protocol_version.set_current config.initial_protocol_version ;
           Protocol_version.set_proposed_opt
             config.proposed_protocol_version_opt ;
+          let log_rate_limiter_occasionally rl ~label =
+            let t = Time.Span.of_min 1. in
+            every t (fun () ->
+                [%log' debug config.logger]
+                  ~metadata:
+                    [("rate_limiter", Network_pool.Rate_limiter.summary rl)]
+                  !"%s $rate_limiter" label )
+          in
           let external_transitions_reader, external_transitions_writer =
-            let log_rate_limiter_occasionally rl =
-              let t = Time.Span.of_min 1. in
-              every t (fun () ->
-                  [%log' debug config.logger]
-                    ~metadata:
-                      [("rate_limiter", Network_pool.Rate_limiter.summary rl)]
-                    !"new_block $rate_limiter" )
-            in
             let rl =
               Network_pool.Rate_limiter.create
                 ~capacity:
@@ -1053,7 +1194,7 @@ let create ?wallets (config : Config.t) =
                       (Block_time.Span.to_time_span
                          consensus_constants.slot_duration_ms) )
             in
-            log_rate_limiter_occasionally rl ;
+            log_rate_limiter_occasionally rl ~label:"new_block" ;
             let r, w = Strict_pipe.create Synchronous in
             ( Strict_pipe.Reader.filter_map r ~f:(fun ((e, _, cb) as x) ->
                   let sender = Envelope.Incoming.sender e in
@@ -1099,6 +1240,15 @@ let create ?wallets (config : Config.t) =
           (* knot-tying hacks so we can pass a get_node_status function before net, Mina_lib.t created *)
           let net_ref = ref None in
           let sync_status_ref = ref None in
+          let block_production_keypairs =
+            Agent.create
+              ~f:(fun kps ->
+                Keypair.Set.to_list kps
+                |> List.map ~f:(fun kp ->
+                       (kp, Public_key.compress kp.Keypair.public_key) )
+                |> Keypair.And_compressed_pk.Set.of_list )
+              config.initial_block_production_keypairs
+          in
           let get_node_status _env =
             let node_ip_addr =
               config.gossip_net_params.addrs_and_ports.external_ip
@@ -1180,10 +1330,9 @@ let create ?wallets (config : Config.t) =
                           (Mina_incremental.Status.Observer.value status)
                   in
                   let block_producers =
-                    config.initial_block_production_keypairs
-                    |> Keypair.Set.to_list
-                    |> List.map ~f:(fun {Keypair.public_key; _} ->
-                           Public_key.compress public_key )
+                    let public_keys, _ = Agent.get block_production_keypairs in
+                    Public_key.Compressed.Set.map public_keys ~f:snd
+                    |> Set.to_list
                   in
                   let ban_statuses =
                     Trust_system.Peer_trust.peer_statuses config.trust_system
@@ -1469,9 +1618,19 @@ let create ?wallets (config : Config.t) =
             (network_pipe, api_pipe, new_blocks_pipe)
           in
           trace_task "transaction pool broadcast loop" (fun () ->
+              let rl = Network_pool.Transaction_pool.create_rate_limiter () in
+              log_rate_limiter_occasionally rl ~label:"broadcast_transactions" ;
               Linear_pipe.iter
                 (Network_pool.Transaction_pool.broadcasts transaction_pool)
                 ~f:(fun x ->
+                  let%bind () =
+                    send_resource_pool_diff_or_wait ~rl
+                      ~diff_score:
+                        Network_pool.Transaction_pool.Resource_pool.Diff.score
+                      ~max_per_15_seconds:
+                        Network_pool.Transaction_pool.Resource_pool.Diff
+                        .max_per_15_seconds x
+                  in
                   Mina_networking.broadcast_transaction_pool_diff net x ;
                   Deferred.unit ) ) ;
           trace_task "valid_transitions_for_network broadcast loop" (fun () ->
@@ -1580,19 +1739,20 @@ let create ?wallets (config : Config.t) =
                   ~disk_location:config.wallets_disk_location
           in
           trace_task "snark pool broadcast loop" (fun () ->
+              let rl = Network_pool.Snark_pool.create_rate_limiter () in
+              log_rate_limiter_occasionally rl ~label:"broadcast_snark_work" ;
               Linear_pipe.iter (Network_pool.Snark_pool.broadcasts snark_pool)
                 ~f:(fun x ->
+                  let%bind () =
+                    send_resource_pool_diff_or_wait ~rl
+                      ~diff_score:
+                        Network_pool.Snark_pool.Resource_pool.Diff.score
+                      ~max_per_15_seconds:
+                        Network_pool.Snark_pool.Resource_pool.Diff
+                        .max_per_15_seconds x
+                  in
                   Mina_networking.broadcast_snark_pool_diff net x ;
                   Deferred.unit ) ) ;
-          let block_production_keypairs =
-            Agent.create
-              ~f:(fun kps ->
-                Keypair.Set.to_list kps
-                |> List.map ~f:(fun kp ->
-                       (kp, Public_key.compress kp.Keypair.public_key) )
-                |> Keypair.And_compressed_pk.Set.of_list )
-              config.initial_block_production_keypairs
-          in
           Option.iter config.archive_process_location
             ~f:(fun archive_process_port ->
               [%log' info config.logger]
@@ -1673,7 +1833,7 @@ let create ?wallets (config : Config.t) =
                 ; local_snark_work_writer }
             ; wallets
             ; block_production_keypairs
-            ; coinbase_receiver= config.coinbase_receiver
+            ; coinbase_receiver= ref config.coinbase_receiver
             ; snark_job_state= snark_jobs_state
             ; subscriptions
             ; sync_status

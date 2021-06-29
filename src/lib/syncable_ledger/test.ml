@@ -230,7 +230,8 @@ module Db = struct
         let currency_balance = Currency.Balance.of_int balance in
         List.iter account_ids ~f:(fun aid ->
             let account = Account.create aid currency_balance in
-            get_or_create_account_exn ledger aid account |> ignore ) ;
+            get_or_create_account ledger aid account
+            |> Or_error.ok_exn |> ignore ) ;
         (ledger, account_ids)
     end
 
@@ -333,7 +334,8 @@ module Mask = struct
                 (Currency.Balance.of_int (initial_balance_multiplier * 2))
             in
             let action, _ =
-              Maskable.get_or_create_account_exn maskable account_id account
+              Maskable.get_or_create_account maskable account_id account
+              |> Or_error.ok_exn
             in
             assert (action = `Added) ) ;
         let mask = Mask.create ~depth:Input.depth () in
@@ -357,8 +359,9 @@ module Mask = struct
                     (Currency.Balance.of_int child_balance)
                 in
                 let action, location =
-                  Mask.Attached.get_or_create_account_exn attached_mask
-                    account_id account
+                  Mask.Attached.get_or_create_account attached_mask account_id
+                    account
+                  |> Or_error.ok_exn
                 in
                 match action with
                 | `Existed ->

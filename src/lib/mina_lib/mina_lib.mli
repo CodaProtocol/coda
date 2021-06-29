@@ -35,6 +35,10 @@ val block_production_pubkeys : t -> Public_key.Compressed.Set.t
 val replace_block_production_keypairs :
   t -> Keypair.And_compressed_pk.Set.t -> unit
 
+val coinbase_receiver : t -> Consensus.Coinbase_receiver.t
+
+val replace_coinbase_receiver : t -> Consensus.Coinbase_receiver.t -> unit
+
 val next_producer_timing :
   t -> Daemon_rpcs.Types.Status.Next_producer_timing.t option
 
@@ -168,7 +172,9 @@ val staged_ledger_ledger_proof : t -> Ledger_proof.t option
 val transition_frontier :
   t -> Transition_frontier.t option Broadcast_pipe.Reader.t
 
-val get_ledger : t -> State_hash.t option -> Account.t list Deferred.Or_error.t
+val get_ledger : t -> State_hash.t option -> Account.t list Or_error.t
+
+val get_snarked_ledger : t -> State_hash.t option -> Account.t list Or_error.t
 
 val wallets : t -> Secrets.Wallets.t
 

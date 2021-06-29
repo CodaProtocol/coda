@@ -10,14 +10,13 @@
   (pps
     ppx_bin_prot
     ppx_coda
+    ppx_here
     ppx_custom_printf
     ppx_deriving_yojson
     ppx_inline_test
     ppx_let
-    ppx_optcomp
     ppx_register_event
     ppx_sexp_conv
     ppx_version))
  (instrumentation (backend bisect_ppx))
- (preprocessor_deps "../../config.mlh")
  (synopsis "Lib powering the snark_worker interactions with the daemon"))

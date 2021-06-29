@@ -115,7 +115,6 @@ let generate_loggers_and_parsers ~loc:_ ~path ty_ext msg_opt =
     @@ Conv_to_ppx_deriving.copy_core_type x
   in
   let elist ~f l = elist (List.map ~f l) in
-  let plist ~f l = plist (List.map ~f l) in
   let record_pattern =
     let open Ast_helper.Pat in
     let arg =
@@ -174,33 +173,35 @@ let generate_loggers_and_parsers ~loc:_ ~path ty_ext msg_opt =
           ; parse=
               (fun args ->
                 let result =
-                  match args with
-                  | [%p
-                      plist label_names ~f:(fun label ->
-                          [%pat? [%p pstring label], [%p pvar label]] )] ->
-                      [%e
-                        List.fold_right label_decls
-                          ~f:
-                            (fun {pld_name= {txt= name; _}; pld_type; _} acc ->
-                            Conv_from_ppx_deriving.copy_expression
-                            @@ Ppx_deriving_yojson.wrap_runtime
-                            @@ Conv_to_ppx_deriving.copy_expression
-                            @@ [%expr
+                  let args_list = Core_kernel.String.Map.of_alist_exn args in
+                  (* We use this to avoid an unused value warning. *)
+                  ignore args_list ;
+                  [%e
+                    List.fold_right label_decls
+                      ~f:(fun {pld_name= {txt= name; _}; pld_type; _} acc ->
+                        Conv_from_ppx_deriving.copy_expression
+                        @@ Ppx_deriving_yojson.wrap_runtime
+                        @@ Conv_to_ppx_deriving.copy_expression
+                        @@ [%expr
+                             match
+                               Core_kernel.Map.find args_list [%e estring name]
+                             with
+                             | Some [%p pvar name] ->
                                  Core_kernel.Result.bind
                                    ([%e
                                       of_yojson
                                         ~path:(split_path @ [ctor; name])
                                         pld_type]
                                       [%e evar name])
-                                   ~f:(fun [%p pvar name] -> [%e acc])] )
-                          ~init:
-                            [%expr Core_kernel.Result.return [%e record_expr]]]
-                  | _ ->
-                      failwith
-                        [%e
-                          estring
-                            (sprintf "%s, parse: unexpected arguments"
-                               event_path)]
+                                   ~f:(fun [%p pvar name] -> [%e acc])
+                             | None ->
+                                 Core_kernel.Result.fail
+                                   [%e
+                                     estring
+                                       (sprintf
+                                          "%s, parse: missing argument %s"
+                                          event_path name)]] )
+                      ~init:[%expr Core_kernel.Result.return [%e record_expr]]]
                 in
                 match result with Ok ev -> Some ev | Error _ -> None ) }]
     ; [%stri

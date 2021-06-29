@@ -15,6 +15,10 @@ let to_yojson conv t = display_to_yojson conv (to_display t)
 let of_yojson conv json =
   Result.map ~f:of_display (display_of_yojson conv json)
 
+let root (T (value, _)) = value
+
+let children (T (_, children)) = children
+
 let rec print ?(whitespace = 0) ~element_to_string (T (root, branches)) =
   Printf.printf "%s- %s\n"
     (String.make whitespace ' ')

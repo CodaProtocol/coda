@@ -25,11 +25,13 @@ use crate::plonk_gate::{CamlPlonkCol, CamlPlonkGate, CamlPlonkWire};
 use crate::pasta_fq_urs::CamlPastaFqUrs;
 
 pub struct CamlPastaFqPlonkGateVector(Vec<Gate<Fq>>);
-pub type CamlPastaFqPlonkGateVectorPtr = ocaml::Pointer<CamlPastaFqPlonkGateVector>;
+pub type CamlPastaFqPlonkGateVectorPtr<'a> = ocaml::Pointer<'a, CamlPastaFqPlonkGateVector>;
 
-extern "C" fn caml_pasta_fq_plonk_gate_vector_finalize(v: ocaml::Value) {
-    let v: CamlPastaFqPlonkGateVectorPtr = ocaml::FromValue::from_value(v);
-    unsafe { v.drop_in_place() };
+extern "C" fn caml_pasta_fq_plonk_gate_vector_finalize(v: ocaml::Raw) {
+    unsafe {
+        let v: CamlPastaFqPlonkGateVectorPtr = v.as_pointer();
+        v.drop_in_place()
+    };
 }
 
 ocaml::custom!(CamlPastaFqPlonkGateVector {
@@ -98,11 +100,11 @@ pub fn caml_pasta_fq_plonk_gate_vector_wrap(
 /* Boxed so that we don't store large proving indexes in the OCaml heap. */
 
 pub struct CamlPastaFqPlonkIndex<'a>(pub Box<DlogIndex<'a, GAffine>>, pub Rc<SRS<GAffine>>);
-pub type CamlPastaFqPlonkIndexPtr<'a> = ocaml::Pointer<CamlPastaFqPlonkIndex<'a>>;
+pub type CamlPastaFqPlonkIndexPtr<'a> = ocaml::Pointer<'a, CamlPastaFqPlonkIndex<'a>>;
 
-extern "C" fn caml_pasta_fq_plonk_index_finalize(v: ocaml::Value) {
-    let mut v: CamlPastaFqPlonkIndexPtr = ocaml::FromValue::from_value(v);
+extern "C" fn caml_pasta_fq_plonk_index_finalize(v: ocaml::Raw) {
     unsafe {
+        let mut v: CamlPastaFqPlonkIndexPtr = v.as_pointer();
         v.as_mut_ptr().drop_in_place();
     }
 }

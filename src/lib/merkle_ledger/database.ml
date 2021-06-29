@@ -598,11 +598,6 @@ module Make (Inputs : Inputs_intf) :
     | Ok location ->
         Ok (`Existed, location)
 
-  let get_or_create_account_exn mdb account_id account =
-    get_or_create_account mdb account_id account
-    |> Result.map_error ~f:(fun err -> raise (Error.to_exn err))
-    |> Result.ok_exn
-
   let num_accounts t =
     match Account_location.last_location_address t with
     | None ->

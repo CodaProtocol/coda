@@ -12,17 +12,19 @@ let int16 =
 
 let public_key_compressed =
   Command.Arg_type.create (fun s ->
-      try Public_key.Compressed.of_base58_check_exn s
-      with e ->
+      let error_string e =
         let random = Public_key.compress (Keypair.create ()).public_key in
         eprintf
           "Error parsing command line.  Run with -help for usage information.\n\n\
-           Couldn't read public key (Invalid key format)\n\
+           Couldn't read public key\n\
           \ %s\n\
           \ - here's a sample one: %s\n"
-          (Error.to_string_hum (Error.of_exn e))
+          (Error.to_string_hum e)
           (Public_key.Compressed.to_base58_check random) ;
-        exit 1 )
+        exit 1
+      in
+      try Public_key.of_base58_check_decompress_exn s
+      with e -> error_string (Error.of_exn e) )
 
 (* Hack to allow us to deprecate a value without needing to add an mli
  * just for this. We only want to have one "kind" of public key in the

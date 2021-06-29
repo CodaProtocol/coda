@@ -8,7 +8,7 @@ module type S = sig
   [%%versioned:
   module Stable : sig
     module V1 : sig
-      type t [@@deriving sexp, compare, hash]
+      type t [@@deriving sexp, compare, hash, equal]
     end
   end]
 

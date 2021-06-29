@@ -84,7 +84,7 @@ module G = Graph.Graphviz.Dot (struct
       | Failed ->
           (* red *)
           0xFF3333
-      | Root _ | Finished _ ->
+      | Root _ | Finished ->
           (* green *)
           0x00CC00
       | To_download _ ->
@@ -141,29 +141,48 @@ let verify_transition ~logger ~consensus_constants ~trust_system ~frontier
       ~consensus_constants ~unprocessed_transition_cache
       enveloped_initially_validated_transition
   in
+  let state_hash =
+    External_transition.Validation.forget_validation_with_hash
+      transition_with_hash
+    |> With_hash.hash |> State_hash.to_yojson
+  in
   let open Deferred.Let_syntax in
   match cached_initially_validated_transition_result with
   | Ok x ->
+      [%log trace]
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: validation is successful" ;
       Deferred.return @@ Ok (`Building_path x)
   | Error (`In_frontier hash) ->
       [%log trace]
-        "transition queried during ledger catchup has already been seen" ;
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: transition queried during ledger catchup has \
+         already been seen" ;
       Deferred.return @@ Ok (`In_frontier hash)
   | Error (`In_process consumed_state) -> (
       [%log trace]
-        "transition queried during ledger catchup is still in process in one \
-         of the components in transition_frontier" ;
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: transition queried during ledger catchup is still \
+         in process in one of the components in transition_frontier" ;
       match%map Ivar.read consumed_state with
       | `Failed ->
-          [%log trace] "transition queried during ledger catchup failed" ;
+          [%log trace]
+            ~metadata:[("state_hash", state_hash)]
+            "initial_validate: transition queried during ledger catchup failed" ;
           Error (Error.of_string "Previous transition failed")
       | `Success hash ->
+          [%log trace]
+            ~metadata:[("state_hash", state_hash)]
+            "initial_validate: transition queried during ledger catchup is \
+             added to frontier" ;
           Ok (`In_frontier hash) )
   | Error (`Verifier_error error) ->
       [%log warn]
-        ~metadata:[("error", Error_json.error_to_yojson error)]
-        "verifier threw an error while verifying transiton queried during \
-         ledger catchup: $error" ;
+        ~metadata:
+          [ ("error", Error_json.error_to_yojson error)
+          ; ("state_hash", state_hash) ]
+        "initial_validate: verifier threw an error while verifying transiton \
+         queried during ledger catchup: $error" ;
       Deferred.Or_error.fail (Error.tag ~tag:"verifier threw an error" error)
   | Error `Invalid_proof ->
       let%map () =
@@ -171,6 +190,9 @@ let verify_transition ~logger ~consensus_constants ~trust_system ~frontier
           ( Trust_system.Actions.Gossiped_invalid_transition
           , Some ("invalid proof", []) )
       in
+      [%log warn]
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: invalid proof" ;
       Error (Error.of_string "invalid proof")
   | Error `Invalid_genesis_protocol_state ->
       let%map () =
@@ -178,8 +200,14 @@ let verify_transition ~logger ~consensus_constants ~trust_system ~frontier
           ( Trust_system.Actions.Gossiped_invalid_transition
           , Some ("invalid genesis protocol state", []) )
       in
+      [%log warn]
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: invalid genesis protocol state" ;
       Error (Error.of_string "invalid genesis protocol state")
   | Error `Invalid_delta_transition_chain_proof ->
+      [%log warn]
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: invalid delta transition chain proof" ;
       let%map () =
         Trust_system.record_envelope_sender trust_system logger sender
           ( Trust_system.Actions.Gossiped_invalid_transition
@@ -187,6 +215,9 @@ let verify_transition ~logger ~consensus_constants ~trust_system ~frontier
       in
       Error (Error.of_string "invalid delta transition chain witness")
   | Error `Invalid_protocol_version ->
+      [%log warn]
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: invalid protocol version" ;
       let transition =
         External_transition.Validation.forget_validation transition_with_hash
       in
@@ -208,6 +239,9 @@ let verify_transition ~logger ~consensus_constants ~trust_system ~frontier
       in
       Error (Error.of_string "invalid protocol version")
   | Error `Mismatched_protocol_version ->
+      [%log warn]
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: mismatch protocol version" ;
       let transition =
         External_transition.Validation.forget_validation transition_with_hash
       in
@@ -227,6 +261,9 @@ let verify_transition ~logger ~consensus_constants ~trust_system ~frontier
       in
       Error (Error.of_string "mismatched protocol version")
   | Error `Disconnected ->
+      [%log warn]
+        ~metadata:[("state_hash", state_hash)]
+        "initial_validate: disconnected chain" ;
       Deferred.Or_error.fail @@ Error.of_string "disconnected chain"
 
 let find_map_ok ?how xs ~f =
@@ -249,15 +286,34 @@ let find_map_ok ?how xs ~f =
              | `Ok (Error e) ->
                  errs := e :: !errs )
      in
-     Ivar.fill_if_empty res (Error (Error.of_list !errs))) ;
+     Ivar.fill_if_empty res (Error !errs)) ;
   Ivar.read res
 
-let try_to_connect_hash_chain t hashes ~frontier =
+type download_state_hashes_error =
+  [ `Peer_moves_too_fast
+  | `No_common_ancestor
+  | `Failed_to_download_transition_chain_proof
+  | `Invalid_transition_chain_proof ]
+
+let rec contains_no_common_ancestor = function
+  | [] ->
+      false
+  | `No_common_ancestor :: _ ->
+      true
+  | _ :: errors ->
+      contains_no_common_ancestor errors
+
+let try_to_connect_hash_chain t hashes ~frontier
+    ~blockchain_length_of_target_hash =
   let logger = t.logger in
+  let blockchain_length_of_root =
+    Transition_frontier.root frontier
+    |> Transition_frontier.Breadcrumb.blockchain_length
+  in
   List.fold_until
     (Non_empty_list.to_list hashes)
-    ~init:[]
-    ~f:(fun acc hash ->
+    ~init:(blockchain_length_of_target_hash, [])
+    ~f:(fun (blockchain_length, acc) hash ->
       let f x = Continue_or_stop.Stop (Ok (x, acc)) in
       match
         (Hashtbl.find t.nodes hash, Transition_frontier.find frontier hash)
@@ -270,8 +326,8 @@ let try_to_connect_hash_chain t hashes ~frontier =
       | None, Some b ->
           f (`Breadcrumb b)
       | None, None ->
-          Continue (hash :: acc) )
-    ~finish:(fun acc ->
+          Continue (Unsigned.UInt32.pred blockchain_length, hash :: acc) )
+    ~finish:(fun (blockchain_length, acc) ->
       let module T = struct
         type t = State_hash.t list [@@deriving to_yojson]
       end in
@@ -285,7 +341,11 @@ let try_to_connect_hash_chain t hashes ~frontier =
           ; ("hashes", T.to_yojson acc)
           ; ("all_hashes", T.to_yojson all_hashes) ]
         "Finishing download_state_hashes with $n $hashes. with $all_hashes" ;
-      Or_error.errorf !"Peer moves too fast" )
+      if
+        Unsigned.UInt32.compare blockchain_length blockchain_length_of_root
+        <= 0
+      then Result.fail `No_common_ancestor
+      else Result.fail `Peer_moves_too_fast )
 
 module Downloader = struct
   module Key = struct
@@ -334,7 +394,7 @@ let with_lengths hs ~target_length =
 
 (* returns a list of state-hashes with the older ones at the front *)
 let download_state_hashes t ~logger ~trust_system ~network ~frontier
-    ~target_hash ~target_length ~downloader =
+    ~target_hash ~target_length ~downloader ~blockchain_length_of_target_hash =
   [%log debug]
     ~metadata:[("target_hash", State_hash.to_yojson target_hash)]
     "Doing a catchup job with target $target_hash" ;
@@ -342,11 +402,18 @@ let download_state_hashes t ~logger ~trust_system ~network ~frontier
     (* TODO: Find some preferred peers, e.g., whoever told us about this target_hash *)
     Mina_networking.peers network >>| List.permute
   in
-  let open Deferred.Or_error.Let_syntax in
+  let open Deferred.Result.Let_syntax in
   find_map_ok ~how:(`Max_concurrent_jobs 12) peers ~f:(fun peer ->
       let%bind transition_chain_proof =
-        Mina_networking.get_transition_chain_proof
-          ~timeout:(Time.Span.of_sec 10.) network peer target_hash
+        let open Deferred.Let_syntax in
+        match%map
+          Mina_networking.get_transition_chain_proof
+            ~timeout:(Time.Span.of_sec 10.) network peer target_hash
+        with
+        | Error _ ->
+            Result.fail `Failed_to_download_transition_chain_proof
+        | Ok transition_chain_proof ->
+            Result.return transition_chain_proof
       in
       let now = Time.now () in
       (* a list of state_hashes from new to old *)
@@ -358,7 +425,7 @@ let download_state_hashes t ~logger ~trust_system ~network ~frontier
             let ks = with_lengths hs ~target_length in
             Downloader.update_knowledge downloader peer (`Some ks) ;
             Downloader.mark_preferred downloader peer ~now ;
-            Deferred.Or_error.return hs
+            Deferred.Result.return hs
         | None ->
             let error_msg =
               sprintf
@@ -371,10 +438,13 @@ let download_state_hashes t ~logger ~trust_system ~network ~frontier
                   Actions.
                     ( Sent_invalid_transition_chain_merkle_proof
                     , Some (error_msg, []) )) ;
-            Deferred.Or_error.error_string error_msg
+            Deferred.Result.fail `Invalid_transition_chain_proof
       in
       Deferred.return
-        ( match try_to_connect_hash_chain t hashes ~frontier with
+        ( match
+            try_to_connect_hash_chain t hashes ~frontier
+              ~blockchain_length_of_target_hash
+          with
         | Ok x ->
             Downloader.mark_preferred downloader peer ~now ;
             Ok x
@@ -482,14 +552,20 @@ let initial_validate ~(precomputed_values : Precomputed_values.t) ~logger
     ~unprocessed_transition_cache transition =
   let verification_start_time = Core.Time.now () in
   let open Deferred.Result.Let_syntax in
+  let state_hash =
+    Envelope.Incoming.data transition |> With_hash.hash |> State_hash.to_yojson
+  in
+  [%log debug]
+    ~metadata:[("state_hash", state_hash)]
+    "initial_validate: start processing $state_hash" ;
   let%bind tv =
     let open Deferred.Let_syntax in
     match%bind Initial_validate_batcher.verify batcher transition with
     | Ok (Ok tv) ->
         return (Ok {transition with data= tv})
     | Ok (Error ()) ->
-        let s = "proof failed to verify" in
-        [%log warn] "%s" s ;
+        let s = "initial_validate: proof failed to verify" in
+        [%log warn] ~metadata:[("state_hash", state_hash)] "%s" s ;
         let%map () =
           match transition.sender with
           | Local ->
@@ -502,8 +578,11 @@ let initial_validate ~(precomputed_values : Precomputed_values.t) ~logger
         Error (`Error (Error.of_string s))
     | Error e ->
         [%log warn]
-          ~metadata:[("error", Error_json.error_to_yojson e)]
-          "verification of blockchain snark failed but it was our fault" ;
+          ~metadata:
+            [ ("error", Error_json.error_to_yojson e)
+            ; ("state_hash", state_hash) ]
+          "initial_validate: verification of blockchain snark failed but it \
+           was our fault" ;
         return (Error `Couldn't_reach_verifier)
   in
   let verification_end_time = Core.Time.now () in
@@ -513,8 +592,9 @@ let initial_validate ~(precomputed_values : Precomputed_values.t) ~logger
         , `Float
             Core.Time.(
               Span.to_sec @@ diff verification_end_time verification_start_time)
-        ) ]
-    "verification of proofs complete" ;
+        )
+      ; ("state_hash", state_hash) ]
+    "initial_validate: verification of proofs complete" ;
   verify_transition ~logger
     ~consensus_constants:precomputed_values.consensus_constants ~trust_system
     ~frontier ~unprocessed_transition_cache tv
@@ -541,11 +621,11 @@ let create_node ~downloader t x =
   let state, h, blockchain_length, parent, result =
     match x with
     | `Root root ->
-        ( Node.State.Finished root
+        ( Node.State.Finished
         , Breadcrumb.state_hash root
         , Breadcrumb.blockchain_length root
         , Breadcrumb.parent_hash root
-        , Ivar.create_full (Ok root) )
+        , Ivar.create_full (Ok `Added_to_frontier) )
     | `Hash (h, l, parent) ->
         ( Node.State.To_download
             (download "create_node" downloader ~key:(h, l) ~attempts)
@@ -567,7 +647,7 @@ let create_node ~downloader t x =
   in
   upon (Ivar.read node.result) (fun _ ->
       Downloader.cancel downloader (h, blockchain_length) ) ;
-  Hashtbl.incr t.states (Node.State.enum node.state) ;
+  Transition_frontier.Full_catchup_tree.add_state t.states node ;
   Hashtbl.set t.nodes ~key:h ~data:node ;
   ( try check_invariant ~downloader t
     with e ->
@@ -753,7 +833,7 @@ let run ~logger ~trust_system ~verifier ~network ~frontier
       run_node node
     in
     match node.state with
-    | Failed | Finished _ | Root _ ->
+    | Failed | Finished | Root _ ->
         return ()
     | To_download download_job ->
         let%bind b, attempts = step (Downloader.Job.result download_job) in
@@ -840,28 +920,37 @@ let run ~logger ~trust_system ~verifier ~network ~frontier
     | Wait_for_parent av ->
         let%bind parent =
           step
-            ( match%map.Async
-                Ivar.read (Hashtbl.find_exn t.nodes node.parent).result
-              with
-            | Ok x ->
-                Ok x
-            | Error _ ->
-                let _ = Cached.invalidate_with_failure av in
-                finish t node (Error ()) ;
-                Error `Finished )
+            (let parent = Hashtbl.find_exn t.nodes node.parent in
+             match%map.Async Ivar.read parent.result with
+             | Ok `Added_to_frontier ->
+                 Ok parent.state_hash
+             | Error _ ->
+                 let _ = Cached.invalidate_with_failure av in
+                 finish t node (Error ()) ;
+                 Error `Finished)
         in
         set_state t node (To_build_breadcrumb (`Parent parent, av)) ;
         run_node node
-    | To_build_breadcrumb (`Parent parent, c) -> (
+    | To_build_breadcrumb (`Parent parent_hash, c) -> (
         let transition_receipt_time = Some (Time.now ()) in
         let av = Cached.peek c in
         match%bind
-          step
-            ( Transition_frontier.Breadcrumb.build ~logger
-                ~skip_staged_ledger_verification:`Proofs ~precomputed_values
-                ~verifier ~trust_system ~parent ~transition:av.data
-                ~sender:(Some av.sender) ~transition_receipt_time ()
-            |> Deferred.map ~f:Result.return )
+          let s =
+            let open Deferred.Result.Let_syntax in
+            let%bind parent =
+              Deferred.return
+                ( match Transition_frontier.find frontier parent_hash with
+                | None ->
+                    Error `Parent_breadcrumb_not_found
+                | Some breadcrumb ->
+                    Ok breadcrumb )
+            in
+            Transition_frontier.Breadcrumb.build ~logger
+              ~skip_staged_ledger_verification:`Proofs ~precomputed_values
+              ~verifier ~trust_system ~parent ~transition:av.data
+              ~sender:(Some av.sender) ~transition_receipt_time ()
+          in
+          step (Deferred.map ~f:Result.return s)
         with
         | Error e ->
             let _ = Cached.invalidate_with_failure c in
@@ -875,6 +964,13 @@ let run ~logger ~trust_system ~verifier ~network ~frontier
                   Error.tag e ~tag:"invalid staged ledger diff"
               | `Invalid_staged_ledger_hash e ->
                   Error.tag e ~tag:"invalid staged ledger hash"
+              | `Parent_breadcrumb_not_found ->
+                  Error.tag
+                    (Error.of_string
+                       (sprintf
+                          "Parent breadcrumb with state_hash %s not found"
+                          (State_hash.to_string parent_hash)))
+                    ~tag:"parent breadcrumb not found"
             in
             failed ~error:e ~sender:av.sender `Build_breadcrumb
         | Ok breadcrumb ->
@@ -890,8 +986,8 @@ let run ~logger ~trust_system ~verifier ~network ~frontier
               (* The cached value is "freed" by the transition processor in [add_and_finalize]. *)
               step (Deferred.map (Ivar.read finished) ~f:Result.return)
             in
-            Ivar.fill_if_empty node.result (Ok breadcrumb) ;
-            set_state t node (Finished breadcrumb) ;
+            Ivar.fill_if_empty node.result (Ok `Added_to_frontier) ;
+            set_state t node Finished ;
             return () )
   in
   (* TODO: Maybe add everything from transition frontier at the beginning? *)
@@ -916,6 +1012,14 @@ let run ~logger ~trust_system ~verifier ~network ~frontier
              in
              Option.value_exn (Length.sub len (Length.of_int 1))
            in
+           let blockchain_length_of_target_hash =
+             let blockchain_length_of_dangling_block =
+               List.hd_exn forest |> Rose_tree.root |> Cached.peek
+               |> Envelope.Incoming.data
+               |> External_transition.Initial_validated.blockchain_length
+             in
+             Unsigned.UInt32.pred blockchain_length_of_dangling_block
+           in
            match
              List.find_map (List.concat_map ~f:Rose_tree.flatten forest)
                ~f:(fun c ->
@@ -938,21 +1042,69 @@ let run ~logger ~trust_system ~verifier ~network ~frontier
                      ~transition_chain_proof:
                        (External_transition.state_hash root, path)
                  in
-                 Result.ok (try_to_connect_hash_chain t p ~frontier) )
+                 Result.ok
+                   (try_to_connect_hash_chain t p ~frontier
+                      ~blockchain_length_of_target_hash) )
            with
            | None ->
                download_state_hashes t ~logger ~trust_system ~network ~frontier
                  ~downloader ~target_length ~target_hash:target_parent_hash
+                 ~blockchain_length_of_target_hash
            | Some res ->
                [%log debug] "Succeeded in using cache." ;
-               Deferred.return (Ok res)
+               Deferred.Result.return res
          in
          match%map state_hashes with
-         | Error _ ->
+         | Error errors ->
              [%log debug]
                ~metadata:
                  [("target_hash", State_hash.to_yojson target_parent_hash)]
-               "Failed to download state hashes for $target_hash"
+               "Failed to download state hashes for $target_hash" ;
+             if contains_no_common_ancestor errors then
+               List.iter forest ~f:(fun subtree ->
+                   let transition =
+                     Rose_tree.root subtree |> Cached.peek
+                     |> Envelope.Incoming.data
+                   in
+                   let children_transitions =
+                     List.concat_map
+                       (Rose_tree.children subtree)
+                       ~f:Rose_tree.flatten
+                   in
+                   let children_state_hashes =
+                     List.map children_transitions ~f:(fun cached_transition ->
+                         Cached.peek cached_transition
+                         |> Envelope.Incoming.data
+                         |> External_transition.Initial_validated.state_hash )
+                   in
+                   [%log error]
+                     ~metadata:
+                       [ ( "state_hashes_of_children"
+                         , `List
+                             (List.map children_state_hashes
+                                ~f:State_hash.to_yojson) )
+                       ; ( "state_hash"
+                         , State_hash.to_yojson
+                           @@ External_transition.Initial_validated.state_hash
+                                transition )
+                       ; ( "reason"
+                         , `String
+                             "no common ancestor with our transition frontier"
+                         )
+                       ; ( "protocol_state"
+                         , External_transition.Initial_validated.protocol_state
+                             transition
+                           |> Mina_state.Protocol_state.value_to_yojson ) ]
+                     "Validation error: external transition with state hash \
+                      $state_hash and its children were rejected for reason \
+                      $reason" ;
+                   Mina_metrics.(
+                     Counter.inc Rejected_blocks.no_common_ancestor
+                       (Float.of_int @@ (1 + List.length children_transitions)))
+               ) ;
+             List.iter forest ~f:(fun subtree ->
+                 Rose_tree.iter subtree ~f:(fun cached ->
+                     Cached.invalidate_with_failure cached |> ignore ) )
          | Ok (root, state_hashes) ->
              [%log' debug t.logger]
                ~metadata:

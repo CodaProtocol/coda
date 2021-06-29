@@ -85,7 +85,7 @@ module Make (Config : Config_intf) = struct
           Cohttp.Header.add header key value )
     in
     let%bind response, body =
-      Deferred.Or_error.try_with ~extract_exn:true (fun () ->
+      Deferred.Or_error.try_with ~here:[%here] ~extract_exn:true (fun () ->
           Cohttp_async.Client.post ~headers
             ~body:(Cohttp_async.Body.of_string body_string)
             uri )
