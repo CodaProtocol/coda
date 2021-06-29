@@ -7,7 +7,7 @@
    async async_extra core mina_base mina_intf mina_state
    mina_transition consensus interruptible o1trace pipe_lib
    prover transaction_snark_scan_state transition_frontier
-   network_pool unix_timestamp otp_lib transition_chain_prover)
+   network_pool unix_timestamp otp_lib transition_chain_prover vrf_evaluator)
  (preprocess
   (pps ppx_coda ppx_version ppx_jane ppx_register_event))
  (instrumentation (backend bisect_ppx))

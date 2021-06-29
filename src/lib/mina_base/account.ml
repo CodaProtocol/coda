@@ -30,17 +30,23 @@ module Index = struct
   [%%versioned
   module Stable = struct
     module V1 = struct
-      type t = int [@@deriving to_yojson, sexp]
+      module T = struct
+        type t = int [@@deriving to_yojson, sexp, hash, compare]
+      end
+
+      include T
 
       let to_latest = Fn.id
+
+      include Hashable.Make_binable (T)
     end
   end]
+
+  include Hashable.Make_binable (Stable.Latest)
 
   let to_int = Int.to_int
 
   let gen ~ledger_depth = Int.gen_incl 0 ((1 lsl ledger_depth) - 1)
-
-  module Table = Int.Table
 
   module Vector = struct
     include Int

@@ -364,6 +364,27 @@ module type S = sig
         -> unit
     end
 
+    module Vrf : sig
+      val check :
+           constraint_constants:Genesis_constants.Constraint_constants.t
+        -> global_slot:Mina_numbers.Global_slot.t
+        -> seed:Mina_base.Epoch_seed.t
+        -> producer_private_key:Signature_lib.Private_key.t
+        -> producer_public_key:Signature_lib.Public_key.Compressed.t
+        -> total_stake:Amount.t
+        -> logger:Logger.t
+        -> get_delegators:(   Public_key.Compressed.t
+                           -> Mina_base.Account.t
+                              Mina_base.Account.Index.Table.t
+                              option)
+        -> ( [> `Vrf_output of Consensus_vrf.Output_hash.t]
+           * [> `Delegator of
+                Signature_lib.Public_key.Compressed.t
+                * Mina_base.Account.Index.t ] )
+           option
+           Deferred.t
+    end
+
     module Prover_state : sig
       [%%versioned:
       module Stable : sig
@@ -429,6 +450,8 @@ module type S = sig
       val epoch : t -> Unsigned.UInt32.t
 
       val slot : t -> Unsigned.UInt32.t
+
+      val succ : t -> t
 
       val start_time : constants:Constants.t -> t -> Block_time.t
 
@@ -564,6 +587,46 @@ module type S = sig
 
       val coinbase_receiver : t -> Public_key.Compressed.t
     end
+
+    module Epoch_data_for_vrf : sig
+      [%%versioned:
+      module Stable : sig
+        module V1 : sig
+          type t =
+            { epoch_ledger: Mina_base.Epoch_ledger.Value.Stable.V1.t
+            ; epoch_seed: Mina_base.Epoch_seed.Stable.V1.t
+            ; epoch: Mina_numbers.Length.Stable.V1.t
+            ; global_slot: Mina_numbers.Global_slot.Stable.V1.t
+            ; global_slot_since_genesis: Mina_numbers.Global_slot.Stable.V1.t
+            ; delegatee_table:
+                Mina_base.Account.Stable.V1.t
+                Mina_base.Account.Index.Stable.V1.Table.t
+                Public_key.Compressed.Stable.V1.Table.t }
+          [@@deriving sexp]
+
+          val to_latest : t -> t
+        end
+      end]
+    end
+
+    module Slot_won : sig
+      [%%versioned:
+      module Stable : sig
+        module V1 : sig
+          type t =
+            { delegator:
+                Signature_lib.Public_key.Compressed.Stable.V1.t
+                * Mina_base.Account.Index.Stable.V1.t
+            ; producer: Signature_lib.Keypair.Stable.V1.t
+            ; global_slot: Mina_numbers.Global_slot.Stable.V1.t
+            ; global_slot_since_genesis: Mina_numbers.Global_slot.Stable.V1.t
+            ; vrf_result: Consensus_vrf.Output_hash.Stable.V1.t }
+          [@@deriving sexp]
+
+          val to_latest : t -> t
+        end
+      end]
+    end
   end
 
   module Coinbase_receiver : sig
@@ -617,29 +680,20 @@ module type S = sig
       -> logger:Logger.t
       -> [`Keep | `Take]
 
-    type block_producer_timing =
-      [ `Check_again of Unix_timestamp.t
-      | `Produce_now of Block_data.t * Public_key.Compressed.t
-      | `Produce of Unix_timestamp.t * Block_data.t * Public_key.Compressed.t
-      ]
-
-    (**
-     * Determine if and when to next produce a block. Either informs the callee
-     * to check again at some time in the future, or to schedule block
-     * production with some particular keypair at some time in the future, or to
-     * produce a block now with some keypair and check again some time in the
-     * future.
-     *)
-    val next_producer_timing :
-         constraint_constants:Genesis_constants.Constraint_constants.t
-      -> constants:Constants.t
+    (*Data required to evaluate VRFs for an epoch*)
+    val get_epoch_data_for_vrf :
+         constants:Constants.t
       -> Unix_timestamp.t
       -> Consensus_state.Value.t
       -> local_state:Local_state.t
-      -> keypairs:Signature_lib.Keypair.And_compressed_pk.Set.t
-      -> coinbase_receiver:Coinbase_receiver.t
       -> logger:Logger.t
-      -> block_producer_timing Async.Deferred.t
+      -> Data.Epoch_data_for_vrf.t * Local_state.Snapshot.Ledger_snapshot.t
+
+    val get_block_data :
+         slot_won:Slot_won.t
+      -> ledger_snapshot:Local_state.Snapshot.Ledger_snapshot.t
+      -> coinbase_receiver:Coinbase_receiver.t
+      -> Block_data.t
 
     (**
      * A hook for managing local state when the locked tip is updated.
@@ -667,6 +721,9 @@ module type S = sig
       -> consensus_state:Consensus_state.Value.t
       -> local_state:Local_state.t
       -> Data.Local_state.Snapshot.Ledger_snapshot.t
+
+    val epoch_end_time :
+      constants:Constants.t -> Mina_numbers.Length.t -> Block_time.t
 
     (** Data needed to synchronize the local state. *)
     type local_state_sync [@@deriving to_yojson]

@@ -396,9 +396,23 @@ module Evaluation_hash = struct
 end
 
 module Output_hash = struct
-  type value = Snark_params.Tick.Field.t [@@deriving sexp, compare]
+  [%%versioned
+  module Stable = struct
+    [@@@no_toplevel_latest_type]
 
-  type t = value
+    module V1 = struct
+      module T = struct
+        type t = Snark_params.Tick.Field.t
+        [@@deriving sexp, compare, hash, version {asserted}]
+      end
+
+      include T
+
+      let to_latest = Fn.id
+    end
+  end]
+
+  type t = Stable.Latest.t [@@deriving sexp, compare]
 
   type var = Random_oracle.Checked.Digest.t
 
@@ -596,5 +610,4 @@ let%test_unit "Standalone and integrates vrfs are consistent" =
       let standalone_vrf =
         Standalone.Evaluation.verified_output standalone_eval context
       in
-      [%test_eq: Output_hash.value option] (Some integrated_vrf) standalone_vrf
-  )
+      [%test_eq: Output_hash.t option] (Some integrated_vrf) standalone_vrf )

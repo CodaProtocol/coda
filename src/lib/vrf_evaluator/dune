@@ -1,0 +1,7 @@
+(library
+ (name vrf_evaluator)
+ (public_name vrf_evaluator)
+ (libraries async core rpc_parallel child_processes mina_base consensus signature_lib random_oracle)
+ (preprocessor_deps "../../config.mlh")
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_coda ppx_version ppx_jane)))

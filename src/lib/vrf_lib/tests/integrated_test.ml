@@ -60,6 +60,8 @@ end
 module Output_hash = struct
   type value = Snark_params.Tick.Field.t [@@deriving eq, sexp]
 
+  type t = value [@@deriving eq, sexp]
+
   type var = Random_oracle.Checked.Digest.t
 
   let typ : (var, value) Snark_params.Tick.Typ.t = Snark_params.Tick.Field.typ

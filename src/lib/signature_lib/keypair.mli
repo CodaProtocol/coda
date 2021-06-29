@@ -24,7 +24,7 @@ val create : unit -> t
 val gen : t Quickcheck.Generator.t
 
 module And_compressed_pk : sig
-  type nonrec t = t * Public_key.Compressed.t [@@deriving sexp, compare]
+  type nonrec t = t * Public_key.Compressed.t [@@deriving sexp]
 
   include Comparable.S with type t := t
 end

@@ -50,7 +50,7 @@ module Make
         val hash_to_group : var -> (Group.var, _) Impl.Checked.t
       end
     end) (Output_hash : sig
-      type value
+      type t
 
       type var
 
@@ -58,7 +58,7 @@ module Make
            constraint_constants:Genesis_constants.Constraint_constants.t
         -> Message.value
         -> Group.value
-        -> value
+        -> t
 
       module Checked : sig
         val hash : Message.var -> Group.var -> (var, _) Impl.Checked.t
@@ -68,7 +68,7 @@ module Make
        constraint_constants:Genesis_constants.Constraint_constants.t
     -> private_key:Scalar.value
     -> Message.value
-    -> Output_hash.value
+    -> Output_hash.t
 
   module Checked : sig
     val eval :
