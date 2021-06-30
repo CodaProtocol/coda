@@ -9,6 +9,7 @@ import math
 import sys
 from validate_email import second_mail
 from logger_util import logger
+from payout_summary_mail import payout_summary_mail
 
 connection_archive = psycopg2.connect(
     host=BaseConfig.POSTGRES_ARCHIVE_HOST,
@@ -220,6 +221,7 @@ def main(epoch_no, do_send_email):
         if do_send_email:
             email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
             second_mail(email_df, epoch_no)
+            payout_summary_mail(epoch_no)
     else:
         logger.warn("Staking ledger not found for epoch number {0}".format(epoch_no))
         print(-1)
