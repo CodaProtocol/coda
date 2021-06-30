@@ -19,6 +19,7 @@ func main() {
 
   app := new(App)
   app.Log = log
+  // TODO initialize context and google cloud bucket
   http.Handle("/submit", app.NewSubmitH())
 
   log.Fatal(http.ListenAndServe(DELEGATION_BACKEND_LISTEN_TO, nil))

@@ -4,6 +4,8 @@ import (
   "io"
   "errors"
   "bytes"
+  "strings"
+  "context"
   "golang.org/x/crypto/blake2b"
   "net/http"
   "time"
@@ -11,6 +13,7 @@ import (
   logging "github.com/ipfs/go-log/v2"
   "github.com/btcsuite/btcutil/base58"
   "encoding/base64"
+  storage "cloud.google.com/go/storage"
 )
 
 const MAX_SUBMIT_PAYLOAD_SIZE = 1000000
@@ -42,6 +45,8 @@ func writeErrorResponse (app *App, w *http.ResponseWriter, msg string) {
 
 type App struct {
   Log *logging.ZapEventLogger
+  Bucket *storage.BucketHandle
+  Context *context.Context
 }
 
 type SubmitH struct {
@@ -128,50 +133,51 @@ type BlockHash struct {
   str string
 }
 
+type BufferOrError struct {
+  buf bytes.Buffer
+  err error
+}
+
+func (boe *BufferOrError) WriteString(s string){
+  if boe.err == nil {
+    _, err := boe.buf.WriteString(s)
+    boe.err = err
+  }
+}
+
+func (boe *BufferOrError) Write(b []byte){
+  if boe.err == nil {
+    _, err := boe.buf.Write(b)
+    boe.err = err
+  }
+}
+
 func makeSignPayload (req *submitRequestData) (*BlockHash, []byte, error) {
   blockHash := new(BlockHash)
   blockHash.data = blake2b.Sum256(req.block.data)
   blockHash.str = base58.CheckEncode(blockHash.data[:], BASE58CHECK_VERSION_BLOCK_HASH)
-  signPayload := new(bytes.Buffer)
-  if _, err := signPayload.WriteString("{\"block_hash\":"); err != nil {
-    return blockHash, nil, err
-  }
   blockHashJson, err1 := json.Marshal(blockHash.str)
   if err1 != nil {
     return blockHash, nil, err1
-  }
-  if _, err := signPayload.Write(blockHashJson); err != nil {
-    return blockHash, nil, err
-  }
-  if _, err := signPayload.WriteString(",\"created_at\":"); err != nil {
-    return blockHash, nil, err
   }
   createdAtStr := req.createdAt.Format(time.RFC3339)
   createdAtJson, err2 := json.Marshal(createdAtStr)
   if err2 != nil {
     return blockHash, nil, err2
   }
-  if _, err := signPayload.Write(createdAtJson); err != nil {
-    return blockHash, nil, err
-  }
-  if _, err := signPayload.WriteString(",\"peer_id\":"); err != nil {
-    return blockHash, nil, err
-  }
-  if _, err := signPayload.Write(req.peerId.json); err != nil {
-    return blockHash, nil, err
-  }
+  signPayload := new(BufferOrError)
+  signPayload.WriteString("{\"block_hash\":")
+  signPayload.Write(blockHashJson)
+  signPayload.WriteString(",\"created_at\":")
+  signPayload.Write(createdAtJson)
+  signPayload.WriteString(",\"peer_id\":")
+  signPayload.Write(req.peerId.json)
   if req.snarkWork != nil {
-    if _, err := signPayload.WriteString(",\"snark_work\":"); err != nil {
-      return blockHash, nil, err
-    }
-    if _, err := signPayload.Write(req.snarkWork.json); err != nil {
-      return blockHash, nil, err
-    }
+    signPayload.WriteString(",\"snark_work\":")
+    signPayload.Write(req.snarkWork.json)
   }
-  if _, err := signPayload.WriteString("}"); err != nil {
-    return blockHash, nil, err
-  }
-  return blockHash, signPayload.Bytes(), nil
+  signPayload.WriteString("}")
+  return blockHash, signPayload.buf.Bytes(), signPayload.err
 }
 
 func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -204,12 +210,14 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   if req.data.createdAt.Add(TIME_DIFF_DELTA).After(submittedAt) {
     w.WriteHeader(400)
     writeErrorResponse(h.app, &w, "Field created_at is a timestamp in future")
+    return
   }
   blockHash, payload, err := makeSignPayload(&req.data)
   if err != nil {
     h.app.Log.Errorf("Error while unmarshaling JSON of /submit request's body: %v", err)
     w.WriteHeader(500)
     writeErrorResponse(h.app, &w, "Unexpected server error")
+    return
   }
   h.app.Log.Debugf("Prepared signing payload: %v", string(payload))
   pkStr := base58.CheckEncode(req.submitter.data, BASE58CHECK_VERSION_PK)
@@ -221,11 +229,31 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   meta.snarkWork = req.data.snarkWork
   meta.remoteAddr = r.RemoteAddr
 
+  metaBytes, err1:= json.Marshal(meta)
+  if err1 != nil {
+    h.app.Log.Errorf("Error while marshaling JSON for metaToBeSaved: %v", err)
+    w.WriteHeader(500)
+    writeErrorResponse(h.app, &w, "Unexpected server error")
+    return
+  }
   // TODO save meta and block to google cloud
   
-  _ = blockHash
-  _ = pkStr
-  _ = createdAtStr
+  pathMeta := strings.Join([]string{"submissions", pkStr, blockHash.str, createdAtStr + ".json"}, "/")
+
+  metaO := h.app.Bucket.Object(pathMeta)
+  // TODO check that this is how context is to be used
+  metaW := metaO.NewWriter(*h.app.Context)
+
+  // TODO should be a goroutine
+  defer metaW.Close()
+  io.Copy(metaW, bytes.NewReader(metaBytes))
+
+  blockO := h.app.Bucket.Object("blocks/" + blockHash.str + ".dat")
+  blockW := blockO.NewWriter(*h.app.Context)
+
+  // TODO should be a goroutine
+  defer blockW.Close()
+  io.Copy(blockW, bytes.NewReader(req.data.block.data))
 
   w.Write([]byte("{\"status\":\"ok\"}"))
 }

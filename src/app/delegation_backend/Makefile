@@ -5,3 +5,6 @@ build:
 
 clean:
 	rm -rf result
+
+tidy:
+	bash -c 'cd src; go mod tidy'
