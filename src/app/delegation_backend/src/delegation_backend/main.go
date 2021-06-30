@@ -3,6 +3,7 @@ package main
 import (
   . "delegation_backend"
   logging "github.com/ipfs/go-log/v2"
+  "net/http"
 )
 
 func main() {
@@ -13,7 +14,12 @@ func main() {
     Level:  logging.LevelDebug,
     File:   "",
   })
-  _ = MAX_SUBMIT_PAYLOAD_SIZE
-  helperLog := logging.Logger("top-level")
-  helperLog.Infof("delegation backend has the following logging subsystems active: %v", logging.GetSubsystems())
+  log := logging.Logger("delegation backend")
+  log.Infof("delegation backend has the following logging subsystems active: %v", logging.GetSubsystems())
+
+  app := new(App)
+  app.Log = log
+  http.Handle("/submit", app.NewSubmitH())
+
+  log.Fatal(http.ListenAndServe(DELEGATION_BACKEND_LISTEN_TO, nil))
 }
