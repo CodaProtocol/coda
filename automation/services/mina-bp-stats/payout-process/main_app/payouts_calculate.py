@@ -27,6 +27,8 @@ connection_payout = psycopg2.connect(
 )
 
 ERROR = 'Error: {0}'
+
+
 def get_gcs_client():
     credential_path = BaseConfig.CREDENTIAL_PATH
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
@@ -176,9 +178,13 @@ def calculate_payout(delegation_record_list, modified_staking_df, foundation_bpk
     '''
 
     cursor = connection_archive.cursor()
-    cursor.execute(query, (delegate_bpk, str(epoch_id)))
-    blocks_produced_list = cursor.fetchall()
-    cursor.close()
+    try:
+        cursor.execute(query, (delegate_bpk, str(epoch_id)))
+        blocks_produced_list = cursor.fetchall()
+    except (Exception, psycopg2.DatabaseError) as error:
+        logger.error(ERROR.format(error))
+        cursor.close()
+
     blocks_produced = 0
     if len(blocks_produced_list) > 0:
         blocks_produced = blocks_produced_list[0][0]

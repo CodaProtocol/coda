@@ -27,15 +27,22 @@ connection_payout = psycopg2.connect(
 )
 
 ERROR = 'Error: {0}'
+
+
 def read_delegation_record_table(epoch_no):
-    curser = connection_payout.cursor()
+    cursor = connection_payout.cursor()
     query = 'select * from payout_summary  '
-    curser.execute(query, str(epoch_no))
-    delegation_record_list = curser.fetchall()
-    delegation_record_df = pd.DataFrame(delegation_record_list,
-                                        columns=['provider_pub_key', 'winner_pub_key', 'blocks', 'payout_amount',
-                                                 'payout_balance', 'last_delegation_epoch'])
-    curser.close()
+    try:
+        cursor.execute(query, str(epoch_no))
+        delegation_record_list = cursor.fetchall()
+        delegation_record_df = pd.DataFrame(delegation_record_list,
+                                            columns=['provider_pub_key', 'winner_pub_key', 'blocks', 'payout_amount',
+                                                     'payout_balance', 'last_delegation_epoch'])
+
+    except (Exception, psycopg2.DatabaseError) as error:
+        logger.error(ERROR.format(error))
+        cursor.close()
+
     return delegation_record_df
 
 
@@ -104,11 +111,15 @@ def get_record_for_validation(epoch_no):
     INNER JOIN public_keys as PK ON PK.id = uc.receiver_id 
     GROUP BY pk.value, epoch'''
 
-    cursor.execute(query)
-    validation_record_list = cursor.fetchall()
-    validation_record_df = pd.DataFrame(validation_record_list,
-                                        columns=['total_pay', 'provider_pub_key', 'epoch'])
-    cursor.close()
+    try:
+        cursor.execute(query)
+        validation_record_list = cursor.fetchall()
+        validation_record_df = pd.DataFrame(validation_record_list,
+                                            columns=['total_pay', 'provider_pub_key', 'epoch'])
+    except (Exception, psycopg2.DatabaseError) as error:
+        logger.error(ERROR.format(error))
+        cursor.close()
+
     return validation_record_df
 
 
@@ -131,11 +142,15 @@ def get_record_for_validation_for_single_acc(provider_key, start_slot, end_slot)
     where global_slot_since_genesis BETWEEN %s and %s and pk.value = %s
     GROUP BY pk.value'''
 
-    cursor.execute(query, (start_slot, end_slot, provider_key))
-    validation_record_list = cursor.fetchall()
-    validation_record_df = pd.DataFrame(validation_record_list,
-                                        columns=['total_pay', 'provider_pub_key'])
-    cursor.close()
+    try:
+        cursor.execute(query, (start_slot, end_slot, provider_key))
+        validation_record_list = cursor.fetchall()
+        validation_record_df = pd.DataFrame(validation_record_list,
+                                            columns=['total_pay', 'provider_pub_key'])
+    except (Exception, psycopg2.DatabaseError) as error:
+        logger.error(ERROR.format(error))
+        cursor.close()
+
     return validation_record_df
 
 
@@ -211,7 +226,6 @@ def main(epoch_no, do_send_email):
                     cursor.close()
                     result = -1
                 finally:
-                    connection_payout.commit()
                     cursor.close()
             else:
                 logger.debug("No records found in archive db for pub key: {0}".format(pub_key))
@@ -220,7 +234,7 @@ def main(epoch_no, do_send_email):
         result = epoch_no
         if do_send_email:
             email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
-            #second_mail(email_df, epoch_no)
+            # second_mail(email_df, epoch_no)
             payout_summary_mail(epoch_no)
     else:
         logger.warning("Staking ledger not found for epoch number {0}".format(epoch_no))
