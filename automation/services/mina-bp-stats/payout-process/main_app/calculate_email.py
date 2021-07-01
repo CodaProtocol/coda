@@ -7,8 +7,6 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
 from logger_util import logger
 
-logger.info('calculate payout email')
-
 connection_payout = psycopg2.connect(
     host=BaseConfig.POSTGRES_PAYOUT_HOST,
     port=BaseConfig.POSTGRES_PAYOUT_PORT,
@@ -36,12 +34,14 @@ def get_block_producer_mail(winner_bpk):
         cursor.close()
         return 1
     data = cursor.fetchall()
-    # email = data[-1][-1]
-    email = "umesh.bihani@bnt-soft.com"
+    email = data[-1][-1]
+    if BaseConfig.OVERRIDE_EMAIL:
+        email = BaseConfig.OVERRIDE_EMAIL
     return email
 
 
 def send_mail(epoch_id, delegate_record_df):
+    logger.info('sending calculate payout email')
     # read the data from delegation_record_table
     payouts_df = delegate_record_df
     total_minutes = (int(epoch_id) * 7140 * 3) + (BaseConfig.SLOT_WINDOW_VALUE * 3)

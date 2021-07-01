@@ -27,9 +27,13 @@ def get_block_producer_mail(winner_bpk, conn=connection_leaderboard):
         logger.info("Error: {0} ".format(error))
         cursor.close()
         return 1
-    data = cursor.fetchall()
-    #email = data[-1][-1]
-    email = "umesh.bihani@bnt-soft.com"
+
+    email=''
+    if cursor.rowcount > 0:  
+        data = cursor.fetchall()
+        email = data[-1][-1]
+    if BaseConfig.OVERRIDE_EMAIL:
+        email = BaseConfig.OVERRIDE_EMAIL
     return email
 
 

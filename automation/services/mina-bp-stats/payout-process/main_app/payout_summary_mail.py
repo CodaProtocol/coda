@@ -6,17 +6,17 @@ import psycopg2
 import pandas as pd
 from logger_util import logger
 
-logger.info('payout summary mail to foundation account')
-connection_leaderboard = psycopg2.connect(
-    host=BaseConfig.POSTGRES_LEADERBOARD_HOST,
-    port=BaseConfig.POSTGRES_LEADERBOARD_PORT,
-    database=BaseConfig.POSTGRES_LEADERBOARD_DB,
-    user=BaseConfig.POSTGRES_LEADERBOARD_USER,
-    password=BaseConfig.POSTGRES_LEADERBOARD_PASSWORD
+
+connection_payout = psycopg2.connect(
+    host=BaseConfig.POSTGRES_PAYOUT_HOST,
+    port=BaseConfig.POSTGRES_PAYOUT_PORT,
+    database=BaseConfig.POSTGRES_PAYOUT_DB,
+    user=BaseConfig.POSTGRES_PAYOUT_USER,
+    password=BaseConfig.POSTGRES_PAYOUT_PASSWORD
 )
 
 PAYOUT_SUMMARY_INFO = 'payout_summary_info.csv'
-
+ERROR = 'Error: {0}'
 
 def get_payout_data(conn):
     select_query = """select  provider_pub_key, winner_pub_key, blocks, payout_amount, payout_balance, 
@@ -38,7 +38,8 @@ def get_payout_data(conn):
 
 
 def payout_summary_mail(epoch_no):
-    payout_summary_df = get_payout_data(connection_leaderboard)
+    logger.info('sending payout summary mail to foundation account')
+    payout_summary_df = get_payout_data(connection_payout)
     payout_summary_df.to_csv(PAYOUT_SUMMARY_INFO)
 
     message = Mail(from_email=BaseConfig.FROM_EMAIL,
@@ -67,4 +68,4 @@ def payout_summary_mail(epoch_no):
         logger.info(response.body)
         logger.info(response.headers)
     except Exception as e:
-        logger.info(e)
+        logger.error(ERROR.format(e))

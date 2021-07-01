@@ -191,7 +191,7 @@ def main(epoch_no, do_send_email):
                 winner_match = False
                 if delegate_pub_key == winner_pub_key:
                     winner_match = True
-                logger.info(
+                logger.debug(
                     '{0} {1} {2} {3} {4} {5} {6} {7}'.format(winner_match, pub_key, delegate_pub_key, winner_pub_key,
                                                              start_slot, end_slot,
                                                              total_pay_received,
@@ -214,16 +214,16 @@ def main(epoch_no, do_send_email):
                     connection_payout.commit()
                     cursor.close()
             else:
-                logger.warn("No records found in archive db")
+                logger.debug("No records found in archive db for pub key: {0}".format(pub_key))
         insert_into_audit_table(epoch_no)
         # sending second mail 24 hours left for making payments back to foundations account
         result = epoch_no
         if do_send_email:
             email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
-            second_mail(email_df, epoch_no)
+            #second_mail(email_df, epoch_no)
             payout_summary_mail(epoch_no)
     else:
-        logger.warn("Staking ledger not found for epoch number {0}".format(epoch_no))
+        logger.warning("Staking ledger not found for epoch number {0}".format(epoch_no))
         print(-1)
         sys.exit()
     return result
@@ -239,7 +239,7 @@ def get_last_processed_epoch_from_audit(job_type):
         cursor.execute(audit_query, values)
         if cursor.rowcount > 0:
             data_count = cursor.fetchall()
-            last_epoch = float(data_count[-1][-1])
+            last_epoch = int(data_count[-1][-1])
     except (Exception, psycopg2.DatabaseError) as error:
         logger.error(ERROR.format(error))
         cursor.close()
