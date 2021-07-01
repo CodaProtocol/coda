@@ -1,6 +1,7 @@
 package delegation_backend
 
 import (
+  "fmt"
   "errors"
   "bytes"
   "golang.org/x/crypto/blake2b"
@@ -32,7 +33,7 @@ func (d *Sig) UnmarshalJSON (b []byte) error {
     if len(bs) == SIG_LENGTH {
       copy(d[:], bs)
     } else {
-      err = errors.New("Signature of an unexpected size")
+      err = errors.New(fmt.Sprintf("Signature of an unexpected size %d", len(bs)))
     }
   }
   return err
@@ -45,7 +46,7 @@ func (d *Pk) UnmarshalJSON (b []byte) error {
     if len(bs) == PK_LENGTH {
       copy(d[:], bs)
     } else {
-      err = errors.New("Public key of an unexpected size")
+      err = errors.New(fmt.Sprintf("Public key of an unexpected size %d", len(bs)))
     }
   }
   return err
@@ -96,20 +97,20 @@ func (boe *BufferOrError) Write(b []byte){
 }
 
 type submitRequestData struct {
-  peerId *Base64 `json:"peer_id"`
-  block *Base64 `json:"block"`
-  snarkWork *Base64 `json:"snark_work,omitempty"`
-  createdAt time.Time `json:"created_at"`
+  PeerId *Base64 `json:"peer_id"`
+  Block *Base64 `json:"block"`
+  SnarkWork *Base64 `json:"snark_work,omitempty"`
+  CreatedAt time.Time `json:"created_at"`
 }
 type submitRequest struct {
-  data submitRequestData `json:"data"`
-  submitter Pk `json:"submitter"`
-  sig Sig `json:"sig"`
+  Data submitRequestData `json:"data"`
+  Submitter Pk `json:"submitter"`
+  Sig Sig `json:"signature"`
 }
 type metaToBeSaved struct {
-  submittedAt time.Time `json:"submitted_at"`
-  peerId *Base64 `json:"peer_id"`
-  snarkWork *Base64 `json:"snark_work,omitempty"`
-  remoteAddr string `json:"remote_addr"`
+  SubmittedAt time.Time `json:"submitted_at"`
+  PeerId *Base64 `json:"peer_id"`
+  SnarkWork *Base64 `json:"snark_work,omitempty"`
+  RemoteAddr string `json:"remote_addr"`
 }
 

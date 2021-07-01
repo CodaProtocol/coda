@@ -15,14 +15,13 @@ import (
 )
 
 type errorResponse struct {
-  msg string `json:"error"`
+  Msg string `json:"error"`
 }
 
 func writeErrorResponse (app *App, w *http.ResponseWriter, msg string) {
-  resp := new(errorResponse)
-  resp.msg = msg
-  bytes, err := json.Marshal(resp)
+  bytes, err := json.Marshal(errorResponse{msg})
   if err == nil {
+    // TODO check that write will be executed in full
     _, _ = (*w).Write(bytes)
   } else {
     app.Log.Fatal("Failed to json-marshal error message")
@@ -42,13 +41,13 @@ type SubmitH struct {
 
 func makeSignPayload (req *submitRequestData) (*BlockHash, []byte, error) {
   blockHash := new(BlockHash)
-  blockHash.data = blake2b.Sum256(req.block.data)
+  blockHash.data = blake2b.Sum256(req.Block.data)
   blockHash.str = base58.CheckEncode(blockHash.data[:], BASE58CHECK_VERSION_BLOCK_HASH)
   blockHashJson, err1 := json.Marshal(blockHash.str)
   if err1 != nil {
     return blockHash, nil, err1
   }
-  createdAtStr := req.createdAt.Format(time.RFC3339)
+  createdAtStr := req.CreatedAt.Format(time.RFC3339)
   createdAtJson, err2 := json.Marshal(createdAtStr)
   if err2 != nil {
     return blockHash, nil, err2
@@ -59,10 +58,10 @@ func makeSignPayload (req *submitRequestData) (*BlockHash, []byte, error) {
   signPayload.WriteString(",\"created_at\":")
   signPayload.Write(createdAtJson)
   signPayload.WriteString(",\"peer_id\":")
-  signPayload.Write(req.peerId.json)
-  if req.snarkWork != nil {
+  signPayload.Write(req.PeerId.json)
+  if req.SnarkWork != nil {
     signPayload.WriteString(",\"snark_work\":")
-    signPayload.Write(req.snarkWork.json)
+    signPayload.Write(req.SnarkWork.json)
   }
   signPayload.WriteString("}")
   return blockHash, signPayload.buf.Bytes(), signPayload.err
@@ -93,20 +92,28 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   // TODO check that `submitter` is whitelisted
   // - `401 Unauthorized`  when public key `pk` is not on the list of allowed keys
 
-  passesAttemptLimit := h.app.SubmitCounter.RecordAttempt(req.submitter)
-  if passesAttemptLimit {
+  passesAttemptLimit := h.app.SubmitCounter.RecordAttempt(req.Submitter)
+  if !passesAttemptLimit {
+    h.app.Log.Debugf("Too many requests per hour from %v", base58.CheckEncode(req.Submitter[:], BASE58CHECK_VERSION_PK))
     w.WriteHeader(429)
     writeErrorResponse(h.app, &w, "Too many requests per hour")
     return
   }
 
   submittedAt := time.Now()
-  if req.data.createdAt.Add(TIME_DIFF_DELTA).After(submittedAt) {
+  if req.Data.CreatedAt.Add(TIME_DIFF_DELTA).After(submittedAt) {
+    h.app.Log.Debugf("Field created_at is a timestamp in future: %v", submittedAt)
     w.WriteHeader(400)
     writeErrorResponse(h.app, &w, "Field created_at is a timestamp in future")
     return
   }
-  blockHash, payload, err := makeSignPayload(&req.data)
+  if req.Data.Block == nil || req.Data.PeerId == nil {
+    h.app.Log.Debug("One of required fields wasn't provided")
+    w.WriteHeader(400)
+    writeErrorResponse(h.app, &w, "One of required fields wasn't provided")
+    return
+  }
+  blockHash, payload, err := makeSignPayload(&req.Data)
   if err != nil {
     h.app.Log.Errorf("Error while unmarshaling JSON of /submit request's body: %v", err)
     w.WriteHeader(500)
@@ -114,14 +121,14 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
   h.app.Log.Debugf("Prepared signing payload: %v", string(payload))
-  pkStr := base58.CheckEncode(req.submitter[:], BASE58CHECK_VERSION_PK)
-  createdAtStr := req.data.createdAt.Format(time.RFC3339)
+  pkStr := base58.CheckEncode(req.Submitter[:], BASE58CHECK_VERSION_PK)
+  createdAtStr := req.Data.CreatedAt.Format(time.RFC3339)
 
   var meta metaToBeSaved
-  meta.submittedAt = submittedAt
-  meta.peerId = req.data.peerId
-  meta.snarkWork = req.data.snarkWork
-  meta.remoteAddr = r.RemoteAddr
+  meta.SubmittedAt = submittedAt
+  meta.PeerId = req.Data.PeerId
+  meta.SnarkWork = req.Data.SnarkWork
+  meta.RemoteAddr = r.RemoteAddr
 
   metaBytes, err1:= json.Marshal(meta)
   if err1 != nil {
@@ -142,10 +149,13 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   go func(){
     defer metaW.Close()
     defer blockW.Close()
+    // TODO Log any errors if any
+    // TODO check that existing objects do not get overwritten
     io.Copy(metaW, bytes.NewReader(metaBytes))
-    io.Copy(blockW, bytes.NewReader(req.data.block.data))
+    io.Copy(blockW, bytes.NewReader(req.Data.Block.data))
   }()
 
+  // TODO check that write will be executed in full
   w.Write([]byte("{\"status\":\"ok\"}"))
 }
 
