@@ -19,10 +19,12 @@ type errorResponse struct {
 }
 
 func writeErrorResponse (app *App, w *http.ResponseWriter, msg string) {
-  bytes, err := json.Marshal(errorResponse{msg})
+  bs, err := json.Marshal(errorResponse{msg})
   if err == nil {
-    // TODO check that write will be executed in full
-    _, _ = (*w).Write(bytes)
+    _, err2 := io.Copy(*w, bytes.NewReader(bs))
+    if err2 != nil {
+      app.Log.Debugf("Failed to respond with error status: %v", err2)
+    }
   } else {
     app.Log.Fatal("Failed to json-marshal error message")
   }
@@ -33,6 +35,7 @@ type App struct {
   Bucket *storage.BucketHandle
   Context context.Context
   SubmitCounter *AttemptCounter
+  Whitelist *WhitelistMVar
 }
 
 type SubmitH struct {
@@ -43,18 +46,14 @@ func makeSignPayload (req *submitRequestData) (*BlockHash, []byte, error) {
   blockHash := new(BlockHash)
   blockHash.data = blake2b.Sum256(req.Block.data)
   blockHash.str = base58.CheckEncode(blockHash.data[:], BASE58CHECK_VERSION_BLOCK_HASH)
-  blockHashJson, err1 := json.Marshal(blockHash.str)
-  if err1 != nil {
-    return blockHash, nil, err1
-  }
   createdAtStr := req.CreatedAt.Format(time.RFC3339)
   createdAtJson, err2 := json.Marshal(createdAtStr)
   if err2 != nil {
     return blockHash, nil, err2
   }
   signPayload := new(BufferOrError)
-  signPayload.WriteString("{\"block_hash\":")
-  signPayload.Write(blockHashJson)
+  signPayload.WriteString("{\"block\":")
+  signPayload.Write(req.Block.json)
   signPayload.WriteString(",\"created_at\":")
   signPayload.Write(createdAtJson)
   signPayload.WriteString(",\"peer_id\":")
@@ -89,12 +88,16 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     writeErrorResponse(h.app, &w, "Wrong payload")
     return
   }
-  // TODO check that `submitter` is whitelisted
-  // - `401 Unauthorized`  when public key `pk` is not on the list of allowed keys
+
+  wl := h.app.Whitelist.ReadWhitelist()
+  if (*wl)[req.Submitter] == nil {
+    w.WriteHeader(401)
+    writeErrorResponse(h.app, &w, "Submitter is not registered")
+    return
+  }
 
   passesAttemptLimit := h.app.SubmitCounter.RecordAttempt(req.Submitter)
   if !passesAttemptLimit {
-    h.app.Log.Debugf("Too many requests per hour from %v", base58.CheckEncode(req.Submitter[:], BASE58CHECK_VERSION_PK))
     w.WriteHeader(429)
     writeErrorResponse(h.app, &w, "Too many requests per hour")
     return
@@ -121,6 +124,7 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
   h.app.Log.Debugf("Prepared signing payload: %v", string(payload))
+  // TODO check signatures
   pkStr := base58.CheckEncode(req.Submitter[:], BASE58CHECK_VERSION_PK)
   createdAtStr := req.Data.CreatedAt.Format(time.RFC3339)
 
@@ -141,22 +145,28 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   pathMeta := strings.Join([]string{"submissions", pkStr, blockHash.str, createdAtStr + ".json"}, "/")
 
   metaO := h.app.Bucket.Object(pathMeta)
-  metaW := metaO.NewWriter(h.app.Context)
-
   blockO := h.app.Bucket.Object("blocks/" + blockHash.str + ".dat")
-  blockW := blockO.NewWriter(h.app.Context)
 
   go func(){
+    metaW := metaO.NewWriter(h.app.Context)
     defer metaW.Close()
+    _, err3 := io.Copy(metaW, bytes.NewReader(metaBytes))
+    if err3 != nil {
+      h.app.Log.Debugf("Error while saving metadata: %v", err3)
+      return
+    }
+    blockW := blockO.NewWriter(h.app.Context)
     defer blockW.Close()
-    // TODO Log any errors if any
-    // TODO check that existing objects do not get overwritten
-    io.Copy(metaW, bytes.NewReader(metaBytes))
-    io.Copy(blockW, bytes.NewReader(req.Data.Block.data))
+    _, err4 := io.Copy(blockW, bytes.NewReader(req.Data.Block.data))
+    if err4 != nil {
+      h.app.Log.Debugf("Error while saving block: %v", err4)
+    }
   }()
 
-  // TODO check that write will be executed in full
-  w.Write([]byte("{\"status\":\"ok\"}"))
+  _, err2 := io.Copy(w, bytes.NewReader([]byte("{\"status\":\"ok\"}")))
+  if err2 != nil {
+    h.app.Log.Debugf("Error while responding with ok status to the user: %v", err2)
+  }
 }
 
 func (app *App) NewSubmitH() *SubmitH {
