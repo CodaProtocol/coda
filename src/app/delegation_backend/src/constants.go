@@ -12,9 +12,11 @@ const DELEGATION_WHITELIST_LIST = "Form Responses 1"
 const DELEGATION_WHITELIST_COLUMN = "E"
 
 const DELEGATION_WHITELIST_SPREADSHEET_ID = "1w2DC9oEP2IAi1E8v0OtUsw3Pk4MISdKfGH79khfg1Lk"
+const CLOUD_BUCKET_NAME = "georgeee-o1labs-1"
 
 // Production
 // const DELEGATION_WHITELIST_SPREADSHEET_ID = "1xiKppb0BFUo8IKM2itIx2EWIQbBzUlFxgtZlKdnrLCU"
+// const CLOUD_BUCKET_NAME = "todo-todo-todo"
 
 const PK_LENGTH = 35 // why not 33
 const SIG_LENGTH = 65 // why not 64
@@ -22,3 +24,4 @@ const SIG_LENGTH = 65 // why not 64
 const BASE58CHECK_VERSION_BLOCK_HASH byte = 0x10
 const BASE58CHECK_VERSION_PK byte = 0xCB
 const BASE58CHECK_VERSION_SIG byte = 0x9A
+
