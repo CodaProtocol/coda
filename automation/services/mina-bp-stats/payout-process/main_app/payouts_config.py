@@ -39,4 +39,5 @@ class BaseConfig(object):
     SENDGRID_API_KEY = ''
     SPREADSHEET_SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     SPREADSHEET_NAME = 'Mina Foundation Delegation Application (Responses)'
+    DELEGATION_ADDRESSS_CSV='O1_Labs_addresses_1.csv'
     GENESIS_DATE = datetime.datetime(2021, 3, 17)
