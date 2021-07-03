@@ -109,7 +109,7 @@ def read_staking_json_for_epoch(epoch_id):
 
 
 def read_foundation_accounts():
-    foundation_account_df = pd.read_csv('Mina_Foundation_Addresses.csv')
+    foundation_account_df = pd.read_csv(BaseConfig.DELEGATION_ADDRESSS_CSV)
     logger.info('foundation accounts dataframe {0}'.format(foundation_account_df.shape))
     foundation_account_df.columns = ['pk']
     return foundation_account_df
