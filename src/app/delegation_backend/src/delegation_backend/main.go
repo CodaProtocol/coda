@@ -25,7 +25,7 @@ func main() {
   app := new(App)
   app.Log = log
   app.Context = context.Background()
-  http.Handle("/submit", app.NewSubmitH())
+  http.Handle("/v1/submit", app.NewSubmitH())
   client, err1 := storage.NewClient(app.Context)
   if err1 != nil {
     log.Fatalf("Error creating Cloud client: %v", err1)
