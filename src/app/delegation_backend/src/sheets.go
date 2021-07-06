@@ -17,6 +17,7 @@ func RetrieveWhitelist (service *sheets.Service, log *logging.ZapEventLogger) Wh
   }
   for _, row := range resp.Values {
     if len(row) > 0 {
+      // TODO do not fail on a non-string cell
       bs, ver, err := base58.CheckDecode(row[0].(string))
       if err == nil || ver == BASE58CHECK_VERSION_PK || len(bs) != PK_LENGTH {
         var pk Pk

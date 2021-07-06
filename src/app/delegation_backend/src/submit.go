@@ -63,7 +63,7 @@ func makeSignPayload (req *submitRequestData) (*BlockHash, []byte, error) {
     signPayload.Write(req.SnarkWork.json)
   }
   signPayload.WriteString("}")
-  return blockHash, signPayload.buf.Bytes(), signPayload.err
+  return blockHash, signPayload.Buf.Bytes(), signPayload.Err
 }
 
 func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {

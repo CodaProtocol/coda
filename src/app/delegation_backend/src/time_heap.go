@@ -9,11 +9,13 @@ import (
 const minusOneHour time.Duration = -60*60*1000000000
 
 type timeHeap []time.Time
+type nowFunc = func () time.Time
 
 type AttemptCounter struct {
   attempts map[Pk]*timeHeap
   maxAttempt int
   mutex sync.Mutex
+  now nowFunc
 }
 
 func (h timeHeap) Len() int {
@@ -44,6 +46,7 @@ func NewAttemptCounter (maxAttemptPerHour int) *AttemptCounter {
   th := new(AttemptCounter)
   th.maxAttempt = maxAttemptPerHour
   th.attempts = make(map[Pk]*timeHeap)
+  th.now = func () time.Time { return time.Now() }
   return th
 }
 
@@ -53,7 +56,7 @@ func NewAttemptCounter (maxAttemptPerHour int) *AttemptCounter {
 func (h *AttemptCounter) RecordAttempt (pk Pk) bool {
   h.mutex.Lock()
   defer h.mutex.Unlock()
-  curTime := time.Now()
+  curTime := h.now()
   if h.attempts[pk] == nil {
     t := timeHeap(make([]time.Time, 0, h.maxAttempt))
     h.attempts[pk] = &t

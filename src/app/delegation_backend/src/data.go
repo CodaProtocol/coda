@@ -78,21 +78,21 @@ type BlockHash struct {
 }
 
 type BufferOrError struct {
-  buf bytes.Buffer
-  err error
+  Buf bytes.Buffer
+  Err error
 }
 
 func (boe *BufferOrError) WriteString(s string){
-  if boe.err == nil {
-    _, err := boe.buf.WriteString(s)
-    boe.err = err
+  if boe.Err == nil {
+    _, err := boe.Buf.WriteString(s)
+    boe.Err = err
   }
 }
 
 func (boe *BufferOrError) Write(b []byte){
-  if boe.err == nil {
-    _, err := boe.buf.Write(b)
-    boe.err = err
+  if boe.Err == nil {
+    _, err := boe.Buf.Write(b)
+    boe.Err = err
   }
 }
 
