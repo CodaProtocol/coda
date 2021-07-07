@@ -51,6 +51,12 @@ func (d *Pk) UnmarshalJSON (b []byte) error {
   }
   return err
 }
+func (pk Pk) Format() string {
+  return pk.String()
+}
+func (pk Pk) String() string {
+  return base58.CheckEncode(pk[:], BASE58CHECK_VERSION_PK)
+}
 
 type Base64 struct {
   data []byte

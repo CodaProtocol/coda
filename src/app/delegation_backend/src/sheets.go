@@ -6,8 +6,25 @@ import (
   "github.com/btcsuite/btcutil/base58"
 )
 
-func RetrieveWhitelist (service *sheets.Service, log *logging.ZapEventLogger) Whitelist {
+func processRows (rows [][](interface{})) Whitelist {
   wl := make(Whitelist)
+  for _, row := range rows {
+    if len(row) > 0 {
+      switch v := row[0].(type) {
+        case string:
+          bs, ver, err := base58.CheckDecode(v)
+          if err == nil && ver == BASE58CHECK_VERSION_PK && len(bs) == PK_LENGTH {
+            var pk Pk
+            copy(pk[:], bs)
+            wl[pk] = true // we need something to be provided as value
+          }
+      }
+    }
+  }
+  return wl
+}
+
+func RetrieveWhitelist (service *sheets.Service, log *logging.ZapEventLogger) Whitelist {
   col := DELEGATION_WHITELIST_COLUMN
   readRange := DELEGATION_WHITELIST_LIST + "!" + col + ":" + col
   spId := DELEGATION_WHITELIST_SPREADSHEET_ID
@@ -15,16 +32,5 @@ func RetrieveWhitelist (service *sheets.Service, log *logging.ZapEventLogger) Wh
   if err != nil {
     log.Fatalf("Unable to retrieve data from sheet: %v", err)
   }
-  for _, row := range resp.Values {
-    if len(row) > 0 {
-      // TODO do not fail on a non-string cell
-      bs, ver, err := base58.CheckDecode(row[0].(string))
-      if err == nil || ver == BASE58CHECK_VERSION_PK || len(bs) != PK_LENGTH {
-        var pk Pk
-        copy(pk[:], bs)
-        wl[pk] = false // we need something to be provided as value
-      }
-    }
-  }
-  return wl
+  return processRows(resp.Values)
 }
