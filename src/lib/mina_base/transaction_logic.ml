@@ -1446,6 +1446,7 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
           p.data.body.token_id
       | Check_auth_and_update_account
           { is_start
+          ; at_party = _
           ; global_state = _
           ; party = p
           ; account = a
@@ -2322,11 +2323,7 @@ module For_tests = struct
     let signature =
       Schnorr.sign sender.private_key
         (Random_oracle.Input.field
-           ( Parties.Transaction_commitment.create
-               ~other_parties_hash:
-                 (Parties.With_hashes.other_parties_hash parties)
-               ~protocol_state_predicate_hash:
-                 (Snapp_predicate.Protocol_state.digest parties.protocol_state)
+           ( Parties.commitment parties
            |> Parties.Transaction_commitment.with_fee_payer
                 ~fee_payer_hash:
                   (Party.Predicated.digest

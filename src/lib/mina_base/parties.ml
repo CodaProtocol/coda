@@ -208,6 +208,8 @@ module Transaction_commitment = struct
 
   let empty = Outside_hash_image.t
 
+  let typ = Snark_params.Tick.Field.typ
+
   let create ~other_parties_hash ~protocol_state_predicate_hash : t =
     Random_oracle.hash ~init:Hash_prefix.party_with_protocol_state_predicate
       [| protocol_state_predicate_hash; other_parties_hash |]
@@ -228,3 +230,9 @@ module Transaction_commitment = struct
         [| fee_payer_hash; t |]
   end
 end
+
+let commitment (t : t) : Transaction_commitment.t =
+  Transaction_commitment.create
+    ~other_parties_hash:(With_hashes.other_parties_hash t)
+    ~protocol_state_predicate_hash:
+      (Snapp_predicate.Protocol_state.digest t.protocol_state)

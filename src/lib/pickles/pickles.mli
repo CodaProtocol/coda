@@ -144,7 +144,7 @@ module Side_loaded : sig
 
     module Max_branches : Nat.Add.Intf
 
-    module Max_width : Nat.Add.Intf
+    module Max_width = Nat.N2
   end
 
   module Proof : sig

@@ -22,6 +22,8 @@ val next_available_token : t -> Token_id.t
 
 val get_exn : t -> int -> Account.t
 
+val set_exn : t -> int -> Account.t -> t
+
 val path_exn :
   t -> int -> [ `Left of Ledger_hash.t | `Right of Ledger_hash.t ] list
 

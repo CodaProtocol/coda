@@ -151,6 +151,7 @@ module Binable_arg = struct
         , Timing.Stable.V1.t
         , Permissions.Stable.V1.t
         , Snapp_account.Stable.V1.t option )
+        (* TODO: Cache the digest of this? *)
         Poly.Stable.V1.t
       [@@deriving sexp, equal, hash, compare, yojson]
 

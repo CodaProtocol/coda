@@ -54,7 +54,7 @@ module Width : sig
 
   val typ : (Checked.t, t) Typ.t
 
-  module Max : Nat.Add.Intf_transparent
+  module Max = Nat.N2
 
   module Max_vector : Vector.With_version(Max).S
 

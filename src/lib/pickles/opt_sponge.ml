@@ -21,6 +21,7 @@ type 'f sponge_state =
 type 'f t =
   { mutable state : 'f array
   ; params : 'f Sponge.Params.t
+  ; needs_final_permute_if_empty : bool
   ; mutable sponge_state : 'f sponge_state
   }
 
@@ -35,33 +36,49 @@ struct
 
   let state { state; _ } = Array.copy state
 
-  let copy { state; params; sponge_state } =
-    { state = Array.copy state; params; sponge_state }
+  let copy { state; params; sponge_state; needs_final_permute_if_empty } =
+    { state = Array.copy state
+    ; params
+    ; sponge_state
+    ; needs_final_permute_if_empty
+    }
 
   let initial_state = Array.init m ~f:(fun _ -> Field.zero)
 
   let of_sponge { Sponge.state; params; sponge_state } =
-    let sponge_state =
-      match sponge_state with
-      | Squeezed n ->
-          Squeezed n
-      | Absorbed n ->
-          let next_index =
-            match n with
-            | 0 ->
-                Boolean.false_
-            | 1 ->
-                Boolean.true_
-            | _ ->
-                assert false
-          in
-          Absorbing { next_index; xs = [] }
-    in
-    { sponge_state; state = Array.copy state; params }
+    match sponge_state with
+    | Squeezed n ->
+        { sponge_state = Squeezed n
+        ; state = Array.copy state
+        ; needs_final_permute_if_empty = true
+        ; params
+        }
+    | Absorbed n -> (
+        let abs i =
+          { sponge_state = Absorbing { next_index = i; xs = [] }
+          ; state = Array.copy state
+          ; params
+          ; needs_final_permute_if_empty = true
+          }
+        in
+        match n with
+        | 0 ->
+            abs Boolean.false_
+        | 1 ->
+            abs Boolean.true_
+        | 2 ->
+            { sponge_state = Absorbing { next_index = Boolean.false_; xs = [] }
+            ; state = P.block_cipher params state
+            ; needs_final_permute_if_empty = false
+            ; params
+            }
+        | _ ->
+            assert false )
 
   let create ?(init = initial_state) params =
     { params
     ; state = Array.copy init
+    ; needs_final_permute_if_empty = true
     ; sponge_state = Absorbing { next_index = Boolean.false_; xs = [] }
     }
 
@@ -87,7 +104,7 @@ struct
         assert_r1cs x (i_equals_j :> Field.t) Field.(a_j' - a.(j)) ;
         a.(j) <- a_j')
 
-  let consume ~params ~start_pos input state =
+  let consume ~needs_final_permute_if_empty ~params ~start_pos input state =
     assert (Array.length state = m) ;
     let n = Array.length input in
     let pos = ref start_pos in
@@ -170,13 +187,15 @@ struct
     let should_permute =
       match remaining with
       | 0 ->
-          Boolean.(empty_imput ||| !pos)
+          if needs_final_permute_if_empty then Boolean.(empty_imput ||| !pos)
+          else !pos
       | 1 ->
           let b, x = input.(n - 1) in
           let p = !pos in
           pos := Boolean.( lxor ) p b ;
           add_in state p Field.(x * (b :> t)) ;
-          Boolean.any [ p; b; empty_imput ]
+          if needs_final_permute_if_empty then Boolean.any [ p; b; empty_imput ]
+          else Boolean.any [ p; b ]
       | _ ->
           assert false
     in
@@ -200,8 +219,8 @@ struct
           t.sponge_state <- Squeezed (n + 1) ;
           t.state.(n) )
     | Absorbing { next_index; xs } ->
-        consume ~start_pos:next_index ~params:t.params (Array.of_list_rev xs)
-          t.state ;
+        consume ~needs_final_permute_if_empty:t.needs_final_permute_if_empty
+          ~start_pos:next_index ~params:t.params (Array.of_list_rev xs) t.state ;
         t.sponge_state <- Squeezed 1 ;
         t.state.(0)
 
@@ -210,24 +229,36 @@ struct
       module S = Sponge.Make_sponge (P)
 
       let%test_unit "correctness" =
+        let params : _ Sponge.Params.t =
+          let a () =
+            Array.init 3 ~f:(fun _ -> Field.(constant (Constant.random ())))
+          in
+          { mds = Array.init 3 ~f:(fun _ -> a ())
+          ; round_constants = Array.init 40 ~f:(fun _ -> a ())
+          }
+        in
         let gen =
           let open Quickcheck.Generator.Let_syntax in
-          let%bind n = Quickcheck.Generator.small_positive_int in
+          let%bind n = Quickcheck.Generator.small_positive_int
+          and n_pre = Quickcheck.Generator.small_positive_int in
           let%map xs = List.gen_with_length n Field.Constant.gen
-          and bs = List.gen_with_length n Bool.quickcheck_generator in
-          List.zip_exn bs xs
+          and bs = List.gen_with_length n Bool.quickcheck_generator
+          and pre = List.gen_with_length n_pre Field.Constant.gen in
+          (pre, List.zip_exn bs xs)
         in
-        Quickcheck.test gen ~trials:5 ~f:(fun ps ->
+        Quickcheck.test gen ~trials:10 ~f:(fun (pre, ps) ->
             let filtered =
               List.filter_map ps ~f:(fun (b, x) -> if b then Some x else None)
             in
-            let params : _ Sponge.Params.t =
-              let a () =
-                Array.init 3 ~f:(fun _ -> Field.(constant (Constant.random ())))
+            let init () =
+              let pre =
+                exists
+                  (Typ.list ~length:(List.length pre) Field.typ)
+                  ~compute:(fun () -> pre)
               in
-              { mds = Array.init 3 ~f:(fun _ -> a ())
-              ; round_constants = Array.init 40 ~f:(fun _ -> a ())
-              }
+              let s = S.create params in
+              List.iter pre ~f:(S.absorb s) ;
+              s
             in
             let filtered_res =
               let n = List.length filtered in
@@ -236,7 +267,7 @@ struct
                 Field.typ
                 (fun xs ->
                   make_checked (fun () ->
-                      let s = S.create params in
+                      let s = init () in
                       List.iter xs ~f:(S.absorb s) ;
                       S.squeeze s))
                 filtered
@@ -248,7 +279,10 @@ struct
                 Field.typ
                 (fun xs ->
                   make_checked (fun () ->
-                      let s = create params in
+                      let s =
+                        if List.length pre = 0 then create params
+                        else of_sponge (init ())
+                      in
                       List.iter xs ~f:(absorb s) ;
                       squeeze s))
                 ps

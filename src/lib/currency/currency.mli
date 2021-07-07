@@ -144,6 +144,8 @@ module Balance : sig
   module Checked : sig
     type t = var
 
+    val to_amount : t -> Amount.var
+
     val add_signed_amount : var -> Amount.Signed.var -> (var, _) Checked.t
 
     val add_amount : var -> Amount.var -> (var, _) Checked.t

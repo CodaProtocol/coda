@@ -22,7 +22,7 @@ module Width : sig
 
   val zero : t
 
-  module Max : Nat.Add.Intf_transparent
+  module Max = Nat.N2
 
   module Max_vector : Vector.With_version(Max).S
 
