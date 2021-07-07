@@ -1,31 +1,12 @@
 package delegation_backend
 
 import (
-  "github.com/btcsuite/btcutil/base58"
   "math/rand"
   "testing"
   "testing/quick"
   "encoding/hex"
   "reflect"
 )
-
-func randBytes(n int, r *rand.Rand) []byte {
-  b := make([]byte, n)
-  _, _ = r.Read(b)
-  return b
-}
-
-var STR_ALPHABET = []rune("0123456789[]{};'/.,~abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-const B58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-
-func randString(r *rand.Rand) string {
-  n := r.Intn(100)
-  b := make([]rune, n)
-  for i := range b {
-    b[i] = STR_ALPHABET[r.Intn(len(STR_ALPHABET))]
-  }
-  return string(b)
-}
 
 func randRow(r *rand.Rand) ([](interface{}), *Pk) {
   var v (interface{})
@@ -44,50 +25,23 @@ func randRow(r *rand.Rand) ([](interface{}), *Pk) {
     case 9: // Float
       v = r.Float64()
     case 2: // Correct base58check-encoded pk
-      bs := randBytes(PK_LENGTH, r)
+      var bs []byte
+      bs, v = randB58(PK_LENGTH, BASE58CHECK_VERSION_PK, r)
       var pk_ Pk
       copy(pk_[:], bs)
-      v = base58.CheckEncode(bs, BASE58CHECK_VERSION_PK)
       pk = &pk_
     case 3: // Correct base58check-encoded bytestring with a random non-pk version byte
-      randB := func () byte {
+      ver := randOther(BASE58CHECK_VERSION_PK, func () interface{} {
         return byte(r.Uint32()%256)
-      }
-      for {
-        ver := randB()
-        if ver != BASE58CHECK_VERSION_PK {
-          bs := randBytes(PK_LENGTH, r)
-          v = base58.CheckEncode(bs, ver)
-          break
-        }
-      }
+      }, r).(byte)
+      _, v = randB58(PK_LENGTH, ver, r)
     case 4: // Incorrect base58check-encoded (one of the symbols altered, so check won't succeed)
-      bs := randBytes(PK_LENGTH, r)
-      v_ := []byte(base58.CheckEncode(bs, BASE58CHECK_VERSION_PK))
-      randC := func () byte {
-        return B58_ALPHABET[r.Intn(len(B58_ALPHABET))]
-      }
-      for {
-        c := randC()
-        i := r.Intn(len(v_))
-        if v_[i] != c {
-          v_[i] = c
-          break
-        }
-      }
-      v = string(v_)
+      v = randB58WithWrongCheck(PK_LENGTH, BASE58CHECK_VERSION_PK, r)
     case 8: // Correct base58check-encoded, wrong length
-      randL := func () int {
+      l := randOther(PK_LENGTH, func () interface{} {
         return r.Intn(1000)+1
-      }
-      for {
-        l := randL()
-        if l != PK_LENGTH {
-          bs := randBytes(l, r)
-          v = base58.CheckEncode(bs, BASE58CHECK_VERSION_PK)
-          break
-        }
-      }
+      }, r).(int)
+      _, v = randB58(l, BASE58CHECK_VERSION_PK, r)
   }
   return [](interface{}){v}, pk
 }
@@ -98,10 +52,9 @@ type Rows struct {
 }
 
 func (Rows) Generate(r *rand.Rand, size int) reflect.Value {
-  n := 1 //r.Intn(1000) + 10
-  res := make([][](interface{}), 0, n)
+  res := make([][](interface{}), 0, size)
   wl := make(Whitelist)
-  for j := 0; j < n; j++ {
+  for j := 0; j < size; j++ {
     row, pk := randRow(r)
     res = append(res, row)
     if pk != nil {
