@@ -30,12 +30,31 @@ func writeErrorResponse (app *App, w *http.ResponseWriter, msg string) {
   }
 }
 
-type App struct {
-  Log *logging.ZapEventLogger
+func (ctx *GoogleContext) GoogleStorageSave(objs ObjectsToSave) {
+  for path, bs := range(objs) {
+    writer := ctx.Bucket.Object(path).NewWriter(ctx.Context)
+    defer writer.Close()
+    _, err := io.Copy(writer, bytes.NewReader(bs))
+    if err != nil {
+      ctx.Log.Debugf("Error while saving metadata: %v", err)
+      return
+    }
+  }
+}
+
+type ObjectsToSave map[string][]byte
+
+type GoogleContext struct {
   Bucket *storage.BucketHandle
   Context context.Context
+  Log *logging.ZapEventLogger
+}
+
+type App struct {
+  Log *logging.ZapEventLogger
   SubmitCounter *AttemptCounter
   Whitelist *WhitelistMVar
+  Save func(ObjectsToSave)
 }
 
 type SubmitH struct {
@@ -46,7 +65,7 @@ func makeSignPayload (req *submitRequestData) (*BlockHash, []byte, error) {
   blockHash := new(BlockHash)
   blockHash.data = blake2b.Sum256(req.Block.data)
   blockHash.str = base58.CheckEncode(blockHash.data[:], BASE58CHECK_VERSION_BLOCK_HASH)
-  createdAtStr := req.CreatedAt.Format(time.RFC3339)
+  createdAtStr := req.CreatedAt.UTC().Format(time.RFC3339)
   createdAtJson, err2 := json.Marshal(createdAtStr)
   if err2 != nil {
     return blockHash, nil, err2
@@ -142,26 +161,13 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  pathMeta := strings.Join([]string{"submissions", pkStr, blockHash.str, createdAtStr + ".json"}, "/")
+  metaPath := strings.Join([]string{"submissions", pkStr, blockHash.str, createdAtStr + ".json"}, "/")
+  blockPath := "blocks/" + blockHash.str + ".dat"
 
-  metaO := h.app.Bucket.Object(pathMeta)
-  blockO := h.app.Bucket.Object("blocks/" + blockHash.str + ".dat")
-
-  go func(){
-    metaW := metaO.NewWriter(h.app.Context)
-    defer metaW.Close()
-    _, err3 := io.Copy(metaW, bytes.NewReader(metaBytes))
-    if err3 != nil {
-      h.app.Log.Debugf("Error while saving metadata: %v", err3)
-      return
-    }
-    blockW := blockO.NewWriter(h.app.Context)
-    defer blockW.Close()
-    _, err4 := io.Copy(blockW, bytes.NewReader(req.Data.Block.data))
-    if err4 != nil {
-      h.app.Log.Debugf("Error while saving block: %v", err4)
-    }
-  }()
+  toSave := make(ObjectsToSave)
+  toSave[metaPath] = metaBytes
+  toSave[blockPath] = req.Data.Block.data
+  h.app.Save(toSave)
 
   _, err2 := io.Copy(w, bytes.NewReader([]byte("{\"status\":\"ok\"}")))
   if err2 != nil {

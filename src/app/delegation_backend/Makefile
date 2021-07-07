@@ -1,4 +1,4 @@
-.PHONY: clean build
+.PHONY: clean build test tidy
 
 ifeq ($(GO),)
 GO := go

@@ -22,19 +22,23 @@ func main() {
   log := logging.Logger("delegation backend")
   log.Infof("delegation backend has the following logging subsystems active: %v", logging.GetSubsystems())
 
+  ctx := context.Background()
+
   app := new(App)
   app.Log = log
-  app.Context = context.Background()
   http.Handle("/v1/submit", app.NewSubmitH())
-  client, err1 := storage.NewClient(app.Context)
+  client, err1 := storage.NewClient(ctx)
   if err1 != nil {
     log.Fatalf("Error creating Cloud client: %v", err1)
     return
   }
+  gctx := GoogleContext{client.Bucket(CLOUD_BUCKET_NAME), ctx, log}
   // TODO check that Bucket and Sheets service are ok to be used concurrently
-  app.Bucket = client.Bucket(CLOUD_BUCKET_NAME)
+  app.Save = func(objs ObjectsToSave) {
+    gctx.GoogleStorageSave(objs)
+  }
   app.SubmitCounter = NewAttemptCounter(REQUESTS_PER_PK_HOURLY)
-  sheetsService, err2 := sheets.NewService(app.Context, option.WithScopes(sheets.SpreadsheetsReadonlyScope))
+  sheetsService, err2 := sheets.NewService(ctx, option.WithScopes(sheets.SpreadsheetsReadonlyScope))
   if err2 != nil {
     log.Fatalf("Error creating Sheets service: %v", err2)
     return
