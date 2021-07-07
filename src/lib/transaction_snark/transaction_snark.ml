@@ -4054,13 +4054,17 @@ let%test_module "transaction_snark" =
             | [] ->
                 Checked.return ()
 
+          let%snarkydef distinct_public_keys x = distinct_public_keys x
+
           (* check a signature on msg against a public key *)
           let check_sig pk msg sigma : (Boolean.var, _) Checked.t =
             let%bind (module S) = Inner_curve.Checked.Shifted.create () in
             Schnorr.Checked.verifies (module S) sigma pk msg
 
           (* verify witness signatures against public keys *)
-          let verify_sigs pubkeys commitment witness =
+          let%snarkydef verify_sigs pubkeys commitment witness =
+            printf "reached line %s\n%!" __LOC__
+            |> fun () ->
             let%bind pubkeys =
               exists
                 (Typ.list ~length:(List.length pubkeys) Inner_curve.typ)
@@ -4074,11 +4078,17 @@ let%test_module "transaction_snark" =
             Checked.List.map witness ~f:verify_sig >>= Boolean.Assert.all
 
           let check_witness m pubkeys commitment witness =
+            printf "reached line %s\n%!" __LOC__
+            |> fun () ->
             if List.length witness <> m then
               failwith @@ "witness length must be exactly " ^ Int.to_string m
             else
               Base.dummy_constraints ()
               >>= fun () ->
+              printf "reached line %s\n%!" __LOC__
+              |> fun () ->
+              printf "reached line %s\n%!" __LOC__
+              |> fun () ->
               distinct_public_keys witness
               >>= fun () -> verify_sigs pubkeys commitment witness
 
@@ -4284,6 +4294,8 @@ let%test_module "transaction_snark" =
                           ; (sigma2_var, pk2_var) ]
                           |> Fn.flip List.drop not_signing
                         in
+                        printf "reached line %s\n%!" __LOC__
+                        |> fun () ->
                         M_of_n_predicate.check_witness 2 [pk0; pk1; pk2]
                           msg_var witness
                       in
@@ -4342,6 +4354,8 @@ let%test_module "transaction_snark" =
                                   in
                                   ()
                                 in
+                                printf "reached line %s\n%!" __LOC__
+                                |> fun () ->
                                 dummy_constraints ()
                                 |> fun () ->
                                 (* Unsatisfiable. *)
@@ -4454,10 +4468,14 @@ let%test_module "transaction_snark" =
                     | _ ->
                         respond Unhandled
                   in
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   let pi : Pickles.Side_loaded.Proof.t =
                     (fun () -> multisig_prover ~handler [] tx_statement)
                     |> Async.Thread_safe.block_on_async_exn
                   in
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   let parties : Parties.t =
                     { fee_payer
                     ; other_parties=
