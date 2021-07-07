@@ -15,32 +15,15 @@ connection_payout = psycopg2.connect(
     password=BaseConfig.POSTGRES_PAYOUT_PASSWORD
 )
 
-PAYOUT_SUMMARY_INFO = 'payout_summary_info.csv'
+PAYOUT_SUMMARY_INFO = 'payout_summary_info_'
 ERROR = 'Error: {0}'
 
-def get_payout_data(conn):
-    select_query = """select  provider_pub_key, winner_pub_key, blocks, payout_amount, payout_balance, 
-    last_delegation_epoch from payout_summary"""
-    cursor = conn.cursor()
-    try:
-        cursor.execute(select_query)
-    except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
-        cursor.close()
-        return 1
-
-    tuples = cursor.fetchall()
-    cursor.close()
-    column_names = ['provider_pub_key', 'winner_pub_key', 'blocks_produced', 'payout_amount', 'payout_balance',
-                    'last_delegation_epoch']
-    df = pd.DataFrame(tuples, columns=column_names)
-    return df
 
 
-def payout_summary_mail(epoch_no):
+def payout_summary_mail(payout_df, epoch_no):
     logger.info('sending payout summary mail to foundation account')
-    payout_summary_df = get_payout_data(connection_payout)
-    payout_summary_df.to_csv(PAYOUT_SUMMARY_INFO)
+    csv_name=PAYOUT_SUMMARY_INFO+str(epoch_no)+'.csv'
+    payout_df.to_csv(csv_name)
 
     message = Mail(from_email=BaseConfig.FROM_EMAIL,
                    to_emails=BaseConfig.PROVIDER_EMAIL,
@@ -48,13 +31,13 @@ def payout_summary_mail(epoch_no):
                    plain_text_content='Please find the attached list of payout summary details',
                    html_content='<p> Please find the attached list of payout summary details </p>')
 
-    with open(PAYOUT_SUMMARY_INFO, 'rb') as fd:
+    with open(csv_name, 'rb') as fd:
         data = fd.read()
         fd.close()
     b64data = base64.b64encode(data)
     attch_file = Attachment(
         FileContent(str(b64data, 'utf-8')),
-        FileName(PAYOUT_SUMMARY_INFO),
+        FileName(csv_name),
         FileType('application/csv'),
         Disposition('attachment')
     )

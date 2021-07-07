@@ -2,6 +2,7 @@ import pandas as pd
 from psycopg2 import extras
 import os
 import json
+import math
 from google.cloud import storage
 from payouts_config import BaseConfig
 import psycopg2
@@ -137,6 +138,9 @@ def insert_data(df, page_size=100):
         cursor.close()
     return result
 
+def truncate(number, digits=5) -> float:
+    stepper = 10.0 ** digits
+    return math.trunc(stepper * number) / stepper
 
 def calculate_payout(delegation_record_list, modified_staking_df, foundation_bpk, epoch_id):
     filter_stake_df = modified_staking_df[modified_staking_df['pk'] == foundation_bpk]
@@ -145,7 +149,7 @@ def calculate_payout(delegation_record_list, modified_staking_df, foundation_bpk
     delegation_df = modified_staking_df[modified_staking_df['delegate'] == delegate_bpk]
     # total stake
     total_stake = delegation_df['balance'].sum()
-    total_stake = round(total_stake, 5)
+    total_stake = truncate(total_stake, 5)
 
     delegation_record_dict = dict()
     delegation_record_dict['provider_pub_key'] = filter_stake_df['pk'].values[0]
@@ -176,10 +180,11 @@ def calculate_payout(delegation_record_list, modified_staking_df, foundation_bpk
     and epoch = %s
     GROUP BY pk.value;
     '''
-
+    # epoch_number starts with 0 in archive db
+    archive_epoch = int(epoch_id)-1
     cursor = connection_archive.cursor()
     try:
-        cursor.execute(query, (delegate_bpk, str(epoch_id)))
+        cursor.execute(query, (delegate_bpk, str(archive_epoch )))
         blocks_produced_list = cursor.fetchall()
     except (Exception, psycopg2.DatabaseError) as error:
         logger.error(ERROR.format(error))
@@ -217,6 +222,23 @@ def insert_into_audit_table(file_name):
         cursor.close()
         connection_payout.commit()
 
+def insert_into_staking_ledger(df, epoch_no):
+    df['epoch_number'] = pd.Series([epoch_no for x in range(len(df.index))])
+    tuples = [tuple(x) for x in df.to_numpy()]
+    insert_ledger_sql = """INSERT INTO staking_ledger (pk, balance, delegate, epoch_number) 
+        values(%s, %s, %s, %s ) """
+    try:
+        cursor = connection_payout.cursor()
+        extras.execute_batch(cursor, insert_ledger_sql, tuples, 100)
+        connection_payout.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        logger.error(ERROR.format(error))
+        connection_payout.rollback()
+        cursor.close()
+    finally:
+        cursor.close()
+        connection_payout.commit()
+
 
 def main(epoch_no, do_send_email):
     logger.info("in main {0}".format(epoch_no))
@@ -224,12 +246,11 @@ def main(epoch_no, do_send_email):
     # get staking json
     modified_staking_df, ledger_name = read_staking_json_for_epoch(epoch_no)
     # TODO : add condition if no file/dataframe found
-
+    #insert_into_staking_ledger(modified_staking_df, epoch_no)
     # get foundation account details
     if not modified_staking_df.empty:
         foundation_accounts_df = read_foundation_accounts()
         foundation_accounts_list = foundation_accounts_df['pk'].to_list()
-        logger.info('foundation accounts list {0}'.format(len(foundation_accounts_list)))
         i = 0
         delegate_record_df = pd.DataFrame()
         delegation_record_list = list()
@@ -237,6 +258,8 @@ def main(epoch_no, do_send_email):
             delegate_record_df = calculate_payout(delegation_record_list, modified_staking_df, accounts, epoch_no)
             i = i + 1
         result = insert_data(delegate_record_df)
+        csv_name='calculate_summary_'+epoch_no+'.csv'
+        delegate_record_df.to_csv(csv_name)
         if result == 0:
             insert_into_audit_table(ledger_name)
         logger.info('complete records for {0}'.format(i))

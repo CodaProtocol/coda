@@ -62,6 +62,13 @@ def read_staking_json(epoch_no):
     staking_file_prefix = "staking-" + str(epoch_no)
     blobs = storage_client.list_blobs(bucket, prefix=staking_file_prefix)
     # convert to string
+    file_dict_for_memory = dict()
+    for blob in blobs:
+        file_dict_for_memory[blob.name] = blob.updated
+
+    sorted_list = [k for k, v in sorted(file_dict_for_memory.items(), key=lambda p: p[1], reverse=False)]
+    recent_file = sorted_list[-1] 
+    blobs = storage_client.list_blobs(bucket, prefix=recent_file)
     for blob in blobs:
         logger.info(blob.name)
         json_data_string = blob.download_as_string()
@@ -185,6 +192,7 @@ def main(epoch_no, do_send_email):
     staking_df = read_staking_json(epoch_no=epoch_no)
     if not staking_df.empty:
         email_rows = []
+        payouts_rows = []
         for row in delegation_record_df.itertuples():
             pub_key = getattr(row, "provider_pub_key")
             payout_amount = getattr(row, "payout_amount")
@@ -203,6 +211,7 @@ def main(epoch_no, do_send_email):
                 filter_staking_df = staking_df.loc[staking_df['pk'] == pub_key, 'delegate']
                 winner_pub_key = filter_staking_df.iloc[0]
                 email_rows.append([pub_key, winner_pub_key, new_payout_balance])
+                payouts_rows.append([pub_key, winner_pub_key, total_pay_received, new_payout_balance])
                 winner_match = False
                 if delegate_pub_key == winner_pub_key:
                     winner_match = True
@@ -235,7 +244,8 @@ def main(epoch_no, do_send_email):
         if do_send_email:
             email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
             # second_mail(email_df, epoch_no)
-            payout_summary_mail(epoch_no)
+            payout_summary_df = pd.DataFrame(payouts_rows,columns=['provider_pub_key','winner_pub_key','total_pay_received','new_payout_balance'])
+            payout_summary_mail(payout_summary_df, epoch_no)
     else:
         logger.warning("Staking ledger not found for epoch number {0}".format(epoch_no))
         print(-1)
@@ -277,7 +287,7 @@ def initialize():
         logger.info(" calculation Audit found for {0}".format(last_epoch))
         count = 1
         while count <= last_epoch:
-            result = main(count, False)
+            result = main(count, True)
             count = count + 1
     return result
 

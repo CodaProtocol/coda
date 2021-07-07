@@ -27,14 +27,17 @@ connection_leaderboard = psycopg2.connect(
 def get_block_producer_mail(winner_bpk):
     mail_id_sql = """select block_producer_email from node_record_table where block_producer_key = %s"""
     cursor = connection_leaderboard.cursor()
+    rows_count = 0
     try:
-        cursor.execute(mail_id_sql, (winner_bpk,))
+        rows_count = cursor.execute(mail_id_sql, (winner_bpk,))
     except (Exception, psycopg2.DatabaseError) as error:
         logger.info("Error: {0} ".format(error))
         cursor.close()
         return 1
-    data = cursor.fetchall()
-    email = data[-1][-1]
+    email =''
+    if rows_count > 0:
+        data = cursor.fetchall()
+        email = data[-1][-1]
     if BaseConfig.OVERRIDE_EMAIL:
         email = BaseConfig.OVERRIDE_EMAIL
     return email
