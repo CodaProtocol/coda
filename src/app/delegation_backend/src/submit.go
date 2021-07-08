@@ -55,20 +55,33 @@ type App struct {
   SubmitCounter *AttemptCounter
   Whitelist *WhitelistMVar
   Save func(ObjectsToSave)
+  Now nowFunc
 }
 
 type SubmitH struct {
   app *App
 }
 
-func makeSignPayload (req *submitRequestData) (*BlockHash, []byte, error) {
-  blockHash := new(BlockHash)
-  blockHash.data = blake2b.Sum256(req.Block.data)
-  blockHash.str = base58.CheckEncode(blockHash.data[:], BASE58CHECK_VERSION_BLOCK_HASH)
+type Paths struct {
+  metaPath string
+  blockPath string
+}
+
+func makePaths (req *submitRequest) (res Paths) {
+  blockHashBytes := blake2b.Sum256(req.Data.Block.data)
+  blockHash := base58.CheckEncode(blockHashBytes[:], BASE58CHECK_VERSION_BLOCK_HASH)
+  createdAtStr := req.Data.CreatedAt.UTC().Format(time.RFC3339)
+  pkStr := base58.CheckEncode(req.Submitter[:], BASE58CHECK_VERSION_PK)
+  res.metaPath = strings.Join([]string{"submissions", pkStr, blockHash, createdAtStr + ".json"}, "/")
+  res.blockPath = "blocks/" + blockHash + ".dat"
+  return
+}
+
+func makeSignPayload (req *submitRequestData) ([]byte, error) {
   createdAtStr := req.CreatedAt.UTC().Format(time.RFC3339)
   createdAtJson, err2 := json.Marshal(createdAtStr)
   if err2 != nil {
-    return blockHash, nil, err2
+    return nil, err2
   }
   signPayload := new(BufferOrError)
   signPayload.WriteString("{\"block\":")
@@ -82,8 +95,13 @@ func makeSignPayload (req *submitRequestData) (*BlockHash, []byte, error) {
     signPayload.Write(req.SnarkWork.json)
   }
   signPayload.WriteString("}")
-  return blockHash, signPayload.Buf.Bytes(), signPayload.Err
+  return signPayload.Buf.Bytes(), signPayload.Err
 }
+
+// TODO consider using pointers and doing `== nil` comparison
+var nilSig Sig
+var nilPk Pk
+var nilTime time.Time
 
 func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   if (r.ContentLength == -1) {
@@ -94,10 +112,10 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
   body, err1 := io.ReadAll(io.LimitReader(r.Body, r.ContentLength))
-  if (err1 != nil) {
+  if (err1 != nil || int64(len(body)) != r.ContentLength) {
     h.app.Log.Debugf("Error while reading /submit request's body: %v", err1)
     w.WriteHeader(400)
-    writeErrorResponse(h.app, &w, "Unexpected EOF while reading the body")
+    writeErrorResponse(h.app, &w, "Error reading the body")
     return
   }
   var req submitRequest
@@ -105,6 +123,12 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     h.app.Log.Debugf("Error while unmarshaling JSON of /submit request's body: %v", err)
     w.WriteHeader(400)
     writeErrorResponse(h.app, &w, "Wrong payload")
+    return
+  }
+  if req.Data.Block == nil || req.Data.PeerId == nil || req.Data.CreatedAt == nilTime || req.Submitter == nilPk || req.Sig == nilSig {
+    h.app.Log.Debug("One of required fields wasn't provided")
+    w.WriteHeader(400)
+    writeErrorResponse(h.app, &w, "One of required fields wasn't provided")
     return
   }
 
@@ -122,20 +146,14 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  submittedAt := time.Now()
+  submittedAt := h.app.Now()
   if req.Data.CreatedAt.Add(TIME_DIFF_DELTA).After(submittedAt) {
     h.app.Log.Debugf("Field created_at is a timestamp in future: %v", submittedAt)
     w.WriteHeader(400)
     writeErrorResponse(h.app, &w, "Field created_at is a timestamp in future")
     return
   }
-  if req.Data.Block == nil || req.Data.PeerId == nil {
-    h.app.Log.Debug("One of required fields wasn't provided")
-    w.WriteHeader(400)
-    writeErrorResponse(h.app, &w, "One of required fields wasn't provided")
-    return
-  }
-  blockHash, payload, err := makeSignPayload(&req.Data)
+  payload, err := makeSignPayload(&req.Data)
   if err != nil {
     h.app.Log.Errorf("Error while unmarshaling JSON of /submit request's body: %v", err)
     w.WriteHeader(500)
@@ -144,8 +162,6 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
   }
   h.app.Log.Debugf("Prepared signing payload: %v", string(payload))
   // TODO check signatures
-  pkStr := base58.CheckEncode(req.Submitter[:], BASE58CHECK_VERSION_PK)
-  createdAtStr := req.Data.CreatedAt.Format(time.RFC3339)
 
   var meta metaToBeSaved
   meta.SubmittedAt = submittedAt
@@ -161,12 +177,11 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  metaPath := strings.Join([]string{"submissions", pkStr, blockHash.str, createdAtStr + ".json"}, "/")
-  blockPath := "blocks/" + blockHash.str + ".dat"
+  ps := makePaths(&req)
 
   toSave := make(ObjectsToSave)
-  toSave[metaPath] = metaBytes
-  toSave[blockPath] = req.Data.Block.data
+  toSave[ps.metaPath] = metaBytes
+  toSave[ps.blockPath] = req.Data.Block.data
   h.app.Save(toSave)
 
   _, err2 := io.Copy(w, bytes.NewReader([]byte("{\"status\":\"ok\"}")))

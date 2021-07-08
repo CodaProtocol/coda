@@ -4,7 +4,6 @@ import (
   "fmt"
   "errors"
   "bytes"
-  "golang.org/x/crypto/blake2b"
   "time"
   "encoding/json"
   "github.com/btcsuite/btcutil/base58"
@@ -38,6 +37,9 @@ func (d *Sig) UnmarshalJSON (b []byte) error {
   }
   return err
 }
+func (d Sig) MarshalJSON() ([]byte, error) {
+  return json.Marshal(base58.CheckEncode(d[:], BASE58CHECK_VERSION_SIG))
+}
 
 type Pk [PK_LENGTH]byte
 func (d *Pk) UnmarshalJSON (b []byte) error {
@@ -50,6 +52,9 @@ func (d *Pk) UnmarshalJSON (b []byte) error {
     }
   }
   return err
+}
+func (d Pk) MarshalJSON() ([]byte, error) {
+  return json.Marshal(base58.CheckEncode(d[:], BASE58CHECK_VERSION_PK))
 }
 func (pk Pk) Format() string {
   return pk.String()
@@ -76,11 +81,6 @@ func (d *Base64) UnmarshalJSON (b []byte) error {
 }
 func (d *Base64) MarshalJSON() ([]byte, error) {
   return d.json, nil
-}
-
-type BlockHash struct {
-  data [blake2b.Size256]byte
-  str string
 }
 
 type BufferOrError struct {
