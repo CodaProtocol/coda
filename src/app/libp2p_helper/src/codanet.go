@@ -253,6 +253,7 @@ type MessageStats struct {
 	sync.RWMutex
 }
 
+// UpdateMetrics accepts a `val` which is the size of a network message
 func (ms *MessageStats) UpdateMetrics(val uint64) {
 	ms.Lock()
 	defer ms.Unlock()

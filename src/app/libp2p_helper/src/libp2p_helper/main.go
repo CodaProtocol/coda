@@ -450,8 +450,9 @@ func (m *listeningAddrsMsg) run(app *app) (interface{}, error) {
 }
 
 type publishMsg struct {
-	Topic string `json:"topic"`
-	Data  string `json:"data"`
+	Topic       string `json:"topic"`
+	Data        string `json:"data"`
+	MessageType byte   `json:"type"`
 }
 
 func (t *publishMsg) run(app *app) (interface{}, error) {
@@ -466,6 +467,8 @@ func (t *publishMsg) run(app *app) (interface{}, error) {
 	if err != nil {
 		return nil, badRPC(err)
 	}
+
+	data = append([]byte{t.MessageType}, data...)
 
 	var topic *pubsub.Topic
 	var has bool
@@ -556,13 +559,16 @@ func (s *subscribeMsg) run(app *app) (interface{}, error) {
 			return pubsub.ValidationIgnore
 		}
 
+		msgType := msg.Data[0]
+
 		app.writeMsg(validateUpcall{
-			Sender:     sender,
-			Expiration: deadline.UnixNano(),
-			Data:       codaEncode(msg.Data),
-			Seqno:      seqno,
-			Upcall:     "validate",
-			Idx:        s.Subscription,
+			Sender:       sender,
+			Expiration:   deadline.UnixNano(),
+			Data:         codaEncode(msg.Data[1:]),
+			Seqno:        seqno,
+			Upcall:       "validate",
+			Idx:          s.Subscription,
+			MessageType:  msgType,
 		})
 
 		// Wait for the validation response, but be sure to honor any timeout/deadline in ctx
@@ -654,12 +660,13 @@ func (u *unsubscribeMsg) run(app *app) (interface{}, error) {
 }
 
 type validateUpcall struct {
-	Sender     *codaPeerInfo `json:"sender"`
-	Expiration int64         `json:"expiration"`
-	Data       string        `json:"data"`
-	Seqno      int           `json:"seqno"`
-	Upcall     string        `json:"upcall"`
-	Idx        int           `json:"subscription_idx"`
+	Sender      *codaPeerInfo `json:"sender"`
+	Expiration  int64         `json:"expiration"`
+	Data        string        `json:"data"`
+	Seqno       int           `json:"seqno"`
+	Upcall      string        `json:"upcall"`
+	Idx         int           `json:"subscription_idx"`
+	MessageType byte          `json:"type"`
 }
 
 type validationCompleteMsg struct {
@@ -731,6 +738,10 @@ type incomingMsgUpcall struct {
 	Upcall    string `json:"upcall"`
 	StreamIdx int    `json:"stream_idx"`
 	Data      string `json:"data"`
+  // Seems like it is not necessary to send as
+  // OCaml can demarschal the message and determine
+  // it's type automatically
+	// MessageType      byte   `json:"type"`
 }
 
 func handleStreamReads(app *app, stream net.Stream, idx int) {
@@ -771,7 +782,7 @@ func handleStreamReads(app *app, stream net.Stream, idx int) {
 				app.writeMsg(streamLostUpcall{
 					Upcall:    "streamLost",
 					StreamIdx: idx,
-					Reason:    "invalid length prefix byte (cannot be 0)",
+					Reason:    "invalid length prefix (cannot be 0)",
 				})
 				return
 			}
@@ -793,6 +804,18 @@ func handleStreamReads(app *app, stream net.Stream, idx int) {
 
 			app.P2p.MsgStats.UpdateMetrics(length)
 
+			msgType, err := r.ReadByte()
+			// Ocaml process is able to determine the message type
+			// by the message itself
+			_ = msgType
+			if err != nil {
+				app.writeMsg(streamLostUpcall{
+					Upcall:    "streamLost",
+					StreamIdx: idx,
+					Reason:    "failed to read message type prefix",
+				})
+			}
+
 			bytesToRead := length
 			for bytesToRead > 0 {
 				bufferReadSize := min(MESSAGE_BUFFER_SIZE, bytesToRead)
@@ -812,6 +835,7 @@ func handleStreamReads(app *app, stream net.Stream, idx int) {
 					Upcall:    "incomingStreamMsg",
 					Data:      codaEncode(buffer[:bufferReadSize]),
 					StreamIdx: idx,
+					// MessageType: msgType,
 				})
 			}
 		}
@@ -912,8 +936,9 @@ func (cs *resetStreamMsg) run(app *app) (interface{}, error) {
 }
 
 type sendStreamMsgMsg struct {
-	StreamIdx int    `json:"stream_idx"`
-	Data      string `json:"data"`
+	StreamIdx   int    `json:"stream_idx"`
+	MessageType byte   `json:"type"`
+	Data        string `json:"data"`
 }
 
 func (cs *sendStreamMsgMsg) run(app *app) (interface{}, error) {
@@ -924,6 +949,8 @@ func (cs *sendStreamMsgMsg) run(app *app) (interface{}, error) {
 	if err != nil {
 		return nil, badRPC(err)
 	}
+
+	data = append([]byte{cs.MessageType}, data...)
 
 	app.StreamsMutex.Lock()
 	defer app.StreamsMutex.Unlock()

@@ -27,6 +27,14 @@ The short version:
       you need to [set up SSH keys on your machine](https://help.github.com/en/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
 4.  Run `git config --local --add submodule.recurse true`
 
+### Developer Setup (NixOS/nix)
+
+When using nix package manager, run `scripts/nixos-setup.sh` script to install all of the dependencies.
+
+This script was tested on channel `20.03` but should work well on newer channels too.
+
+Troubleshooting tip: to remove everything and build from scratch, use `rm -Rf ~/.opam _build`.
+
 ### Developer Setup (MacOS)
 
 - Invoke `make macos-setup`

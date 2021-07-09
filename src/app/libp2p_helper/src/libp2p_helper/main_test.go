@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"codanet"
+
 	logging "github.com/ipfs/go-log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -966,7 +967,7 @@ func waitForMessage(t *testing.T, app *app, expectedMessageSize int) []byte {
 
 		upcall, ok := result["upcall"]
 		require.True(t, ok)
-		require.Equal(t, upcall, "incomingStreamMsg")
+		require.Equal(t, "incomingStreamMsg", upcall)
 
 		data, ok := result["data"]
 		require.True(t, ok)

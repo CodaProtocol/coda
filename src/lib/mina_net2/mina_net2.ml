@@ -364,7 +364,11 @@ module Helper = struct
     end
 
     module Send_stream_msg = struct
-      type input = { stream_idx : int; data : string } [@@deriving yojson]
+      type input =
+        { stream_idx : int
+        ; data : string
+        ; msgType : MsgType.t [@key "type"]
+        } [@@deriving yojson]
 
       type output = string [@@deriving yojson]
 
@@ -399,7 +403,11 @@ module Helper = struct
     end
 
     module Publish = struct
-      type input = { topic : string; data : Data.t } [@@deriving yojson]
+      type input =
+        { topic : string
+        ; data : Data.t
+        ; msgType : MsgType.t [@key "type"]
+        } [@@deriving yojson]
 
       type output = string [@@deriving yojson]
 
@@ -763,10 +771,11 @@ module Helper = struct
     let outgoing_loop () =
       let%bind () =
         Pipe.iter outgoing_r ~f:(fun msg ->
+            let msgType = getType msg in
             match%map
               do_rpc net
                 (module Rpcs.Send_stream_msg)
-                { stream_idx = idx; data = to_b64_data msg }
+                { stream_idx = idx; data = to_b64_data msg; msgType }
             with
             | Ok "sendStreamMsg success" ->
                 ()
@@ -842,6 +851,7 @@ module Helper = struct
         ; seqno : int
         ; upcall : string
         ; subscription_idx : int
+        ; msgType : MsgType.t [@key "type"]
         }
       [@@deriving yojson]
     end
@@ -991,8 +1001,8 @@ module Helper = struct
             let raw_data = Data.to_string m.data in
             let decoded = sub.decode raw_data in
             let%bind action_opt =
-              match decoded with
-              | Ok data ->
+              match decoded, msgTypeEquals m.msgType (getType decoded) with
+              | Ok data, true ->
                   let expiration_time =
                     Int63.of_int64_exn m.expiration
                     |> Time_ns.Span.of_int63_ns |> Time_ns.of_span_since_epoch
@@ -1004,7 +1014,9 @@ module Helper = struct
                     sub.validator (wrap m.sender data) validation_callback
                   in
                   Validation_callback.await validation_callback
-              | Error e ->
+              | _, false ->
+                  return (Some `Reject)
+              | Error e, _ ->
                   ( match sub.on_decode_failure with
                   | `Ignore ->
                       ()
@@ -1245,11 +1257,11 @@ end
 type discovered_peer = { id : Peer.Id.t; maddrs : Multiaddr.t list }
 
 module Pubsub = struct
-  let publish net ~topic ~data =
+  let publish net ~topic ~data ~msgType =
     match%map
       Helper.do_rpc net
         (module Helper.Rpcs.Publish)
-        { topic; data = Helper.Data.pack_data data }
+        { topic; data = Helper.Data.pack_data data; msgType }
     with
     | Ok "publish success" ->
         ()
@@ -1282,7 +1294,7 @@ module Pubsub = struct
       }
 
     let publish { net; topic; encode; _ } message =
-      publish net ~topic ~data:(encode message)
+      publish net ~topic ~data:(encode message) ~msgType:(getType message)
 
     let unsubscribe ({ net; idx; write_pipe; _ } as t) =
       if not t.closed then (
