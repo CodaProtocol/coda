@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 commit_id_short=$(git rev-parse --short=8 --verify HEAD)

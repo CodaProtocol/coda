@@ -3,19 +3,18 @@ open Ocamlbuild_pack;;
 
 let ctypes_libdir = Sys.getenv "CTYPES_LIB_DIR" in
 let ocaml_libdir = Sys.getenv "OCAML_LIB_DIR" in
+let nix_sodium_ldflags = Sys.getenv "NIX_SODIUM_LDFLAGS" in
 let lsodium =
   let cwd = Unix.getcwd () in
   let uname_chan = Unix.open_process_in "uname" in
   let l = input_line uname_chan in
+  let nix =
+        if String.length nix_sodium_ldflags = 0 then []
+        else [ A "-cclib"; A nix_sodium_ldflags ] in
+  let res = List.append nix [ A "-cclib"; A "-lsodium" ] in
   match l with
-  | "Darwin" -> [A "-cclib"; A "-lsodium"]
-  | "Linux" ->
-      [ A "-cclib"
-      ; A "-Wl,--push-state,-Bstatic"
-      ; A "-cclib"
-      ; A "-lsodium"
-      ; A "-cclib"
-      ; A "-Wl,--pop-state" ]
+  | "Darwin" -> res
+  | "Linux" -> res
   | s -> failwith (Printf.sprintf "don't know how to link on %s yet" s)
 in
 dispatch begin
