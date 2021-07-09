@@ -1922,12 +1922,16 @@ module Base = struct
     let main ?(witness : Witness.t option) (spec : Spec.t)
         ~constraint_constants snapp_statements
         (statement : Statement.With_sok.Checked.t) =
+      printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       let open Impl in
       let ( ! ) x = Option.value_exn x in
       let state_body =
         exists (Mina_state.Protocol_state.Body.typ ~constraint_constants)
           ~compute:(fun () -> !witness.state_body)
       in
+      printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       let module V = Prover_value in
       (* TODO: Must check the state_body against the pending coinbase stack somehow. *)
       let init : Global_state.t * _ Parties_logic.Local_state.t =
@@ -1955,10 +1959,16 @@ module Base = struct
         in
         (g, l)
       in
+      printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       let start_parties =
         As_prover.Ref.create (fun () -> !witness.start_parties)
       in
+      printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       let (global, local), snapp_statements =
+        printf "statements length %d\n%!" @@ List.length snapp_statements
+        |> fun () ->
         List.fold_left spec ~init:(init, snapp_statements)
           ~f:(fun (((_, local) as acc), statements) party_spec ->
             let snapp_statement, statements =
@@ -1966,12 +1976,17 @@ module Base = struct
               | Signature | None_given ->
                   (None, statements)
               | Proof -> (
-                match statements with
-                | [] ->
-                    assert false
-                | s :: ss ->
-                    (Some s, ss) )
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
+                  match statements with
+                  | [] ->
+                      printf "reached line %s\n%!" __LOC__
+                      |> fun () -> assert false
+                  | s :: ss ->
+                      (Some s, ss) )
             in
+            printf "reached line %s\n%!" __LOC__
+            |> fun () ->
             let module S = Single (struct
               let constraint_constants = constraint_constants
 
@@ -1979,7 +1994,11 @@ module Base = struct
 
               let snapp_statement = snapp_statement
             end) in
+            printf "reached line %s\n%!" __LOC__
+            |> fun () ->
             let finish v =
+              printf "reached line %s\n%!" __LOC__
+              |> fun () ->
               let open Parties_logic.Start_data in
               let will_succeed =
                 exists Boolean.typ ~compute:(fun () ->
@@ -1989,6 +2008,8 @@ module Base = struct
                     | `Start p ->
                         p.will_succeed )
               in
+              printf "reached line %s\n%!" __LOC__
+              |> fun () ->
               let ps =
                 V.map v ~f:(function
                   | `Skip ->
@@ -1996,6 +2017,8 @@ module Base = struct
                   | `Start p ->
                       Parties.With_hashes.create p.parties )
               in
+              printf "reached line %s\n%!" __LOC__
+              |> fun () ->
               let h =
                 exists Field.typ ~compute:(fun () ->
                     match V.get ps with
@@ -2004,6 +2027,8 @@ module Base = struct
                     | (_, h) :: _ ->
                         h )
               in
+              printf "reached line %s\n%!" __LOC__
+              |> fun () ->
               let start_data =
                 { Parties_logic.Start_data.parties= (h, ps)
                 ; will_succeed
@@ -2016,6 +2041,8 @@ module Base = struct
                         | `Start p ->
                             p.protocol_state_predicate ) }
               in
+              printf "reached line %s\n%!" __LOC__
+              |> fun () ->
               S.apply
                 ~is_start:
                   ( match party_spec.is_start with
@@ -2028,11 +2055,16 @@ module Base = struct
                 S.{perform}
                 acc
             in
+            printf "reached line %s\n%!" __LOC__
+            |> fun () ->
             let acc' =
               match party_spec.is_start with
               | `No ->
-                  S.apply ~is_start:`No S.{perform} acc
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () -> S.apply ~is_start:`No S.{perform} acc
               | `Compute_in_circuit ->
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   V.create (fun () ->
                       match As_prover.Ref.get start_parties with
                       | [] ->
@@ -2048,23 +2080,34 @@ module Base = struct
                           else `Skip )
                   |> finish
               | `Yes ->
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   as_prover
                     As_prover.(
                       fun () ->
                         [%test_eq: Impl.Field.Constant.t]
                           Parties.With_hashes.empty
                           (read_var (fst local.parties))) ;
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   V.create (fun () ->
                       match As_prover.Ref.get start_parties with
                       | [] ->
-                          assert false
+                          printf "reached line %s\n%!" __LOC__
+                          |> fun () -> assert false
                       | p :: ps ->
+                          printf "reached line %s\n%!" __LOC__
+                          |> fun () ->
                           As_prover.Ref.set start_parties ps ;
                           `Start p )
-                  |> finish
+                  |> fun v ->
+                  printf "reached line %s\n%!" __LOC__ |> fun () -> v |> finish
             in
-            (acc', statements) )
+            printf "reached line %s\n%!" __LOC__ |> fun () -> (acc', statements)
+        )
       in
+      printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       assert (List.is_empty snapp_statements) ;
       with_label __LOC__ (fun () ->
           Local_state.Checked.assert_equal statement.target.local_state
@@ -4482,6 +4525,8 @@ let%test_module "transaction_snark" =
                         [{data= snapp_party_data; authorization= Proof pi}]
                     ; protocol_state }
                   in
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   let w : Parties_segment.Witness.t =
                     { global_ledger=
                         Sparse_ledger.of_ledger_subset_exn ledger
@@ -4500,6 +4545,8 @@ let%test_module "transaction_snark" =
                           ; parties } ]
                     ; state_body }
                   in
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   let _, (local_state_post, excess) =
                     Ledger.apply_parties_unchecked ledger ~constraint_constants
                       ~state_view:
@@ -4507,6 +4554,8 @@ let%test_module "transaction_snark" =
                       parties
                     |> Or_error.ok_exn
                   in
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   let statement : Statement.With_sok.t =
                     { source=
                         { ledger= Sparse_ledger.merkle_root w.global_ledger
@@ -4549,6 +4598,8 @@ let%test_module "transaction_snark" =
                         ; fee_excess_r= Fee.Signed.zero }
                     ; sok_digest= Sok_message.Digest.default }
                   in
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   let open Impl in
                   run_and_check
                     (fun () ->
@@ -4556,6 +4607,8 @@ let%test_module "transaction_snark" =
                         exists Statement.With_sok.typ ~compute:(fun () ->
                             statement )
                       in
+                      printf "reached line %s\n%!" __LOC__
+                      |> fun () ->
                       Base.Parties_snark.main ~constraint_constants
                         [ { predicate_type= `Nonce_or_accept
                           ; auth_type= Signature

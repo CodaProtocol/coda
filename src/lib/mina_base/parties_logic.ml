@@ -252,6 +252,8 @@ module Make (Inputs : Inputs_intf) = struct
     let open Inputs in
     let is_start' =
       let is_start' = Ps.is_empty local_state.parties in
+      Printf.printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       ( match is_start with
       | `Compute _ ->
           ()
@@ -259,6 +261,8 @@ module Make (Inputs : Inputs_intf) = struct
           Bool.assert_ is_start'
       | `No ->
           Bool.assert_ (Bool.not is_start') ) ;
+      Printf.printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       match is_start with
       | `Yes _ ->
           Bool.true_
@@ -267,6 +271,8 @@ module Make (Inputs : Inputs_intf) = struct
       | `Compute _ ->
           is_start'
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let local_state =
       { local_state with
         ledger=
@@ -274,6 +280,8 @@ module Make (Inputs : Inputs_intf) = struct
             ~then_:(h.perform (Get_global_ledger global_state))
             ~else_:local_state.ledger }
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let protocol_state_predicate_satisfied =
       match is_start with
       | `Yes start_data | `Compute start_data ->
@@ -283,6 +291,8 @@ module Make (Inputs : Inputs_intf) = struct
       | `No ->
           Bool.true_
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let (party, remaining), at_party, local_state =
       let to_pop =
         match is_start with
@@ -294,7 +304,11 @@ module Make (Inputs : Inputs_intf) = struct
         | `No ->
             local_state.parties
       in
+      Printf.printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       let party, remaining = Ps.pop to_pop in
+      Printf.printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       let transaction_commitment =
         match is_start with
         | `No ->
@@ -311,6 +325,8 @@ module Make (Inputs : Inputs_intf) = struct
             Transaction_commitment.if_ is_start' ~then_:on_start
               ~else_:local_state.transaction_commitment
       in
+      Printf.printf "reached line %s\n%!" __LOC__
+      |> fun () ->
       let local_state =
         { local_state with
           transaction_commitment
@@ -318,8 +334,11 @@ module Make (Inputs : Inputs_intf) = struct
             Token_id.if_ is_start' ~then_:Token_id.default
               ~else_:local_state.token_id }
       in
-      ((party, remaining), to_pop, local_state)
+      Printf.printf "reached line %s\n%!" __LOC__
+      |> fun () -> ((party, remaining), to_pop, local_state)
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let local_state =
       { local_state with
         parties= remaining
@@ -333,13 +352,19 @@ module Make (Inputs : Inputs_intf) = struct
               Bool.if_ is_start' ~then_:start_data.will_succeed
                 ~else_:local_state.will_succeed ) }
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let a, inclusion_proof =
       h.perform (Get_account (party, local_state.ledger))
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     h.perform (Check_inclusion (local_state.ledger, a, inclusion_proof)) ;
     let predicate_satisfied : Bool.t =
       h.perform (Check_predicate (is_start', party, a, global_state))
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let a', update_permitted =
       h.perform
         (Check_auth_and_update_account
@@ -351,22 +376,43 @@ module Make (Inputs : Inputs_intf) = struct
            ; transaction_commitment= local_state.transaction_commitment
            ; inclusion_proof })
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let party_succeeded =
       Bool.(
         protocol_state_predicate_satisfied &&& predicate_satisfied
         &&& update_permitted)
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     (* The first party must succeed. *)
+    (*
     Bool.(assert_ ((not is_start') ||| party_succeeded)) ;
+    *)
+    let bb = Bool.((not is_start') ||| party_succeeded) in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
+    Bool.(if_ (not bb) ~then_:update_permitted ~else_:true_ |> assert_)
+    |> fun () ->
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
+    Bool.(assert_ ((not is_start') ||| party_succeeded))
+    |> fun () ->
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let local_state =
       { local_state with
         success= Bool.( &&& ) local_state.success party_succeeded }
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let local_delta =
       (* TODO: This is wasteful as it repeats a computation performed inside
          the account update. *)
       Amount.(h.perform (Balance a) - h.perform (Balance a'))
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let party_token = h.perform (Party_token_id party) in
     Bool.(assert_ (not (Token_id.(equal invalid) party_token))) ;
     let fee_excess_change0, new_local_fee_excess =
@@ -390,6 +436,8 @@ module Make (Inputs : Inputs_intf) = struct
       in
       (to_merge_amount, new_local)
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let local_state = {local_state with excess= new_local_fee_excess} in
     let global_state =
       (* TODO: Maybe overflows should be possible and cause a transaction failure? *)
@@ -410,6 +458,8 @@ module Make (Inputs : Inputs_intf) = struct
       h.perform
         (Set_account_if (should_apply, local_state.ledger, a', inclusion_proof))
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let is_last_party = Ps.is_empty remaining in
     let local_state =
       { local_state with
@@ -444,6 +494,8 @@ module Make (Inputs : Inputs_intf) = struct
             Amount.if_ is_last_party ~then_:Amount.zero
               ~else_:local_state.excess } )
     in
+    Printf.printf "reached line %s\n%!" __LOC__
+    |> fun () ->
     let global_state =
       h.perform
         (Modify_global_ledger
