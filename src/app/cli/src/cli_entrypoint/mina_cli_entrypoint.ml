@@ -892,23 +892,26 @@ let setup_daemon logger =
         >>| Or_error.ok
       in
       let client_trustlist =
-        match Unix.getenv "CODA_CLIENT_TRUSTLIST" with
-        | Some envstr ->
-            let cidrs =
-              String.split ~on:',' envstr
-              |> List.filter_map ~f:(fun str ->
-                     try Some (Unix.Cidr.of_string str)
-                     with _ ->
-                       [%log warn]
-                         "Could not parse address $address in \
-                          CODA_CLIENT_TRUSTLIST"
-                         ~metadata:[("address", `String str)] ;
-                       None )
-            in
-            Some
-              (List.append cidrs (Option.value ~default:[] client_trustlist))
+        let mina_client_trustlist = "MINA_CLIENT_TRUSTLIST" in
+        let cidrs_of_env_str env_str env_var =
+          let cidrs =
+            String.split ~on:',' env_str
+            |> List.filter_map ~f:(fun str ->
+                try Some (Unix.Cidr.of_string str)
+                with _ ->
+                  [%log warn]
+                    "Could not parse address $address in \
+                     %s" env_var
+                    ~metadata:[("address", `String str)] ;
+                  None )
+          in
+          Some
+            (List.append cidrs (Option.value ~default:[] client_trustlist))
+        in
+        match Unix.getenv mina_client_trustlist with
+        | Some env_str -> cidrs_of_env_str env_str mina_client_trustlist
         | None ->
-            client_trustlist
+          client_trustlist
       in
       Stream.iter
         (Async_kernel.Async_kernel_scheduler.long_cycles_with_context
