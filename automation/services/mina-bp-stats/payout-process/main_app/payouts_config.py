@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 
 
 class BaseConfig(object):
@@ -8,36 +9,36 @@ class BaseConfig(object):
     LOGGING_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     LOGGING_LEVEL = logging.WARN
     LOGGING_LOCATION = 'minanet.log'
-    POSTGRES_ARCHIVE_HOST = '172.31.21.48'
-    POSTGRES_ARCHIVE_PORT = 5432
-    POSTGRES_ARCHIVE_USER = 'minanetuser'
-    POSTGRES_ARCHIVE_PASSWORD = 'minanetuser'
-    POSTGRES_ARCHIVE_DB = 'archive'
+    POSTGRES_ARCHIVE_HOST = str(os.environ['POSTGRES_ARCHIVE_HOST']).strip()
+    POSTGRES_ARCHIVE_PORT = int(os.environ['POSTGRES_ARCHIVE_PORT'])
+    POSTGRES_ARCHIVE_USER = str(os.environ['POSTGRES_ARCHIVE_USER']).strip()
+    POSTGRES_ARCHIVE_PASSWORD = str(os.environ['POSTGRES_ARCHIVE_PASSWORD']).strip()
+    POSTGRES_ARCHIVE_DB = str(os.environ['POSTGRES_ARCHIVE_DB']).strip()
 
-    POSTGRES_PAYOUT_HOST = '172.31.21.48'
-    POSTGRES_PAYOUT_PORT = 5432
-    POSTGRES_PAYOUT_USER = 'minanetuser'
-    POSTGRES_PAYOUT_PASSWORD = 'minanetuser'
-    POSTGRES_PAYOUT_DB = 'minanet_payout'
+    POSTGRES_PAYOUT_HOST = str(os.environ['POSTGRES_PAYOUT_HOST']).strip()
+    POSTGRES_PAYOUT_PORT = int(os.environ['POSTGRES_PAYOUT_PORT'])
+    POSTGRES_PAYOUT_USER = str(os.environ['POSTGRES_PAYOUT_USER']).strip()
+    POSTGRES_PAYOUT_PASSWORD = str(os.environ['POSTGRES_PAYOUT_PASSWORD']).strip()
+    POSTGRES_PAYOUT_DB = str(os.environ['POSTGRES_PAYOUT_DB']).strip()
 
-    POSTGRES_LEADERBOARD_HOST = '172.31.21.48'
-    POSTGRES_LEADERBOARD_PORT = 5432
-    POSTGRES_LEADERBOARD_USER = 'minanetuser'
-    POSTGRES_LEADERBOARD_PASSWORD = 'minanetuser'
-    POSTGRES_LEADERBOARD_DB = 'minanetdb'
-    COINBASE = 720
-    SLOT_WINDOW_VALUE = 3500
-    CREDENTIAL_PATH = 'mina-mainnet-303900-45050a0ba37b.json'
-    API_KEY = ''
-    GCS_BUCKET_NAME = 'mina-staking-ledgers'
-    FROM_EMAIL = 'umesh@ontab.com'
-    OVERRIDE_EMAIL='umesh@ontab.com'
-    PROVIDER_EMAIL = ['umesh@ontab.com']
-    TO_EMAILS = ['umesh@ontab.com']
+    POSTGRES_LEADERBOARD_HOST = str(os.environ['POSTGRES_LEADERBOARD_HOST']).strip()
+    POSTGRES_LEADERBOARD_PORT = int(os.environ['POSTGRES_LEADERBOARD_PORT'])
+    POSTGRES_LEADERBOARD_USER = str(os.environ['POSTGRES_LEADERBOARD_USER']).strip()
+    POSTGRES_LEADERBOARD_PASSWORD = str(os.environ['POSTGRES_LEADERBOARD_PASSWORD']).strip()
+    POSTGRES_LEADERBOARD_DB = str(os.environ['POSTGRES_LEADERBOARD_DB']).strip()
+
+    COINBASE = int(os.environ['COINBASE'])
+    SLOT_WINDOW_VALUE = int(os.environ['SLOT_WINDOW_VALUE'])
+    CREDENTIAL_PATH = str(os.environ['CREDENTIAL_PATH']).strip()
+    API_KEY = str(os.environ['API_KEY']).strip()
+    OVERRIDE_EMAIL = os.environ['OVERRIDE_EMAIL']
+    GCS_BUCKET_NAME = str(os.environ['GCS_BUCKET_NAME']).strip()
+    FROM_EMAIL = str(os.environ['FROM_EMAIL'])
+    PROVIDER_EMAIL = os.environ['PROVIDER_EMAIL'].split(',')
+    TO_EMAILS = os.environ['TO_EMAILS'].split(',')
     SUBJECT = 'LeaderBoard Stats As of{0}'.format(datetime.datetime.utcnow())
     PLAIN_TEXT = 'Report for Leaderboard as of {0}'.format(datetime.datetime.utcnow())
-    SENDGRID_API_KEY = ''
+    SENDGRID_API_KEY = str(os.environ['SENDGRID_API_KEY']).strip()
     SPREADSHEET_SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     SPREADSHEET_NAME = 'Mina Foundation Delegation Application (Responses)'
-    DELEGATION_ADDRESSS_CSV='O1_Labs_addresses_1.csv'
     GENESIS_DATE = datetime.datetime(2021, 3, 17)
