@@ -32,7 +32,7 @@ let cache =
   ]
 
 let env_path =
-  match Sys.getenv "CODA_KEYS_PATH" with
+  match Sys.getenv "MINA_KEYS_PATH" with
   | Some path ->
       path
   | None ->
