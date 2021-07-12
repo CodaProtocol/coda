@@ -4438,18 +4438,31 @@ let%test_module "transaction_snark" =
                    let a = Ledger.get ledger loc |> Option.value_exn in
                    Ledger.set ledger loc
                      { a with
-                       snapp=
+                       permissions= Permissions.empty
+                     ; snapp=
                          Some
                            { (Option.value ~default:Snapp_account.default
                                 a.snapp)
                              with
                              verification_key= Some vk } }) ;
                   let total = Option.value_exn (Amount.add fee amount) in
+                  let update_empty_permissions =
+                    let permissions =
+                      Permissions.empty
+                      (*{
+                      Permissions.user_default with
+                        send=Permissions.Auth_required.Both
+                        
+                      }*)
+                      |> Snapp_basic.Set_or_keep.Set
+                    in
+                    {Party.Update.dummy with permissions}
+                  in
                   let fee_payer =
                     { Party.Signed.data=
                         { body=
                             { pk= sender.public_key |> Public_key.compress
-                            ; update= Party.Update.noop
+                            ; update= update_empty_permissions
                             ; token_id= Token_id.default
                             ; delta= Amount.Signed.(negate (of_unsigned total))
                             }
@@ -4460,7 +4473,7 @@ let%test_module "transaction_snark" =
                   let snapp_party_data : Party.Predicated.t =
                     { Party.Predicated.Poly.body=
                         { pk= multisig_account_pk
-                        ; update= Party.Update.noop
+                        ; update= update_empty_permissions
                         ; token_id= Token_id.default
                         ; delta= Amount.Signed.(of_unsigned amount) }
                     ; predicate= Accept }
