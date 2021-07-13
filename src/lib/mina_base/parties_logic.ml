@@ -392,6 +392,8 @@ module Make (Inputs : Inputs_intf) = struct
     let bb = Bool.((not is_start') ||| party_succeeded) in
     Printf.printf "reached line %s\n%!" __LOC__
     |> fun () ->
+    (* Printf.printf "%s\n%!"
+    |> fun () -> *)
     Bool.(if_ (not bb) ~then_:update_permitted ~else_:true_ |> assert_)
     |> fun () ->
     Printf.printf "reached line %s\n%!" __LOC__

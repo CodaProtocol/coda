@@ -1840,15 +1840,18 @@ module Base = struct
             ; inclusion_proof= _ } ->
             ( match (auth_type, snapp_statement) with
             | Proof, Some (i, s) ->
+                printf "reached line %s\n%!" __LOC__
+                |> fun () ->
                 Pickles.Side_loaded.in_circuit (side_loaded i)
                   (Lazy.force account.data.snapp.verification_key.data) ;
                 Snapp_statement.Checked.Assert.equal
                   {transaction= transaction_commitment; at_party}
                   s
             | (Signature | None_given), None ->
-                ()
+                printf "reached line %s\n%!" __LOC__ |> fun () -> ()
             | Proof, None | (Signature | None_given), Some _ ->
-                assert false ) ;
+                printf "reached line %s\n%!" __LOC__ |> fun () -> assert false
+            ) ;
             let transaction_commitment =
               let with_party () =
                 Parties.Transaction_commitment.Checked.with_fee_payer
@@ -1904,8 +1907,19 @@ module Base = struct
             let success =
               match auth_type with
               | None_given | Signature ->
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
+                  ( if auth_type = None_given then
+                    printf "auth_type = NONE_GIVEN\n%!"
+                  else
+                    printf "auth_type = Signature\n%!"
+                    |> fun () ->
+                    Boolean.Assert.is_true checks_succeeded |> fun () -> () )
+                  |> fun () ->
                   Boolean.((not proof_must_verify) && checks_succeeded)
               | Proof ->
+                  printf "reached line %s\n%!" __LOC__
+                  |> fun () ->
                   (* We always assert that the proof verifies. *)
                   checks_succeeded
             in
