@@ -86,14 +86,15 @@ func genB58JSONUnmarshalData (bs []byte, ver byte, r *rand.Rand) (string, []stri
 func (PkJSONUnmarshalTestData) Generate(r *rand.Rand, size int) reflect.Value {
   var pk Pk
   r.Read(pk[:])
-  good, bad := genB58JSONUnmarshalData(pk[:], BASE58CHECK_VERSION_PK, r)
+  pkBytes := append([]byte{1,1}, pk[:]...)
+  good, bad := genB58JSONUnmarshalData(pkBytes, BASE58CHECK_VERSION_PK, r)
   return reflect.ValueOf(PkJSONUnmarshalTestData{good, bad, pk})
 }
 
 func (SigJSONUnmarshalTestData) Generate(r *rand.Rand, size int) reflect.Value {
   var sig Sig
   r.Read(sig[:])
-  good, bad := genB58JSONUnmarshalData(sig[:], BASE58CHECK_VERSION_SIG, r)
+  good, bad := genB58JSONUnmarshalData(append([]byte{1}, sig[:]...), BASE58CHECK_VERSION_SIG, r)
   return reflect.ValueOf(SigJSONUnmarshalTestData{good, bad, sig})
 }
 

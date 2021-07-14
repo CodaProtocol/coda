@@ -160,8 +160,11 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     writeErrorResponse(h.app, &w, "Unexpected server error")
     return
   }
-  h.app.Log.Debugf("Prepared signing payload: %v", string(payload))
-  // TODO check signatures
+  if !verifySig(&req.Submitter, &req.Sig, payload, NETWORK_ID) {
+    w.WriteHeader(401)
+    writeErrorResponse(h.app, &w, "Invalid signature")
+    return
+  }
 
   var meta metaToBeSaved
   meta.SubmittedAt = submittedAt

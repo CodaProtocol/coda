@@ -17,8 +17,12 @@ const DELEGATION_WHITELIST_COLUMN = "E"
 const DELEGATION_WHITELIST_SPREADSHEET_ID = "1xiKppb0BFUo8IKM2itIx2EWIQbBzUlFxgtZlKdnrLCU"
 const CLOUD_BUCKET_NAME = "foundation-delegation-snark-work"
 
-const PK_LENGTH = 35 // why not 33
-const SIG_LENGTH = 65 // why not 64
+var PK_PREFIX = [...]byte{1, 1}
+var SIG_PREFIX = [...]byte{1}
+
+const NETWORK_ID = 1 // mainnet
+const PK_LENGTH = 33 // why not 33
+const SIG_LENGTH = 64 // why not 64
 
 const BASE58CHECK_VERSION_BLOCK_HASH byte = 0x10
 const BASE58CHECK_VERSION_PK byte = 0xCB

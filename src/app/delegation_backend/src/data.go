@@ -10,51 +10,72 @@ import (
   "encoding/base64"
 )
 
-func Base58CheckUnmarshalJSON (ver byte, b []byte) ([]byte, error) {
-  var s string
-  if err := json.Unmarshal(b, &s); err != nil {
-    return nil, err
-  }
-  bs, ver_, err := base58.CheckDecode(s)
-  if err != nil {
-    return nil, err
-  }
-  if ver != ver_ {
-    return nil, errors.New("Unexpected base58check version")
-  }
-  return bs, err
+// Just a different interface for Unmarshal
+func JSONToString (b []byte) (s string, err error) {
+  err = json.Unmarshal(b, &s)
+  return
 }
-
-type Sig [SIG_LENGTH]byte
-func (d *Sig) UnmarshalJSON (b []byte) error {
-  bs, err := Base58CheckUnmarshalJSON(BASE58CHECK_VERSION_SIG, b)
+func StringToPk (pk *Pk, s string) error {
+  bs, ver, err := base58.CheckDecode(s)
+  if err == nil && ver != BASE58CHECK_VERSION_PK {
+    return errors.New("Unexpected base58check version for Pk")
+  }
   if err == nil {
-    if len(bs) == SIG_LENGTH {
-      copy(d[:], bs)
-    } else {
-      err = errors.New(fmt.Sprintf("Signature of an unexpected size %d", len(bs)))
-    }
-  }
-  return err
-}
-func (d Sig) MarshalJSON() ([]byte, error) {
-  return json.Marshal(base58.CheckEncode(d[:], BASE58CHECK_VERSION_SIG))
-}
-
-type Pk [PK_LENGTH]byte
-func (d *Pk) UnmarshalJSON (b []byte) error {
-  bs, err := Base58CheckUnmarshalJSON(BASE58CHECK_VERSION_PK, b)
-  if err == nil {
-    if len(bs) == PK_LENGTH {
-      copy(d[:], bs)
+    prefixLen := len(PK_PREFIX)
+    if len(bs) == PK_LENGTH + prefixLen {
+      if bytes.Equal(bs[:prefixLen], PK_PREFIX[:]) {
+        copy(pk[:], bs[prefixLen:])
+      } else {
+        err = errors.New("Unexpected prefix of Pk")
+      }
     } else {
       err = errors.New(fmt.Sprintf("Public key of an unexpected size %d", len(bs)))
     }
   }
   return err
 }
+func StringToSig (sig *Sig, s string) error {
+  bs, ver, err := base58.CheckDecode(s)
+  if err == nil && ver != BASE58CHECK_VERSION_SIG {
+    return errors.New("Unexpected base58check version for Sig")
+  }
+  if err == nil {
+    prefixLen := len(SIG_PREFIX)
+    if len(bs) == SIG_LENGTH + prefixLen {
+      if bytes.Equal(bs[:prefixLen], SIG_PREFIX[:]) {
+        copy(sig[:], bs[prefixLen:])
+      } else {
+        err = errors.New("Unexpected prefix of signature")
+      }
+    } else {
+      err = errors.New(fmt.Sprintf("Signature of an unexpected size %d", len(bs)))
+    }
+  }
+  return err
+}
+
+type Sig [SIG_LENGTH]byte
+func (sig *Sig) UnmarshalJSON (b []byte) error {
+  s, err := JSONToString(b)
+  if err == nil {
+    err = StringToSig(sig, s)
+  }
+  return err
+}
+func (d Sig) MarshalJSON() ([]byte, error) {
+  return json.Marshal(base58.CheckEncode(append(SIG_PREFIX[:], d[:]...), BASE58CHECK_VERSION_SIG))
+}
+
+type Pk [PK_LENGTH]byte
+func (pk *Pk) UnmarshalJSON (b []byte) error {
+  s, err := JSONToString(b)
+  if err == nil {
+    err = StringToPk(pk, s)
+  }
+  return err
+}
 func (d Pk) MarshalJSON() ([]byte, error) {
-  return json.Marshal(base58.CheckEncode(d[:], BASE58CHECK_VERSION_PK))
+  return json.Marshal(base58.CheckEncode(append(PK_PREFIX[:], d[:]...), BASE58CHECK_VERSION_PK))
 }
 func (pk Pk) Format() string {
   return pk.String()

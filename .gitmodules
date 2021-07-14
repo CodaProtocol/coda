@@ -29,3 +29,6 @@
 	path = src/external/ppx_deriving_yojson
 	url = https://github.com/MinaProtocol/ppx_deriving_yojson.git
 	branch = master
+[submodule "src/external/c-reference-signer"]
+	path = src/external/c-reference-signer
+	url = https://github.com/MinaProtocol/c-reference-signer.git
