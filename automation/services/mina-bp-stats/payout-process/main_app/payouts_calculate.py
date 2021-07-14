@@ -258,7 +258,7 @@ def main(epoch_no, do_send_email):
             delegate_record_df = calculate_payout(delegation_record_list, modified_staking_df, accounts, epoch_no)
             i = i + 1
         result = insert_data(delegate_record_df)
-        csv_name='calculate_summary_'+epoch_no+'.csv'
+        csv_name='calculate_summary_'+str(epoch_no)+'.csv'
         delegate_record_df.to_csv(csv_name)
         if result == 0:
             insert_into_audit_table(ledger_name)
