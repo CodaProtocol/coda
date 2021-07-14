@@ -35,12 +35,16 @@ Initial config for Leaderboard Bot
     `SPREADSHEET_JSON` 					GCS credentials json to access applications spreadsheet
 	`MAX_THREADS_TO_DOWNLOAD_FILES`		Max number of concurrent threads to download files from GCS Bucket
 ***
+## Setup the env-file
+1.Add all required credential value to file as key-value pair.Review the config_variables.env file. 
+2.Provide this .env file while running the docker run command.
+
 ### Installing Docker file
 1. Go to the terminal.
 2. Type belowe Commands.
 3. * >cd leaderboard-bot
    * >docker build -t leaderborad-bot .
-   * >docker run -i -t leaderborad-bot:latest
+   * >docker run --env-file config_variables.env -i -t leaderborad-bot:latest
     
 For docker, please update all above propeties also copy the credetials file in same folder as 	  
 	  
