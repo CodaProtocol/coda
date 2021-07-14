@@ -50,12 +50,15 @@ Use payout_schema.sql to create Payout database
 	
 
 ***
+## Setup the env-file
+1.Add all required credential value to file as key-value pair.Review the payout_config_variables.env file. 
+2.Provide this .env file while running the docker run command.
 ### Installing Docker file
 1. Go to the terminal.
 2. Type below Commands.
 3. * >cd payout-process
    * >docker build -t payout-process .
-   * >docker run -i -t payout-process:latest
+   * >docker run --env-file payout_config_variables.env -i -t payout-process:latest
     
 For docker, please update all above properties also copy the credentials file in same folder as 	  
 	  
