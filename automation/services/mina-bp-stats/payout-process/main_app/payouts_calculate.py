@@ -222,23 +222,6 @@ def insert_into_audit_table(file_name):
         cursor.close()
         connection_payout.commit()
 
-def insert_into_staking_ledger(df, epoch_no):
-    df['epoch_number'] = pd.Series([epoch_no for x in range(len(df.index))])
-    tuples = [tuple(x) for x in df.to_numpy()]
-    insert_ledger_sql = """INSERT INTO staking_ledger (pk, balance, delegate, epoch_number) 
-        values(%s, %s, %s, %s ) """
-    try:
-        cursor = connection_payout.cursor()
-        extras.execute_batch(cursor, insert_ledger_sql, tuples, 100)
-        connection_payout.commit()
-    except (Exception, psycopg2.DatabaseError) as error:
-        logger.error(ERROR.format(error))
-        connection_payout.rollback()
-        cursor.close()
-    finally:
-        cursor.close()
-        connection_payout.commit()
-
 
 def main(epoch_no, do_send_email):
     logger.info("in main {0}".format(epoch_no))
