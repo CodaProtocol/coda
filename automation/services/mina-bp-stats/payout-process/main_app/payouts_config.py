@@ -39,6 +39,7 @@ class BaseConfig(object):
     SUBJECT = 'LeaderBoard Stats As of{0}'.format(datetime.datetime.utcnow())
     PLAIN_TEXT = 'Report for Leaderboard as of {0}'.format(datetime.datetime.utcnow())
     SENDGRID_API_KEY = str(os.environ['SENDGRID_API_KEY']).strip()
+    DELEGATION_ADDRESSS_CSV = str(os.environ['DELEGATION_ADDRESSS_CSV']).strip()
     SPREADSHEET_SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    SPREADSHEET_NAME = 'Mina Foundation Delegation Application (Responses)'
+    SPREADSHEET_NAME = str(os.environ['SPREADSHEET_NAME']).strip()
     GENESIS_DATE = datetime.datetime(2021, 3, 17)
