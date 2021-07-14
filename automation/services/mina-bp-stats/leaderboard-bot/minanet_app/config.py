@@ -19,12 +19,12 @@ class BaseConfig(object):
     PROVIDER_ACCOUNT_PUB_KEYS_FILE = 'Mina_Foundation_Addresses.csv'
     SURVEY_INTERVAL_MINUTES = int(os.environ['SURVEY_INTERVAL_MINUTES'])
     UPTIME_DAYS_FOR_SCORE = int(os.environ['UPTIME_DAYS_FOR_SCORE'])
-    FROM_EMAIL = ''
-    TO_EMAILS = ['', '']
+    FROM_EMAIL = str(os.environ['FROM_EMAIL']).strip()
+    TO_EMAILS = os.environ['TO_EMAILS'].split(',')
     SUBJECT = 'Ontab-key LeaderBoard positions As of {0}'.format(datetime.datetime.utcnow())
     PLAIN_TEXT = 'Report for Leaderboard as of {0}'.format(datetime.datetime.utcnow())
-    SENDGRID_API_KEY = ''
+    SENDGRID_API_KEY = str(os.environ['SENDGRID_API_KEY']).strip()
     SPREADSHEET_SCOPE = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    SPREADSHEET_NAME = 'Mina Foundation Delegation Application (Responses)'
+    SPREADSHEET_NAME = str(os.environ['SPREADSHEET_NAME']).strip()
     SPREADSHEET_JSON = 'leaderboard-bot\minanet_app\mina-foundation-delegation-app-b889c28d5b9b.json'
     MAX_THREADS_TO_DOWNLOAD_FILES= int(os.environ["MAX_THREADS_TO_DOWNLOAD_FILES"])
