@@ -1,7 +1,6 @@
 import logging
 from logging.handlers import RotatingFileHandler
 logging.basicConfig(
-        handlers=[RotatingFileHandler('./leaderboard.log', maxBytes=52428800, backupCount=10)],
         format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s",
         datefmt='%Y-%m-%dT%H:%M:%S')
 
