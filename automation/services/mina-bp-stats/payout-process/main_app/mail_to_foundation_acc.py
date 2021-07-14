@@ -8,33 +8,7 @@ from logger_util import logger
 
 
 logger.info('mail to foundation account')
-connection_leaderboard = psycopg2.connect(
-    host=BaseConfig.POSTGRES_LEADERBOARD_HOST,
-    port=BaseConfig.POSTGRES_LEADERBOARD_PORT,
-    database=BaseConfig.POSTGRES_LEADERBOARD_DB,
-    user=BaseConfig.POSTGRES_LEADERBOARD_USER,
-    password=BaseConfig.POSTGRES_LEADERBOARD_PASSWORD
-)
-
 BLOCKS_CSV = 'blocks_won.csv'
-def postgresql_to_dataframe(conn):
-    # get records where blocks_won is 0
-    select_query = """select provider_pub_key,winner_pub_key,blocks  from payout_summary where blocks=0;"""
-    cursor = conn.cursor()
-    try:
-        cursor.execute(select_query)
-    except (Exception, psycopg2.DatabaseError) as error:
-        logger.info("Error: {0} ", format(error))
-        cursor.close()
-        return 1
-
-    tuples = cursor.fetchall()
-    cursor.close()
-    column_names = ['provider_pub_key', 'winner_pub_key', 'blocks']
-    # We just need to turn it into a pandas dataframe
-    df = pd.DataFrame(tuples, columns=column_names)
-    return df
-
 
 def mail_to_foundation_accounts(zero_block_producers, epoch_no):
     blocks_df = zero_block_producers

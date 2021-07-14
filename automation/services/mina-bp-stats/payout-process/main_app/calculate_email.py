@@ -7,13 +7,6 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
 from logger_util import logger
 
-connection_payout = psycopg2.connect(
-    host=BaseConfig.POSTGRES_PAYOUT_HOST,
-    port=BaseConfig.POSTGRES_PAYOUT_PORT,
-    database=BaseConfig.POSTGRES_PAYOUT_DB,
-    user=BaseConfig.POSTGRES_PAYOUT_USER,
-    password=BaseConfig.POSTGRES_PAYOUT_PASSWORD
-)
 
 connection_leaderboard = psycopg2.connect(
     host=BaseConfig.POSTGRES_LEADERBOARD_HOST,

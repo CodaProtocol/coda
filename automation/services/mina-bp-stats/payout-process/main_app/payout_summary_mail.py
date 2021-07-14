@@ -7,14 +7,6 @@ import pandas as pd
 from logger_util import logger
 
 
-connection_payout = psycopg2.connect(
-    host=BaseConfig.POSTGRES_PAYOUT_HOST,
-    port=BaseConfig.POSTGRES_PAYOUT_PORT,
-    database=BaseConfig.POSTGRES_PAYOUT_DB,
-    user=BaseConfig.POSTGRES_PAYOUT_USER,
-    password=BaseConfig.POSTGRES_PAYOUT_PASSWORD
-)
-
 PAYOUT_SUMMARY_INFO = 'payout_summary_info_'
 ERROR = 'Error: {0}'
 
