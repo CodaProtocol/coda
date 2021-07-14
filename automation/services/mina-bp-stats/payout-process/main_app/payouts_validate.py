@@ -211,7 +211,8 @@ def main(epoch_no, do_send_email):
                 filter_staking_df = staking_df.loc[staking_df['pk'] == pub_key, 'delegate']
                 winner_pub_key = filter_staking_df.iloc[0]
                 email_rows.append([pub_key, winner_pub_key, new_payout_balance])
-                payouts_rows.append([pub_key, winner_pub_key, total_pay_received, new_payout_balance])
+                payouts_rows.append(
+                    [pub_key, winner_pub_key, payout_amount, total_pay_received, new_payout_balance, epoch_no])
                 winner_match = False
                 if delegate_pub_key == winner_pub_key:
                     winner_match = True
@@ -243,8 +244,10 @@ def main(epoch_no, do_send_email):
         result = epoch_no
         if do_send_email:
             email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
-            # second_mail(email_df, epoch_no)
-            payout_summary_df = pd.DataFrame(payouts_rows,columns=['provider_pub_key','winner_pub_key','total_pay_received','new_payout_balance'])
+            second_mail(email_df, epoch_no)
+            payout_summary_df = pd.DataFrame(payouts_rows,
+                                             columns=['provider_pub_key', 'winner_pub_key', 'payout_amount',
+                                                      'payout_received', 'payout_balance', 'epoch_no'])
             payout_summary_mail(payout_summary_df, epoch_no)
     else:
         logger.warning("Staking ledger not found for epoch number {0}".format(epoch_no))
