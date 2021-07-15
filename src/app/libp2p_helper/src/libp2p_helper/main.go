@@ -499,6 +499,7 @@ func (s *subscribeMsg) run(app *app) (interface{}, error) {
 
 		app.writeMsg(validateUpcall{
 			Sender:     sender,
+			SeenAt:     time.Now().UnixNano(),
 			Expiration: deadline.UnixNano(),
 			Data:       codaEncode(msg.Data),
 			Seqno:      seqno,
@@ -596,6 +597,7 @@ func (u *unsubscribeMsg) run(app *app) (interface{}, error) {
 
 type validateUpcall struct {
 	Sender     *codaPeerInfo `json:"sender"`
+	SeenAt     int64         `json:"seen_at"`
 	Expiration int64         `json:"expiration"`
 	Data       string        `json:"data"`
 	Seqno      int           `json:"seqno"`
