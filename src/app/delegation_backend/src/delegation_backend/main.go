@@ -37,6 +37,7 @@ func main() {
   app.Save = func(objs ObjectsToSave) {
     gctx.GoogleStorageSave(objs)
   }
+  app.Now = func () time.Time { return time.Now() }
   app.SubmitCounter = NewAttemptCounter(REQUESTS_PER_PK_HOURLY)
   sheetsService, err2 := sheets.NewService(ctx, option.WithScopes(sheets.SpreadsheetsReadonlyScope))
   if err2 != nil {
