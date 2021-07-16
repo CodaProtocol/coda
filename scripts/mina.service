@@ -18,4 +18,4 @@ ExecStart=/usr/local/bin/mina daemon \
 ExecStop=/usr/local/bin/mina client stop-daemon
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
