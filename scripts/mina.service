@@ -13,7 +13,7 @@ ExecStart=/usr/local/bin/mina daemon \
   -peer-list-file %h/peers.txt \
   -block-producer-key %h/keys/my-wallet \
   -generate-genesis-proof true \
-  -log-level Info \
+  -log-level Error \
   $EXTRA_FLAGS
 ExecStop=/usr/local/bin/mina client stop-daemon
 
