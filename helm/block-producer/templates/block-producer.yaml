@@ -170,7 +170,7 @@ spec:
           limits:
           requests:
             memory: 8.0Gi
-            cpu: 8.0
+            cpu: 7.0
         image: {{ $.Values.coda.image }}
         {{ if $.Values.coda.useCustomEntrypoint -}}
         command: [{{ $.Values.coda.customEntrypoint }}]
