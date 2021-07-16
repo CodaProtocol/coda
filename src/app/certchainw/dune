@@ -1,0 +1,7 @@
+(executable
+(libraries core snarky signature_lib snarky_universe async snark_params coda_numbers coda_base snark_params_nonconsensus)
+(public_name certchainw)
+(package certchainw)
+ (name certchainw))
+
+
