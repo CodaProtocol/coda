@@ -1,0 +1,34 @@
+## Motivation
+
+The purpose of this page is to describe the logic behind why a 10MB transaction pool size is acceptable for Mina Protocol at mainnet launch. 
+
+The argument for having a larger than block size transaction pool size is to enable the block producer to have a queue of transactions at a time of high transaction volume . 
+
+Looking at more established networks that are currently in mainnet (Bitcoin, Ethereum), having a 5 hour backlog of transactions is acceptable by the node operators. See numbers below: 
+
+# Formula 
+Queue time = mempool size / total transaction size per second
+Transaction size per second = Transaction size x TPS 
+
+# Bitcoin 
+TPS: 5 
+TX size: 1KB 
+Mempool Size: 90MB
+Queue in hours: 90MB / (5 TPS x 1KB size) = 18Ksec = 5 hours 
+
+# Ethereum
+TPS: 15 
+TX size: 0.5KB 
+Mempool Size: 4MB
+Queue in hours: 4MB / (15 TPS x 0.5KB) = 530 seconds ~ 10 minutes  
+
+Given there is no evidence of block producers demanding more than 5 hours of transactions in their queue and Mina is not prioritizing high TPS at this time, it is recommended to stick to the 10MB transaction pool size. This translates to about 14 hours of queue.  
+
+Zaki (Comos) & Luke (Tezos) also think that 8 hours of queue time is sufficient for us as a start. 
+
+## Mina Protocol mainnet 
+
+TPS: 0.2 
+TX size: 1KB 
+Transaction Pool Size: 10MB 
+Queue in hours: 10MB / (0.2 TPS x 1KB) = 50K seconds ~ 14 hours  
