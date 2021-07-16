@@ -6,14 +6,14 @@ module Wrap_impl = Snarky_backendless.Snark.Run.Make (Tock) (Unit)
 
 let test_bit x i = B.(shift_right x i land one = one)
 
-let forbidden_shifted_values ~modulus:r ~size_in_bits ~f =
+let forbidden_shifted_values ~modulus:r ~max_size ~size_in_bits ~f =
   let two_to_n = B.(pow (of_int 2) (of_int size_in_bits)) in
   let neg_two_to_n = B.(neg two_to_n) in
   let representatives x =
     let open Sequence in
     (* All values equivalent to x mod r that fit in [size_in_bits]
        many bits. *)
-    let fits_in_n_bits x = B.(x < two_to_n) in
+    let fits_in_n_bits x = B.(x < max_size) in
     unfold ~init:B.(x % r) ~f:(fun x -> Some (x, B.(x + r)))
     |> take_while ~f:fits_in_n_bits
     |> to_list
@@ -37,7 +37,9 @@ module Step = struct
 
     let forbidden_shifted_values =
       forbidden_shifted_values ~size_in_bits:Constant.size_in_bits
-        ~modulus:(Wrap_impl.Bigint.to_bignum_bigint Constant.size) ~f:(fun x ->
+        ~max_size:B.(Field.size * of_int 2)
+        ~modulus:(Wrap_impl.Bigint.to_bignum_bigint Constant.size)
+        ~f:(fun x ->
           let hi = test_bit x (Field.size_in_bits - 1) in
           let lo = B.shift_right x 1 in
           (Impl.Bigint.(to_field (of_bignum_bigint lo)), hi))
@@ -108,6 +110,7 @@ module Wrap = struct
 
     let forbidden_shifted_values =
       forbidden_shifted_values ~size_in_bits:Constant.size_in_bits
+        ~max_size:Field.size
         ~modulus:(Step.Impl.Bigint.to_bignum_bigint Constant.size) ~f:(fun x ->
           Impl.Bigint.(to_field (of_bignum_bigint x)))
 
