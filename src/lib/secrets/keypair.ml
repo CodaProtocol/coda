@@ -9,9 +9,6 @@ module T = struct
 
   let env = "MINA_PRIVKEY_PASS"
 
-  (* TODO: remove eventually *)
-  let env_deprecated = "CODA_PRIVKEY_PASS"
-
   let which = "Mina keypair"
 
   (** Writes a keypair to [privkey_path] and [privkey_path ^ ".pub"] using [Secret_file] *)

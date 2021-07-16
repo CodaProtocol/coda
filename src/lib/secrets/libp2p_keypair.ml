@@ -8,8 +8,6 @@ module T = struct
 
   let env = "MINA_LIBP2P_PASS"
 
-  let env_deprecated = "CODA_LIBP2P_PASS"
-
   let which = "libp2p keypair"
 
   (** Writes a keypair to [privkey_path] and [privkey_path ^ ".pub"] using [Secret_file] *)
