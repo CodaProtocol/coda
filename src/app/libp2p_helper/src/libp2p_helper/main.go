@@ -796,6 +796,7 @@ func handleStreamReads(app *app, stream net.Stream, idx int) {
 			bytesToRead := length
 			for bytesToRead > 0 {
 				bufferReadSize := min(MESSAGE_BUFFER_SIZE, bytesToRead)
+				// why ReadFull when we can just use Read?
 				n, err := io.ReadFull(r, buffer[:bufferReadSize])
 				if err != nil {
 					app.writeMsg(streamLostUpcall{
@@ -925,6 +926,8 @@ func (cs *sendStreamMsgMsg) run(app *app) (interface{}, error) {
 		return nil, badRPC(err)
 	}
 
+  // TODO Consider using a more fine-grained locking strategy,
+  // not using a global mutex to lock on a message sending
 	app.StreamsMutex.Lock()
 	defer app.StreamsMutex.Unlock()
 	if stream, ok := app.Streams[cs.StreamIdx]; ok {
@@ -1846,6 +1849,7 @@ func uint64ToLEB128(in uint64) []byte {
 }
 
 func readLEB128ToUint64(r io.Reader) (uint64, error) {
+  // TODO it may overflow for large lengths
 	buffer := make([]byte, 1)
 	var out uint64
 	var shift uint
