@@ -5,6 +5,9 @@ open Snarky_backendless
 open Tick
 open Let_syntax
 
+let merge_var ~height h1 h2 =
+  Random_oracle.Checked.hash ~init:(Hash_prefix.merkle_tree height) [| h1; h2 |]
+
 module Merkle_tree =
   Snarky_backendless.Merkle_tree.Checked
     (Tick)
@@ -16,10 +19,7 @@ module Merkle_tree =
       let typ = Field.typ
 
       let merge ~height h1 h2 =
-        Tick.make_checked (fun () ->
-            Random_oracle.Checked.hash
-              ~init:(Hash_prefix.merkle_tree height)
-              [| h1; h2 |])
+        Tick.make_checked (fun () -> merge_var ~height h1 h2)
 
       let assert_equal h1 h2 = Field.Checked.Assert.equal h1 h2
 

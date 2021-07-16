@@ -55,6 +55,14 @@ val snapp_predicate_account : Field.t State.t
 
 val snapp_predicate_protocol_state : Field.t State.t
 
+val party_predicate : Field.t State.t
+
+val party : Field.t State.t
+
+val party_cons : Field.t State.t
+
+val party_with_protocol_state_predicate : Field.t State.t
+
 val receipt_chain_user_command : Field.t State.t
 
 val receipt_chain_snapp : Field.t State.t

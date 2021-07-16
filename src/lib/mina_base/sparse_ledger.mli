@@ -53,8 +53,5 @@ val iteri : t -> f:(Account.Index.t -> Account.t -> unit) -> unit
 
 val handler : t -> Handler.t Staged.t
 
-val snapp_accounts :
-  t -> Transaction.t -> Snapp_account.t option * Snapp_account.t option
-
 val has_locked_tokens_exn :
   global_slot:Mina_numbers.Global_slot.t -> account_id:Account_id.t -> t -> bool

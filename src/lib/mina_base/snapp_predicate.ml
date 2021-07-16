@@ -440,20 +440,21 @@ module Account = struct
 
     open Impl
 
-    let check_nonsnapp
+    let nonsnapp
         ({ balance; nonce; receipt_chain_hash; public_key; delegate; state = _ } :
           t) (a : Account.Checked.Unhashed.t) =
-      Boolean.all
-        [ Numeric.(Checked.check Tc.balance balance a.balance)
-        ; Numeric.(Checked.check Tc.nonce nonce a.nonce)
-        ; Eq_data.(
-            check_checked Tc.receipt_chain_hash receipt_chain_hash
-              a.receipt_chain_hash)
-        ; Eq_data.(check_checked (Tc.public_key ()) delegate a.delegate)
-        ; Eq_data.(check_checked (Tc.public_key ()) public_key a.public_key)
-        ]
+      [ Numeric.(Checked.check Tc.balance balance a.balance)
+      ; Numeric.(Checked.check Tc.nonce nonce a.nonce)
+      ; Eq_data.(
+          check_checked Tc.receipt_chain_hash receipt_chain_hash
+            a.receipt_chain_hash)
+      ; Eq_data.(check_checked (Tc.public_key ()) delegate a.delegate)
+      ; Eq_data.(check_checked (Tc.public_key ()) public_key a.public_key)
+      ]
 
-    let check_snapp
+    let check_nonsnapp t a = Boolean.all (nonsnapp t a)
+
+    let snapp
         ({ balance = _
          ; nonce = _
          ; receipt_chain_hash = _
@@ -462,10 +463,12 @@ module Account = struct
          ; state
          } :
           t) (snapp : Snapp_account.Checked.t) =
-      Boolean.all
-        Vector.(
-          to_list
-            (map2 state snapp.app_state ~f:Eq_data.(check_checked Tc.field)))
+      Vector.(
+        to_list (map2 state snapp.app_state ~f:Eq_data.(check_checked Tc.field)))
+
+    let check_snapp t a = Boolean.all (snapp t a)
+
+    let check t a = Boolean.all (nonsnapp t a @ snapp t a.snapp)
 
     let digest (t : t) =
       Random_oracle.Checked.(

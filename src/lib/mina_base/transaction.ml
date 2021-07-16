@@ -11,6 +11,15 @@ module Poly = struct
       [@@deriving sexp, compare, equal, hash, yojson]
 
       let to_latest = Fn.id
+
+      let map t ~f =
+        match t with
+        | Command x ->
+            Command (f x)
+        | Fee_transfer x ->
+            Fee_transfer x
+        | Coinbase x ->
+            Coinbase x
     end
   end]
 end
@@ -18,11 +27,19 @@ end
 module Valid = struct
   [%%versioned
   module Stable = struct
+    module V2 = struct
+      type t = User_command.Valid.Stable.V2.t Poly.Stable.V1.t
+      [@@deriving sexp, compare, equal, hash, yojson]
+
+      let to_latest = Fn.id
+    end
+
     module V1 = struct
       type t = User_command.Valid.Stable.V1.t Poly.Stable.V1.t
       [@@deriving sexp, compare, equal, hash, yojson]
 
-      let to_latest = Fn.id
+      let to_latest : t -> Latest.t =
+        Poly.Stable.V1.map ~f:User_command.Valid.Stable.V1.to_latest
     end
   end]
 
@@ -32,11 +49,19 @@ end
 
 [%%versioned
 module Stable = struct
+  module V2 = struct
+    type t = User_command.Stable.V2.t Poly.Stable.V1.t
+    [@@deriving sexp, compare, equal, hash, yojson]
+
+    let to_latest = Fn.id
+  end
+
   module V1 = struct
     type t = User_command.Stable.V1.t Poly.Stable.V1.t
     [@@deriving sexp, compare, equal, hash, yojson]
 
-    let to_latest = Fn.id
+    let to_latest : t -> Latest.t =
+      Poly.Stable.V1.map ~f:User_command.Stable.V1.to_latest
   end
 end]
 
@@ -53,8 +78,8 @@ let forget : Valid.t -> t = fun x -> (x :> t)
 let fee_excess : t -> Fee_excess.t Or_error.t = function
   | Command (Signed_command t) ->
       Ok (Signed_command.fee_excess t)
-  | Command (Snapp_command t) ->
-      Snapp_command.(fee_excess (t :> t))
+  | Command (Parties _ps) ->
+      failwith "TODO"
   | Fee_transfer t ->
       Fee_transfer.fee_excess t
   | Coinbase t ->
@@ -72,9 +97,8 @@ let public_keys : t -> _ = function
       ; Signed_command.source_pk cmd
       ; Signed_command.receiver_pk cmd
       ]
-  | Command (Snapp_command t) ->
-      Snapp_command.(accounts_accessed (t :> t))
-      |> List.map ~f:Account_id.public_key
+  | Command (Parties t) ->
+      Parties.accounts_accessed t |> List.map ~f:Account_id.public_key
   | Fee_transfer ft ->
       Fee_transfer.receiver_pks ft
   | Coinbase cb ->
@@ -83,8 +107,8 @@ let public_keys : t -> _ = function
 let accounts_accessed ~next_available_token : t -> _ = function
   | Command (Signed_command cmd) ->
       Signed_command.accounts_accessed ~next_available_token cmd
-  | Command (Snapp_command t) ->
-      Snapp_command.(accounts_accessed (t :> t))
+  | Command (Parties t) ->
+      Parties.accounts_accessed t
   | Fee_transfer ft ->
       Fee_transfer.receivers ft
   | Coinbase cb ->
@@ -94,8 +118,8 @@ let next_available_token (t : t) next_available_token =
   match t with
   | Command (Signed_command cmd) ->
       Signed_command.next_available_token cmd next_available_token
-  | Command (Snapp_command t) ->
-      Snapp_command.next_available_token t next_available_token
+  | Command (Parties _t) ->
+      failwith "TODO"
   | Fee_transfer _ ->
       next_available_token
   | Coinbase _ ->
@@ -105,8 +129,8 @@ let fee_payer_pk (t : t) =
   match t with
   | Command (Signed_command cmd) ->
       Signed_command.fee_payer_pk cmd
-  | Command (Snapp_command t) ->
-      Snapp_command.fee_payer t |> Account_id.public_key
+  | Command (Parties t) ->
+      Parties.fee_payer_pk t
   | Fee_transfer ft ->
       Fee_transfer.fee_payer_pk ft
   | Coinbase cb ->

@@ -268,16 +268,14 @@ module Auth_required = struct
         false
     | None, _ ->
         true
-    | Both, Both ->
-        true
     | Both, (Proof | Signature) ->
         false
-    | Proof, (Proof | Both) ->
+    | Proof, Proof ->
         true
-    | Signature, (Signature | Both) ->
+    | Signature, Signature ->
         true
     (* The signatures and proofs have already been checked by this point. *)
-    | Either, (Proof | Signature | Both) ->
+    | Either, (Proof | Signature) ->
         true
     | Signature, Proof ->
         false

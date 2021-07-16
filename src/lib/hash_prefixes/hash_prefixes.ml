@@ -80,3 +80,11 @@ let snapp_predicate = create "CodaSnappPred"
 let snapp_predicate_account = create "CodaSnappPredAcct"
 
 let snapp_predicate_protocol_state = create "CodaSnappPredPS"
+
+let party_predicate = create "MinaPartyPredicate"
+
+let party = create "MinaParty"
+
+let party_cons = create "MinaPartyCons"
+
+let party_with_protocol_state_predicate = create "MinaPartyStatePred"

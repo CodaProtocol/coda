@@ -524,12 +524,12 @@ let apply_user_command_exn
       (* Not able to apply the user command successfully, charge fee only. *)
       t
 
-let apply_snapp_command_exn
+let apply_parties_exn
     ~(constraint_constants : Genesis_constants.Constraint_constants.t)
-    ~txn_state_view t (c : Snapp_command.t) =
+    ~txn_state_view t (c : Parties.t) =
   let t = ref t in
   T.apply_transaction ~constraint_constants ~txn_state_view t
-    (Command (Snapp_command c))
+    (Command (Parties c))
   |> Or_error.ok_exn |> ignore ;
   !t
 
@@ -613,8 +613,8 @@ let apply_transaction_exn ~constraint_constants
   | Command (Signed_command cmd) ->
       apply_user_command_exn ~constraint_constants ~txn_global_slot t
         (cmd :> Signed_command.t)
-  | Command (Snapp_command cmd) ->
-      apply_snapp_command_exn ~constraint_constants ~txn_state_view t cmd
+  | Command (Parties cmd) ->
+      apply_parties_exn ~constraint_constants ~txn_state_view t cmd
   | Coinbase c ->
       apply_coinbase_exn ~constraint_constants ~txn_global_slot t c
 
@@ -649,24 +649,3 @@ let handler t =
           respond (Provide index)
       | _ ->
           unhandled)
-
-let snapp_accounts (ledger : t) (t : Transaction.t) =
-  match t with
-  | Command (Signed_command _) | Fee_transfer _ | Coinbase _ ->
-      (None, None)
-  | Command (Snapp_command c) -> (
-      let token_id = Snapp_command.token_id c in
-      let get pk =
-        Option.try_with (fun () ->
-            ( find_index_exn ledger (Account_id.create pk token_id)
-            |> get_exn ledger )
-              .snapp)
-        |> Option.join
-      in
-      match Snapp_command.to_payload c with
-      | Zero_proved p ->
-          (get p.one.body.pk, get p.two.body.pk)
-      | One_proved p ->
-          (get p.one.body.pk, get p.two.body.pk)
-      | Two_proved p ->
-          (get p.one.body.pk, get p.two.body.pk) )

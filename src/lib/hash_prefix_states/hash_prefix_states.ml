@@ -94,3 +94,12 @@ let snapp_predicate = salt snapp_predicate
 let snapp_predicate_account = salt snapp_predicate_account
 
 let snapp_predicate_protocol_state = salt snapp_predicate_protocol_state
+
+let party = salt party
+
+let party_predicate = salt party_predicate
+
+let party_cons = salt party_cons
+
+let party_with_protocol_state_predicate =
+  salt party_with_protocol_state_predicate

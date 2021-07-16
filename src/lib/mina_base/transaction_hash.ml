@@ -43,9 +43,9 @@ module User_command_with_valid_signature = struct
 
   [%%versioned
   module Stable = struct
-    module V1 = struct
+    module V2 = struct
       type t =
-        ( (User_command.Valid.Stable.V1.t
+        ( (User_command.Valid.Stable.V2.t
         [@hash.ignore])
         , (T.Stable.V1.t
         [@to_yojson hash_to_yojson]) )
@@ -57,6 +57,20 @@ module User_command_with_valid_signature = struct
       (* Compare only on hashes, comparing on the data too would be slower and
          add no value.
       *)
+      let compare (x : t) (y : t) = T.compare x.hash y.hash
+    end
+
+    module V1 = struct
+      type t =
+        ( (User_command.Valid.Stable.V1.t
+        [@hash.ignore])
+        , (T.Stable.V1.t
+        [@to_yojson hash_to_yojson]) )
+        With_hash.Stable.V1.t
+      [@@deriving sexp, hash, to_yojson]
+
+      let to_latest = With_hash.map ~f:User_command.Valid.Stable.V1.to_latest
+
       let compare (x : t) (y : t) = T.compare x.hash y.hash
     end
   end]
@@ -87,9 +101,9 @@ module User_command = struct
 
   [%%versioned
   module Stable = struct
-    module V1 = struct
+    module V2 = struct
       type t =
-        ( (User_command.Stable.V1.t
+        ( (User_command.Stable.V2.t
         [@hash.ignore])
         , (T.Stable.V1.t
         [@to_yojson hash_to_yojson]) )
@@ -101,6 +115,20 @@ module User_command = struct
       (* Compare only on hashes, comparing on the data too would be slower and
          add no value.
       *)
+      let compare (x : t) (y : t) = T.compare x.hash y.hash
+    end
+
+    module V1 = struct
+      type t =
+        ( (User_command.Stable.V1.t
+        [@hash.ignore])
+        , (T.Stable.V1.t
+        [@to_yojson hash_to_yojson]) )
+        With_hash.Stable.V1.t
+      [@@deriving sexp, hash, to_yojson]
+
+      let to_latest = With_hash.map ~f:User_command.Stable.V1.to_latest
+
       let compare (x : t) (y : t) = T.compare x.hash y.hash
     end
   end]
