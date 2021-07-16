@@ -28,5 +28,11 @@ try-import user.bazelrc
 # build --nobuild  # run load and analysis phases only, do not run execution phase
 # query --keep_going
 
-## for development/debugging: use local obazl repo
-# build --override_repository=obazl=/path/to/obazl
+## To work on an external repo, clone it to your local system, and then
+## override the WORKSPACE definition of the repo so that you use your local version.
+## For builds:
+# build --override_repository=obazl=/path/to/local/obazl
+# build --override_repository=digestif=/path/to/local/digestif
+## For queries:
+# query --override_repository=digestif=/path/to/local/digestif
+
