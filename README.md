@@ -39,8 +39,8 @@ The [Developer docs](https://minaprotocol.com/docs/developers/) contain all the 
 
 - [Developer readme](README-dev.md)
 - [Running a demo node](docs/demo.md)
-- [Directory structure](frontend/website-redesign/docs/developers/directory-structure.mdx)
-- [Lifecycle of a payment](frontend/website-redesign/docs/architecture/lifecycle-payment.mdx)
+- [Directory structure](https://docs.minaprotocol.com/en/developers/directory-structure)
+- [Lifecycle of a payment](https://docs.minaprotocol.com/en/architecture/lifecycle-payment)
 
 ## Community
 
