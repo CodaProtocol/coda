@@ -1,0 +1,13 @@
+(library
+ (name plonk_check_gates)
+ (public_name pickles.plonk_check_gates)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_coda ppx_version ppx_jane ppx_deriving.std ppx_deriving_yojson))
+ (libraries
+   composition_types
+   pickles_base
+
+   zexe_backend
+   pickles_types
+   snarky.backendless
+   core_kernel))
