@@ -6,7 +6,6 @@ import logging
 import time
 import math
 import urllib.request
-import urllib.parse
 
 logging.basicConfig(level=logging.INFO)
 
@@ -14,8 +13,7 @@ MINA_CONFIG_FILE = '/etc/mina-sidecar.json'
 MINA_BLOCK_PRODUCER_URL_ENVAR = 'MINA_BP_UPLOAD_URL'
 MINA_NODE_URL_ENVAR = 'MINA_NODE_URL'
 
-FETCH_INTERVAL = 60 * 3 # Fetch updates every 3 mins
-ERROR_SLEEP_INTERVAL = 30 # On errors, sleep for 30s before trying again
+REQUEST_TIMEOUT = 45 # 45 second timeout on http requests
 FINALIZATION_THRESHOLD = 12 # 12 blocks back is considered "finalized"
 
 SYNC_STATUS_GRAPHQL = '''
@@ -47,30 +45,6 @@ query FetchBlockData($blockID: Int!) {
 }
 '''
 
-upload_url, node_url = (None, None)
-
-if os.path.exists(MINA_CONFIG_FILE):
-    logging.info("Found {} on the filesystem, using config file".format(MINA_CONFIG_FILE))
-    with open(MINA_CONFIG_FILE) as f:
-        config_file = f.read().strip()
-    parsed_config_file = json.loads(config_file)
-    upload_url = parsed_config_file['uploadURL'].rstrip('/')
-    node_url = parsed_config_file['nodeURL'].rstrip('/')
-
-if MINA_BLOCK_PRODUCER_URL_ENVAR in os.environ:
-    logging.info("Found {} in the environment, using envar".format(MINA_BLOCK_PRODUCER_URL_ENVAR))
-    upload_url = os.environ[MINA_BLOCK_PRODUCER_URL_ENVAR]
-
-if MINA_NODE_URL_ENVAR in os.environ:
-    logging.info("Found {} in the environment, using envar".format(MINA_NODE_URL_ENVAR))
-    node_url = os.environ[MINA_NODE_URL_ENVAR]
-
-if upload_url is None:
-    raise Exception("Could not find {} or {} environment variable is not set.".format(MINA_CONFIG_FILE, MINA_BLOCK_PRODUCER_URL_ENVAR))
-
-if node_url is None:
-    raise Exception("Could not find {} or {} environment variable is not set.".format(MINA_CONFIG_FILE, MINA_NODE_URL_ENVAR))
-
 def fetch_mina_status():
     url = node_url + '/graphql'
     request = urllib.request.Request(
@@ -82,11 +56,11 @@ def fetch_mina_status():
             "operationName": "SyncStatus"
         }).encode()
     )
-    response = urllib.request.urlopen(request)
-    response_body = response.read().decode('utf-8')
-    parsed_body = json.loads(response_body)['data']
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+        response_data = json.load(response)['data']
 
-    return parsed_body['daemonStatus']['syncStatus'], parsed_body['daemonStatus']['blockchainLength']
+    daemon_status = response_data['daemonStatus']
+    return daemon_status['syncStatus'], daemon_status['blockchainLength']
 
 def fetch_block(block_id):
     url = node_url + '/graphql'
@@ -99,13 +73,11 @@ def fetch_block(block_id):
             "operationName": "FetchBlockData"
         }).encode()
     )
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+        response_data = json.load(response)['data']
 
-    response = urllib.request.urlopen(request)
-    response_body = response.read().decode('utf-8')
-    response_data = json.loads(response_body)['data']
     if response_data is None:
-        raise Exception("Response seems to be an error! {}".format(response_body))
-
+        raise RuntimeError("Response seems to be an error! {}".format(response_body))
     return response_data
 
 def send_update(block_data, block_height):
@@ -118,65 +90,76 @@ def send_update(block_data, block_height):
         headers={'Content-Type': 'application/json'},
         data=json.dumps(block_data).encode()
     )
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+        if response.getcode() != 200:
+            raise RuntimeError("Non-200 from BP flush endpoint! [{}] - ".format(response.getcode(), response.read()))
 
-    response = urllib.request.urlopen(request)
-
-    assert response.getcode() == 200, "Non-200 from BP flush endpoint! [{}] - ".format(response.getcode(), response.read())
-
-def check_mina_node_sync_state_and_fetch_head():
-    while True:
-        try:
-            mina_sync_status, current_head = fetch_mina_status()
-            if mina_sync_status == "SYNCED":
-                logging.debug("Mina sync status is acceptable ({}), continuing!".format(mina_sync_status))
-                break
-            logging.info("Mina sync status is {}. Sleeping for 5s and trying again".format(mina_sync_status))
-        except Exception as fetch_exception:
-            logging.exception(fetch_exception)
-
-        time.sleep(5)
-
-    return current_head
-
-if __name__ == '__main__':
+def main():
     logging.info("Starting Mina Block Producer Sidecar")
-
-    # On init ensure our node is synced and happy
-    head_block_id = check_mina_node_sync_state_and_fetch_head()
-
-    # Go back FINALIZATION_THRESHOLD blocks from the tip to have a finalized block
-    current_finalized_tip = head_block_id - FINALIZATION_THRESHOLD
-
-    # We're done with init to the point where we can start shipping off data
+    last_head = None
+    operation_description = None
     while True:
         try:
+            operation_description = 'fetching status'
+            mina_sync_status, current_head = fetch_mina_status()
+            if mina_sync_status != "SYNCED":
+                logging.info("Mina sync status is {}. Sleeping for 5s and trying again".format(mina_sync_status))
+                last_head = None
+                time.sleep(5)
+                continue
+
+            logging.debug("Mina sync status is acceptable ({}), continuing!".format(mina_sync_status))
+            if last_head == current_head:
+                logging.debug("Tip {} unchanged, sleeping for 5s and trying again".format(current_head))
+                time.sleep(5)
+                continue
+
+            # Go back FINALIZATION_THRESHOLD blocks from the tip to have a finalized block
+            current_finalized_tip = current_head - FINALIZATION_THRESHOLD
+
             logging.info("Fetching block {}...".format(current_finalized_tip))
 
+            operation_description = 'fetching block'
             block_data = fetch_block(current_finalized_tip)
+            logging.info("Got block data {}".format(block_data))
 
-            logging.info("Got block data ", block_data)
-
+            operation_description = 'sending update'
             send_update(block_data, current_finalized_tip)
+            logging.info("Finished sending update for tip {}".format(current_finalized_tip))
 
-            current_finalized_tip = block_data['daemonStatus']['blockchainLength'] - FINALIZATION_THRESHOLD # Go set a new finalized block
+            last_head = current_head
 
-            logging.info("Finished! New tip {}...".format(current_finalized_tip))
+        except Exception as exc:
+            # If we encounter an error at all, log it, sleep, and try again
+            logging.exception('Exception occurred while %s: %s', operation_description, exc)
+            logging.error("Sleeping for 5s and trying again")
 
-            time.sleep(FETCH_INTERVAL)
-        except Exception as e:
-            # If we encounter an error at all, log it, sleep, and then kick
-            # off the init process to go fetch the current tip/head to ensure
-            # we never try to fetch past 290 blocks (k=290)
-            logging.exception(e)
+            last_head = None
 
-            logging.error("Sleeping for {}s and trying again".format(ERROR_SLEEP_INTERVAL))
+            time.sleep(5)
 
-            time.sleep(ERROR_SLEEP_INTERVAL)
+if __name__ == '__main__':
+    upload_url, node_url = None, None
 
-            head_block_id = check_mina_node_sync_state_and_fetch_head()
+    if os.path.exists(MINA_CONFIG_FILE):
+        logging.info("Found {} on the filesystem, using config file".format(MINA_CONFIG_FILE))
+        with open(MINA_CONFIG_FILE) as f:
+            parsed_config_file = json.load(f)
+        upload_url = parsed_config_file['uploadURL'].rstrip('/')
+        node_url = parsed_config_file['nodeURL'].rstrip('/')
 
-            logging.info("Found new head at {}".format(head_block_id))
+    if MINA_BLOCK_PRODUCER_URL_ENVAR in os.environ:
+        logging.info("Found {} in the environment, using envar".format(MINA_BLOCK_PRODUCER_URL_ENVAR))
+        upload_url = os.environ[MINA_BLOCK_PRODUCER_URL_ENVAR]
 
-            current_finalized_tip = head_block_id - FINALIZATION_THRESHOLD
+    if MINA_NODE_URL_ENVAR in os.environ:
+        logging.info("Found {} in the environment, using envar".format(MINA_NODE_URL_ENVAR))
+        node_url = os.environ[MINA_NODE_URL_ENVAR]
 
-            logging.info("Continuing with finalized tip block of {}".format(current_finalized_tip))
+    if upload_url is None:
+        raise Exception("Could not find {} or {} environment variable is not set.".format(MINA_CONFIG_FILE, MINA_BLOCK_PRODUCER_URL_ENVAR))
+
+    if node_url is None:
+        raise Exception("Could not find {} or {} environment variable is not set.".format(MINA_CONFIG_FILE, MINA_NODE_URL_ENVAR))
+
+    main()
