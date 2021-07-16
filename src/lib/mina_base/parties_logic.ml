@@ -79,6 +79,38 @@ module Local_state = struct
       [ parties; comm; token_id; excess; ledger; bool; bool ]
       ~var_to_hlist:to_hlist ~var_of_hlist:of_hlist ~value_to_hlist:to_hlist
       ~value_of_hlist:of_hlist
+
+  module Value = struct
+    [%%versioned
+    module Stable = struct
+      module V1 = struct
+        type t =
+          ( Parties.Digest.Stable.V1.t
+          , Token_id.Stable.V1.t
+          , Currency.Amount.Stable.V1.t
+          , Ledger_hash.Stable.V1.t
+          , bool
+          , Parties.Transaction_commitment.Stable.V1.t )
+          Stable.V1.t
+        [@@deriving compare, equal, hash, sexp, yojson]
+
+        let to_latest = Fn.id
+      end
+    end]
+  end
+
+  module Checked = struct
+    open Pickles.Impls.Step
+
+    type t =
+      ( Field.t
+      , Token_id.Checked.t
+      , Currency.Amount.Checked.t
+      , Ledger_hash.var
+      , Boolean.var
+      , Parties.Transaction_commitment.Checked.t )
+      Stable.Latest.t
+  end
 end
 
 module type Parties_intf = sig
@@ -95,6 +127,8 @@ end
 
 module type Ledger_intf = sig
   include Iffable
+
+  val empty : t
 end
 
 module Eff = struct
@@ -233,6 +267,7 @@ module Start_data = struct
         ; protocol_state_predicate : 'protocol_state_pred
         ; will_succeed : 'bool
         }
+      [@@deriving sexp, yojson]
     end
   end]
 end
@@ -465,6 +500,32 @@ module Make (Inputs : Inputs_intf) = struct
            , fun curr ->
                Inputs.Ledger.if_ is_last_party ~then_:local_state.ledger
                  ~else_:curr ))
+    in
+    let local_state =
+      (* Make sure to reset the local_state at the end of a transaction.
+         The following fields are already reset
+         - parties
+         - transaction_commitment
+         - excess
+         so we need to reset
+         - token_id = Token_id.default
+         - ledger = Frozen_ledger_hash.empty_hash
+         - success = true
+         - will_succeed = true
+      *)
+      { local_state with
+        token_id =
+          Token_id.if_ is_last_party ~then_:Token_id.default
+            ~else_:local_state.token_id
+      ; ledger =
+          Inputs.Ledger.if_ is_last_party ~then_:Inputs.Ledger.empty
+            ~else_:local_state.ledger
+      ; success =
+          Bool.if_ is_last_party ~then_:Bool.true_ ~else_:local_state.success
+      ; will_succeed =
+          Bool.if_ is_last_party ~then_:Bool.true_
+            ~else_:local_state.will_succeed
+      }
     in
     (global_state, local_state)
 

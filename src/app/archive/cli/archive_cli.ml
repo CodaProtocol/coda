@@ -10,13 +10,14 @@ let command_run =
      and log_level = Flag.Log.level
      and server_port = Flag.Port.Archive.server
      and metrics_server_port =
-       flag "--metrics-port" ~aliases:["-metrics-port"]
+       flag "--metrics-port" ~aliases:[ "-metrics-port" ]
          ~doc:
            "PORT metrics server for scraping via Prometheus (default no \
             metrics-server)"
          (optional Cli_lib.Arg_type.int16)
      and missing_blocks_width =
-       flag "--missing-blocks-width" ~aliases:["-missing-blocks-width"]
+       flag "--missing-blocks-width"
+         ~aliases:[ "-missing-blocks-width" ]
          ~doc:
            (sprintf
               "int The width of block heights within which missing blocks are \
@@ -28,10 +29,10 @@ let command_run =
          (optional int)
      and postgres = Flag.Uri.Archive.postgres
      and runtime_config_file =
-       flag "--config-file" ~aliases:["-config-file"] (optional string)
+       flag "--config-file" ~aliases:[ "-config-file" ] (optional string)
          ~doc:"PATH to the configuration file containing the genesis ledger"
      and delete_older_than =
-       flag "--delete-older-than" ~aliases:["-delete-older-than"]
+       flag "--delete-older-than" ~aliases:[ "-delete-older-than" ]
          (optional int)
          ~doc:
            "int Delete blocks that are more than n blocks lower than the \
@@ -40,7 +41,7 @@ let command_run =
      let runtime_config_opt =
        Option.map runtime_config_file ~f:(fun file ->
            Yojson.Safe.from_file file |> Runtime_config.of_yojson
-           |> Result.ok_or_failwith )
+           |> Result.ok_or_failwith)
      in
      fun () ->
        let logger = Logger.create () in
@@ -62,16 +63,16 @@ let command_prune =
   let open Command.Let_syntax in
   Command.async ~summary:"Prune old blocks and their transactions"
     (let%map_open height =
-       flag "--height" ~aliases:["-height"] (optional int)
+       flag "--height" ~aliases:[ "-height" ] (optional int)
          ~doc:"int Delete blocks with height lower than the given height"
      and num_blocks =
-       flag "--num-blocks" ~aliases:["-num-blocks"] (optional int)
+       flag "--num-blocks" ~aliases:[ "-num-blocks" ] (optional int)
          ~doc:
            "int Delete blocks that are more than n blocks lower than the \
             maximum seen block. This argument is ignored if the --height \
             argument is also given"
      and timestamp =
-       flag "--timestamp" ~aliases:["-timestamp"] (optional time_arg)
+       flag "--timestamp" ~aliases:[ "-timestamp" ] (optional time_arg)
          ~doc:
            "timestamp Delete blocks that are older than the given timestamp. \
             Format: 2000-00-00 12:00:00+0100"
@@ -107,7 +108,8 @@ let command_prune =
            [ Option.map height ~f:(fun v -> ("height", `Int v))
            ; Option.map num_blocks ~f:(fun v -> ("num_blocks", `Int v))
            ; Option.map timestamp ~f:(fun v ->
-                 ("timestamp", `String (Int64.to_string v)) ) ]
+                 ("timestamp", `String (Int64.to_string v)))
+           ]
        in
        match%map.Async.Deferred go () with
        | Ok () ->
@@ -117,4 +119,4 @@ let command_prune =
              ~metadata:
                (("error", `String (Caqti_error.show err)) :: cmd_metadata))
 
-let commands = [("run", command_run); ("prune", command_prune)]
+let commands = [ ("run", command_run); ("prune", command_prune) ]

@@ -237,19 +237,17 @@ let generate_next_state ~constraint_constants ~previous_protocol_state
               previous_protocol_state |> Protocol_state.blockchain_state
               |> Blockchain_state.snarked_ledger_hash
             in
-            let next_ledger_hash =
-              Option.value_map ledger_proof_opt
-                ~f:(fun (proof, _) ->
-                  Ledger_proof.statement proof |> Ledger_proof.statement_target)
-                ~default:previous_ledger_hash
-            in
-            let snarked_next_available_token =
+            let next_registers =
               match ledger_proof_opt with
               | Some (proof, _) ->
-                  (Ledger_proof.statement proof).next_available_token_after
+                  { ( Ledger_proof.statement proof
+                    |> Ledger_proof.statement_target )
+                    with
+                    pending_coinbase_stack = ()
+                  }
               | None ->
                   previous_protocol_state |> Protocol_state.blockchain_state
-                  |> Blockchain_state.snarked_next_available_token
+                  |> Blockchain_state.registers
             in
             let genesis_ledger_hash =
               previous_protocol_state |> Protocol_state.blockchain_state
@@ -271,8 +269,7 @@ let generate_next_state ~constraint_constants ~previous_protocol_state
                  has a different slot from the [scheduled_time]
               *)
               Blockchain_state.create_value ~timestamp:scheduled_time
-                ~snarked_ledger_hash:next_ledger_hash ~genesis_ledger_hash
-                ~snarked_next_available_token
+                ~registers:next_registers ~genesis_ledger_hash
                 ~staged_ledger_hash:next_staged_ledger_hash
             in
             let current_time =

@@ -17,6 +17,24 @@ end
 module Transactions = struct
   [%%versioned
   module Stable = struct
+    module V2 = struct
+      type t =
+        { commands :
+            ( User_command.Stable.V2.t
+            , Transaction_hash.Stable.V1.t )
+            With_hash.Stable.V1.t
+            With_status.Stable.V1.t
+            list
+        ; fee_transfers :
+            (Fee_transfer.Single.Stable.V1.t * Fee_transfer_type.Stable.V1.t)
+            list
+        ; coinbase : Currency.Amount.Stable.V1.t
+        ; coinbase_receiver : Public_key.Compressed.Stable.V1.t option
+        }
+
+      let to_latest = Fn.id
+    end
+
     module V1 = struct
       type t =
         { commands :
@@ -32,7 +50,16 @@ module Transactions = struct
         ; coinbase_receiver : Public_key.Compressed.Stable.V1.t option
         }
 
-      let to_latest = Fn.id
+      let to_latest (t : t) : V2.t =
+        { commands =
+            List.map t.commands
+              ~f:
+                (With_status.map
+                   ~f:(With_hash.map ~f:User_command.Stable.V1.to_latest))
+        ; fee_transfers = t.fee_transfers
+        ; coinbase = t.coinbase
+        ; coinbase_receiver = t.coinbase_receiver
+        }
     end
   end]
 end
@@ -40,6 +67,16 @@ end
 module Protocol_state = struct
   [%%versioned
   module Stable = struct
+    module V2 = struct
+      type t =
+        { previous_state_hash : State_hash.Stable.V1.t
+        ; blockchain_state : Mina_state.Blockchain_state.Value.Stable.V2.t
+        ; consensus_state : Consensus.Data.Consensus_state.Value.Stable.V1.t
+        }
+
+      let to_latest = Fn.id
+    end
+
     module V1 = struct
       type t =
         { previous_state_hash : State_hash.Stable.V1.t
@@ -47,13 +84,32 @@ module Protocol_state = struct
         ; consensus_state : Consensus.Data.Consensus_state.Value.Stable.V1.t
         }
 
-      let to_latest = Fn.id
+      let to_latest (t : t) : V2.t =
+        { previous_state_hash = t.previous_state_hash
+        ; blockchain_state =
+            Mina_state.Blockchain_state.Value.Stable.V1.to_latest
+              t.blockchain_state
+        ; consensus_state = t.consensus_state
+        }
     end
   end]
 end
 
 [%%versioned
 module Stable = struct
+  module V2 = struct
+    type t =
+      { creator : Public_key.Compressed.Stable.V1.t
+      ; winner : Public_key.Compressed.Stable.V1.t
+      ; protocol_state : Protocol_state.Stable.V2.t
+      ; transactions : Transactions.Stable.V2.t
+      ; snark_jobs : Transaction_snark_work.Info.Stable.V2.t list
+      ; proof : Proof.Stable.V1.t
+      }
+
+    let to_latest = Fn.id
+  end
+
   module V1 = struct
     type t =
       { creator : Public_key.Compressed.Stable.V1.t
@@ -64,7 +120,16 @@ module Stable = struct
       ; proof : Proof.Stable.V1.t
       }
 
-    let to_latest = Fn.id
+    let to_latest (t : t) : V2.t =
+      { creator = t.creator
+      ; winner = t.winner
+      ; protocol_state = Protocol_state.Stable.V1.to_latest t.protocol_state
+      ; transactions = Transactions.Stable.V1.to_latest t.transactions
+      ; snark_jobs =
+          List.map ~f:Transaction_snark_work.Info.Stable.V1.to_latest
+            t.snark_jobs
+      ; proof = t.proof
+      }
   end
 end]
 
@@ -137,7 +202,7 @@ let of_transition external_transition tracked_participants
     }
   in
   let next_available_token =
-    protocol_state.blockchain_state.snarked_next_available_token
+    protocol_state.blockchain_state.registers.next_available_token
   in
   let transactions, _next_available_token =
     List.fold calculated_transactions
@@ -149,8 +214,11 @@ let of_transition external_transition tracked_participants
           }
         , next_available_token )
       ~f:(fun (acc_transactions, next_available_token) -> function
-        | { data = Command (Snapp_command _); _ } -> failwith "Not implemented"
-        | { data = Command command; status } -> (
+        | { data = Command (Parties _); _ } ->
+            let `Needs_some_work_for_snapps_on_mainnet =
+              Mina_base.Util.todo_snapps
+            in
+            failwith "TODO" | { data = Command command; status } -> (
             let command = (command :> User_command.t) in
             let should_include_transaction command participants =
               List.exists

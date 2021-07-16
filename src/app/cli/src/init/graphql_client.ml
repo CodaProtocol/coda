@@ -43,23 +43,25 @@ let query_exn query_obj port = run_exn ~f:Client.query query_obj port
 
 module Signed_command = struct
   type t =
-    { id: string
-    ; isDelegation: bool
-    ; nonce: int
-    ; from: Public_key.Compressed.t
-    ; to_: Public_key.Compressed.t
-    ; amount: Currency.Amount.t
-    ; fee: Currency.Fee.t
-    ; memo: Signed_command_memo.t }
+    { id : string
+    ; isDelegation : bool
+    ; nonce : int
+    ; from : Public_key.Compressed.t
+    ; to_ : Public_key.Compressed.t
+    ; amount : Currency.Amount.t
+    ; fee : Currency.Fee.t
+    ; memo : Signed_command_memo.t
+    }
   [@@deriving yojson]
 
   let of_obj x =
-    { id= x#id
-    ; isDelegation= x#isDelegation
-    ; nonce= x#nonce
-    ; from= x#from
-    ; to_= x#to_
-    ; amount= x#amount
-    ; fee= x#fee
-    ; memo= x#memo }
+    { id = x#id
+    ; isDelegation = x#isDelegation
+    ; nonce = x#nonce
+    ; from = x#from
+    ; to_ = x#to_
+    ; amount = x#amount
+    ; fee = x#fee
+    ; memo = x#memo
+    }
 end

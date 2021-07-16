@@ -31,11 +31,19 @@ module Test_inputs = struct
     module Stable = struct
       [@@@no_toplevel_latest_type]
 
+      module V2 = struct
+        type t = Transaction_snark.Statement.Stable.V2.t One_or_two.Stable.V1.t
+        [@@deriving hash, compare, sexp]
+
+        let to_latest = Fn.id
+      end
+
       module V1 = struct
         type t = Transaction_snark.Statement.Stable.V1.t One_or_two.Stable.V1.t
         [@@deriving hash, compare, sexp]
 
-        let to_latest = Fn.id
+        let to_latest : t -> V2.t =
+          One_or_two.map ~f:Transaction_snark.Statement.Stable.V1.to_latest
       end
     end]
 
@@ -57,8 +65,7 @@ module Test_inputs = struct
 
   module Staged_ledger = struct
     type t =
-      (int, int, Transaction_snark_work.t) Snark_work_lib.Work.Single.Spec.t
-      List.t
+      (int, Transaction_snark_work.t) Snark_work_lib.Work.Single.Spec.t List.t
 
     let work = Fn.id
 

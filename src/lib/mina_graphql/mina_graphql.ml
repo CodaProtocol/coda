@@ -507,6 +507,7 @@ module Types = struct
         ])
 
   let work_statement =
+    let `Needs_some_work_for_snapps_on_mainnet = Mina_base.Util.todo_snapps in
     obj "WorkDescription"
       ~doc:
         "Transition from a source ledger to a target ledger with some fee \
@@ -515,12 +516,12 @@ module Types = struct
             ~doc:"Base58Check-encoded hash of the source ledger"
             ~args:Arg.[]
             ~resolve:(fun _ { Transaction_snark.Statement.source; _ } ->
-              Frozen_ledger_hash.to_string source)
+              Frozen_ledger_hash.to_string source.ledger)
         ; field "targetLedgerHash" ~typ:(non_null string)
             ~doc:"Base58Check-encoded hash of the target ledger"
             ~args:Arg.[]
             ~resolve:(fun _ { Transaction_snark.Statement.target; _ } ->
-              Frozen_ledger_hash.to_string target)
+              Frozen_ledger_hash.to_string target.ledger)
         ; field "feeExcess" ~typ:(non_null signed_fee)
             ~doc:
               "Total transaction fee that is not accounted for in the \
@@ -1523,7 +1524,10 @@ module Types = struct
                       Some
                         (UserCommand.mk_user_command
                            { status; data = { t.data with data = c } })
-                  | Snapp_command _ ->
+                  | Parties _ ->
+                      let `Needs_some_work_for_snapps_on_mainnet =
+                        Mina_base.Util.todo_snapps
+                      in
                       (* TODO: This should be supported in some graph QL query *)
                       None))
         ; field "feeTransfer"
@@ -3386,7 +3390,10 @@ module Queries = struct
                    Some
                      (Types.UserCommand.mk_user_command
                         { status = Unknown; data = { x with data } })
-               | Snapp_command _ ->
+               | Parties _ ->
+                   let `Needs_some_work_for_snapps_on_mainnet =
+                     Mina_base.Util.todo_snapps
+                   in
                    None))
 
   let sync_status =

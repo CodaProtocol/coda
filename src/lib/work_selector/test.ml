@@ -15,8 +15,7 @@ struct
   let gen_staged_ledger =
     (*Staged_ledger for tests is a list of work specs*)
     Quickcheck.Generator.list
-    @@ Snark_work_lib.Work.Single.Spec.gen Int.quickcheck_generator
-         Int.quickcheck_generator Fee.gen
+    @@ Snark_work_lib.Work.Single.Spec.gen Int.quickcheck_generator Fee.gen
 
   let precomputed_values = Precomputed_values.for_unit_tests
 
@@ -78,8 +77,7 @@ struct
             let work_sent_again = send_work work_state in
             assert (List.length work_sent = List.length work_sent_again)))
 
-  let gen_snark_pool (works : ('a, 'b, 'c) Lib.Work_spec.t One_or_two.t list)
-      fee =
+  let gen_snark_pool (works : ('a, 'b) Lib.Work_spec.t One_or_two.t list) fee =
     let open Quickcheck.Generator.Let_syntax in
     let cheap_work_fee = Option.value_exn Fee.(sub fee one) in
     let expensive_work_fee = Option.value_exn Fee.(add fee one) in
@@ -119,9 +117,8 @@ struct
     Quickcheck.test g
       ~sexp_of:
         [%sexp_of:
-          (int, int, Fee.t) Lib.Work_spec.t list
-          * Fee.t T.Snark_pool.Work.Table.t] ~trials:100
-      ~f:(fun (sl, snark_pool) ->
+          (int, Fee.t) Lib.Work_spec.t list * Fee.t T.Snark_pool.Work.Table.t]
+      ~trials:100 ~f:(fun (sl, snark_pool) ->
         Async.Thread_safe.block_on_async_exn (fun () ->
             let open Deferred.Let_syntax in
             let%bind work_state = init_state sl reassignment_wait logger in

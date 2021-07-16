@@ -134,9 +134,8 @@ module Receipt_chain_verifier = Merkle_list_verifier.Make (struct
       match proof_elem with
       | Signed_command c ->
           Receipt.Elt.Signed_command (Signed_command.payload c)
-      | Snapp_command x ->
-          Receipt.Elt.Snapp_command
-            Snapp_command.(Payload.(Digested.digest (digested (to_payload x))))
+      | Parties x ->
+          Receipt.Elt.Parties (Parties.commitment x)
     in
     Receipt.Chain_hash.cons p parent_hash
 end)

@@ -1,5 +1,4 @@
 open Async
-open Mina_base
 open Signature_lib
 
 (* for versioning of the types here, see
@@ -26,10 +25,7 @@ module Make (Inputs : Intf.Inputs_intf) = struct
         type query = unit
 
         type response =
-          ( ( Transaction.t
-            , Transaction_witness.t
-            , Ledger_proof.t )
-            Work.Single.Spec.t
+          ( (Transaction_witness.t, Ledger_proof.t) Work.Single.Spec.t
             Work.Spec.t
           * Public_key.Compressed.t )
           option
@@ -49,10 +45,7 @@ module Make (Inputs : Intf.Inputs_intf) = struct
 
       module T = struct
         type query =
-          ( ( Transaction.t
-            , Transaction_witness.t
-            , Ledger_proof.t )
-            Work.Single.Spec.t
+          ( (Transaction_witness.t, Ledger_proof.t) Work.Single.Spec.t
             Work.Spec.t
           , Ledger_proof.t )
           Work.Result.t

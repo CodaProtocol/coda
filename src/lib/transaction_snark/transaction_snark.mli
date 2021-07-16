@@ -1,6 +1,7 @@
 open Core
 open Mina_base
 open Snark_params
+open Mina_state
 
 (** For debugging. Logs to stderr the inputs to the top hash. *)
 val with_top_hash_logging : (unit -> 'a) -> 'a
@@ -59,21 +60,7 @@ module Pending_coinbase_stack_state : sig
   val var_to_input : var -> (Field.Var.t, Boolean.var) Random_oracle.Input.t
 end
 
-module Registers : sig
-  [%%versioned:
-  module Stable : sig
-    module V1 : sig
-      type ('ledger, 'pending_coinbase_stack, 'token_id, 'local_state) t =
-        { ledger : 'ledger
-        ; pending_coinbase_stack : 'pending_coinbase_stack
-        ; next_available_token : 'token_id
-        ; local_state : 'local_state
-        }
-      [@@deriving compare, equal, hash, sexp, yojson, hlist, fields]
-    end
-  end]
-end
-
+(*
 module Local_state : sig
   [%%versioned:
   module Stable : sig
@@ -103,6 +90,32 @@ module Local_state : sig
       Parties_logic.Local_state.t
   end
 end
+
+module Registers : sig
+  [%%versioned:
+  module Stable : sig
+    module V1 : sig
+      type ('ledger, 'pending_coinbase_stack, 'token_id, 'local_state) t =
+        { ledger : 'ledger
+        ; pending_coinbase_stack : 'pending_coinbase_stack
+        ; next_available_token : 'token_id
+        ; local_state : 'local_state
+        }
+      [@@deriving compare, equal, hash, sexp, yojson, hlist, fields]
+    end
+  end]
+
+  module Checked : sig
+    open Pickles.Impls.Step
+    type nonrec t =
+(Ledger_hash.var, Pending_coinbase.Stack.var, Token_id.var,
+ Local_state.Checked.t)
+t
+
+    val equal : t -> t -> Boolean.var
+  end
+end
+*)
 
 module Statement : sig
   module Poly : sig
@@ -232,6 +245,8 @@ module Statement : sig
         , unit )
         Poly.Stable.V1.t
       [@@deriving compare, equal, hash, sexp, yojson]
+
+      val to_latest : t -> V2.t
     end
   end]
 
@@ -305,11 +320,13 @@ end
 [%%versioned:
 module Stable : sig
   module V2 : sig
-    type t [@@deriving compare, sexp, yojson]
+    type t [@@deriving compare, equal, sexp, yojson, hash]
   end
 
   module V1 : sig
     type t [@@deriving compare, equal, sexp, yojson, hash]
+
+    val to_latest : t -> V2.t
   end
 end]
 
@@ -397,22 +414,21 @@ val generate_transaction_witness :
   -> unit
 
 module Parties_segment : sig
-  module Witness : sig
-    type t
-  end
+  module Witness = Transaction_witness.Parties_segment_witness
 
   module Basic : sig
-    type (_, _, _, _) t =
-      (* Corresponds to payment *)
-      | Opt_signed_unsigned : (unit, unit, unit, unit) t
-      | Opt_signed_opt_signed : (unit, unit, unit, unit) t
-      | Opt_signed : (unit, unit, unit, unit) t
-      | Proved
-          : ( Snapp_statement.Checked.t * unit
-            , Snapp_statement.t * unit
-            , Nat.N2.n * unit
-            , Side_loaded_verification_key.Max_branches.n * unit )
-            t
+    [%%versioned:
+    module Stable : sig
+      module V1 : sig
+        type t =
+          (* Corresponds to payment *)
+          | Opt_signed_unsigned
+          | Opt_signed_opt_signed
+          | Opt_signed
+          | Proved
+        [@@deriving sexp]
+      end
+    end]
   end
 end
 
@@ -421,47 +437,29 @@ module type S = sig
 
   val cache_handle : Pickles.Cache_handle.t
 
-  val of_transaction :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
+  val of_non_parties_transaction :
+       statement:Statement.With_sok.t
     -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
-    -> snapp_account1:Snapp_account.t option
-    -> snapp_account2:Snapp_account.t option
     -> Transaction.Valid.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t
 
   val of_user_command :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
+       statement:Statement.With_sok.t
     -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
     -> Signed_command.With_valid_signature.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t
 
   val of_fee_transfer :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
+       statement:Statement.With_sok.t
     -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
     -> Fee_transfer.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t
 
   val of_parties_segment_exn :
-       (_, _, _, _) Parties_segment.Basic.t
-    -> statement:Statement.With_sok.t
+       statement:Statement.With_sok.t
     -> witness:Parties_segment.Witness.t
     -> t Async.Deferred.t
 

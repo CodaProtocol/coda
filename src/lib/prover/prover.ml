@@ -12,6 +12,19 @@ module Extend_blockchain_input = struct
   module Stable = struct
     [@@@no_toplevel_latest_type]
 
+    module V2 = struct
+      type t =
+        { chain : Blockchain.Stable.V1.t
+        ; next_state : Protocol_state.Value.Stable.V2.t
+        ; block : Snark_transition.Value.Stable.V2.t
+        ; ledger_proof : Ledger_proof.Stable.V2.t option
+        ; prover_state : Consensus.Data.Prover_state.Stable.V1.t
+        ; pending_coinbase : Pending_coinbase_witness.Stable.V1.t
+        }
+
+      let to_latest = Fn.id
+    end
+
     module V1 = struct
       type t =
         { chain : Blockchain.Stable.V1.t
@@ -22,7 +35,15 @@ module Extend_blockchain_input = struct
         ; pending_coinbase : Pending_coinbase_witness.Stable.V1.t
         }
 
-      let to_latest = Fn.id
+      let to_latest (t : t) : V2.t =
+        { chain = t.chain
+        ; next_state = Protocol_state.Value.Stable.V1.to_latest t.next_state
+        ; block = Snark_transition.Value.Stable.V1.to_latest t.block
+        ; ledger_proof =
+            Option.map ~f:Ledger_proof.Stable.V1.to_latest t.ledger_proof
+        ; prover_state = t.prover_state
+        ; pending_coinbase = t.pending_coinbase
+        }
     end
   end]
 
@@ -72,20 +93,17 @@ module Worker_state = struct
           ({ (statement t) with sok_digest = sok_digest t }, underlying_proof t)
     | None ->
         let bs = Protocol_state.blockchain_state in
-        let lh x = Blockchain_state.snarked_ledger_hash (bs x) in
-        let tok x = Blockchain_state.snarked_next_available_token (bs x) in
+        let reg x =
+          { (bs x).Blockchain_state.Poly.registers with
+            pending_coinbase_stack = Pending_coinbase.Stack.empty
+          }
+        in
         let chain_state = Blockchain_snark.Blockchain.state chain in
-        ( { source = lh chain_state
-          ; target = lh next_state
+        ( { source = reg chain_state
+          ; target = reg next_state
           ; supply_increase = Currency.Amount.zero
           ; fee_excess = Fee_excess.zero
           ; sok_digest = Sok_message.Digest.default
-          ; next_available_token_before = tok chain_state
-          ; next_available_token_after = tok next_state
-          ; pending_coinbase_stack_state =
-              { source = Pending_coinbase.Stack.empty
-              ; target = Pending_coinbase.Stack.empty
-              }
           }
         , Proof.transaction_dummy )
 

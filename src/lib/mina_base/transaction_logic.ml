@@ -1315,6 +1315,9 @@ module Make (L : Ledger_intf) : S with type ledger := L.t = struct
         type t = L.t
 
         let if_ = Parties.value_if
+
+        (* This is semantically wrong, but the empty ledger is not actually used here, so it's fine. *)
+        let empty = ledger
       end
 
       module Transaction_commitment = struct

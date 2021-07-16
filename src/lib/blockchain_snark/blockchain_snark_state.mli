@@ -45,7 +45,7 @@ module type S = sig
        Witness.t
     -> ( Protocol_state.Value.t * (Transaction_snark.Statement.With_sok.t * unit)
        , N2.n * (N2.n * unit)
-       , N1.n * (N2.n * unit)
+       , N1.n * (N6.n * unit)
        , Protocol_state.Value.t
        , Proof.t Async.Deferred.t )
        Pickles.Prover.t

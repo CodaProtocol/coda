@@ -63,11 +63,12 @@ end
 
 module Params = struct
   type t =
-    { query: string option
-    ; variables: (string * Yojson.Basic.t) list option
-    ; operation_name: string option }
+    { query : string option
+    ; variables : (string * Yojson.Basic.t) list option
+    ; operation_name : string option
+    }
 
-  let empty = {query= None; variables= None; operation_name= None}
+  let empty = { query = None; variables = None; operation_name = None }
 
   let of_uri_exn uri =
     let variables =
@@ -75,28 +76,32 @@ module Params = struct
       |> Option.map ~f:Yojson.Basic.from_string
       |> Option.map ~f:Yojson.Basic.Util.to_assoc
     in
-    { query= Uri.get_query_param uri "query"
+    { query = Uri.get_query_param uri "query"
     ; variables
-    ; operation_name= Uri.get_query_param uri "operationName" }
+    ; operation_name = Uri.get_query_param uri "operationName"
+    }
 
   let of_json_body_exn body =
     if body = "" then empty
     else
       let json = Yojson.Basic.from_string body in
-      { query= Yojson.Basic.Util.(json |> member "query" |> to_option to_string)
-      ; variables=
+      { query =
+          Yojson.Basic.Util.(json |> member "query" |> to_option to_string)
+      ; variables =
           Yojson.Basic.Util.(json |> member "variables" |> to_option to_assoc)
-      ; operation_name=
+      ; operation_name =
           Yojson.Basic.Util.(
-            json |> member "operationName" |> to_option to_string) }
+            json |> member "operationName" |> to_option to_string)
+      }
 
   let of_graphql_body body =
-    {query= Some body; variables= None; operation_name= None}
+    { query = Some body; variables = None; operation_name = None }
 
   let merge t t' =
-    { query= Option.first_some t.query t'.query
-    ; variables= Option.first_some t.variables t'.variables
-    ; operation_name= Option.first_some t.operation_name t'.operation_name }
+    { query = Option.first_some t.query t'.query
+    ; variables = Option.first_some t.variables t'.variables
+    ; operation_name = Option.first_some t.operation_name t'.operation_name
+    }
 
   let post_params_exn req body =
     let headers = Cohttp.Request.headers req in
@@ -146,8 +151,7 @@ struct
     'conn -> Cohttp.Request.t -> Body.t -> response_action Io.t
 
   let respond_string ~status ~body () =
-    Io.return
-      (`Response (Cohttp.Response.make ~status (), Body.of_string body))
+    Io.return (`Response (Cohttp.Response.make ~status (), Body.of_string body))
 
   let static_file_response path =
     match Assets.read path with
@@ -199,22 +203,21 @@ struct
           List.mem "text/html" (String.split_on_char ',' s)
     in
     match (req.meth, path_parts, accept_html) with
-    | `GET, ["graphql"], true ->
+    | `GET, [ "graphql" ], true ->
         static_file_response "index_extensions.html"
-    | `GET, ["graphql"], false ->
+    | `GET, [ "graphql" ], false ->
         if
           Cohttp.Header.get headers "Connection" = Some "Upgrade"
           && Cohttp.Header.get headers "Upgrade" = Some "websocket"
         then
           let handle_conn =
-            Websocket_transport.handle
-              (execute_query (make_context req) schema)
+            Websocket_transport.handle (execute_query (make_context req) schema)
           in
           Io.return (Ws.upgrade_connection req handle_conn)
         else execute_request schema (make_context req) req body
-    | `GET, ["graphql"; path], _ ->
+    | `GET, [ "graphql"; path ], _ ->
         static_file_response path
-    | `POST, ["graphql"], _ ->
+    | `POST, [ "graphql" ], _ ->
         execute_request schema (make_context req) req body
     | _ ->
         respond_string ~status:`Not_found ~body:"" ()

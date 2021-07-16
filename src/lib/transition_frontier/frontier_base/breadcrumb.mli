@@ -14,10 +14,11 @@ open Network_peer
 type t [@@deriving sexp, equal, compare, to_yojson]
 
 type display =
-  { state_hash: string
-  ; blockchain_state: Blockchain_state.display
-  ; consensus_state: Consensus.Data.Consensus_state.display
-  ; parent: string }
+  { state_hash : string
+  ; blockchain_state : Blockchain_state.display
+  ; consensus_state : Consensus.Data.Consensus_state.display
+  ; parent : string
+  }
 [@@deriving yojson]
 
 val create :
@@ -28,7 +29,7 @@ val create :
   -> t
 
 val build :
-     ?skip_staged_ledger_verification:[`All | `Proofs]
+     ?skip_staged_ledger_verification:[ `All | `Proofs ]
   -> logger:Logger.t
   -> precomputed_values:Precomputed_values.t
   -> verifier:Verifier.t
@@ -79,8 +80,6 @@ val payments : t -> Signed_command.t With_status.t list
 val completed_works : t -> Transaction_snark_work.t list
 
 val mask : t -> Ledger.Mask.Attached.t
-
-val all_user_commands : t list -> Signed_command.Set.t
 
 val display : t -> display
 

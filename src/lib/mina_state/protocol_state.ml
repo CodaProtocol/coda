@@ -46,6 +46,18 @@ module Body = struct
   module Value = struct
     [%%versioned
     module Stable = struct
+      module V2 = struct
+        type t =
+          ( State_hash.Stable.V1.t
+          , Blockchain_state.Value.Stable.V2.t
+          , Consensus.Data.Consensus_state.Value.Stable.V1.t
+          , Protocol_constants_checked.Value.Stable.V1.t )
+          Poly.Stable.V1.t
+        [@@deriving equal, ord, bin_io, hash, sexp, yojson, version]
+
+        let to_latest = Fn.id
+      end
+
       module V1 = struct
         type t =
           ( State_hash.Stable.V1.t
@@ -55,7 +67,11 @@ module Body = struct
           Poly.Stable.V1.t
         [@@deriving equal, ord, bin_io, hash, sexp, yojson, version]
 
-        let to_latest = Fn.id
+        let to_latest (t : t) : V2.t =
+          { t with
+            blockchain_state =
+              Blockchain_state.Value.Stable.V1.to_latest t.blockchain_state
+          }
       end
     end]
   end
@@ -128,9 +144,9 @@ module Body = struct
   let view_checked (t : var) : Snapp_predicate.Protocol_state.View.Checked.t =
     let module C = Consensus.Proof_of_stake.Exported.Consensus_state in
     let cs : Consensus.Data.Consensus_state.var = t.consensus_state in
-    { snarked_ledger_hash = t.blockchain_state.snarked_ledger_hash
+    { snarked_ledger_hash = t.blockchain_state.registers.ledger
     ; snarked_next_available_token =
-        t.blockchain_state.snarked_next_available_token
+        t.blockchain_state.registers.next_available_token
     ; timestamp = t.blockchain_state.timestamp
     ; blockchain_length = C.blockchain_length_var cs
     ; min_window_density = C.min_window_density_var cs
@@ -152,9 +168,9 @@ module Body = struct
   let view (t : Value.t) : Snapp_predicate.Protocol_state.View.t =
     let module C = Consensus.Proof_of_stake.Exported.Consensus_state in
     let cs = t.consensus_state in
-    { snarked_ledger_hash = t.blockchain_state.snarked_ledger_hash
+    { snarked_ledger_hash = t.blockchain_state.registers.ledger
     ; snarked_next_available_token =
-        t.blockchain_state.snarked_next_available_token
+        t.blockchain_state.registers.next_available_token
     ; timestamp = t.blockchain_state.timestamp
     ; blockchain_length = C.blockchain_length cs
     ; min_window_density = C.min_window_density cs
@@ -170,11 +186,19 @@ end
 module Value = struct
   [%%versioned
   module Stable = struct
+    module V2 = struct
+      type t = (State_hash.Stable.V1.t, Body.Value.Stable.V2.t) Poly.Stable.V1.t
+      [@@deriving sexp, hash, compare, equal, yojson]
+
+      let to_latest = Fn.id
+    end
+
     module V1 = struct
       type t = (State_hash.Stable.V1.t, Body.Value.Stable.V1.t) Poly.Stable.V1.t
       [@@deriving sexp, hash, compare, equal, yojson]
 
-      let to_latest = Fn.id
+      let to_latest (t : t) : V2.t =
+        { t with body = Body.Value.Stable.V1.to_latest t.body }
     end
   end]
 

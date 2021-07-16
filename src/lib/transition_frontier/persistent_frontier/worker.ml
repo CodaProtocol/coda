@@ -6,7 +6,7 @@ open Frontier_base
 
 type input = Diff.Lite.E.t list
 
-type create_args = {db: Database.t; logger: Logger.t}
+type create_args = { db : Database.t; logger : Logger.t }
 
 module Worker = struct
   (* when this is transitioned to an RPC worker, the db argument
@@ -16,23 +16,24 @@ module Worker = struct
   type nonrec input = input
 
   type t =
-    { db: Database.t
-    ; logger: Logger.t
+    { db : Database.t
+    ; logger : Logger.t
           (* Invariant:
 
-   If there are root transitions in this queue which can be performed, we perform
-   them immediately. This invariant is potentially violated whenever we touch the
-   database (i.e., whenever we process any other kind of diff) so we eagerly perform
-   work in this queue immediately after applying any other kind of diff. *)
-    ; root_transitions: Diff.Root_transition.Lite.t Queue.t }
+             If there are root transitions in this queue which can be performed, we perform
+             them immediately. This invariant is potentially violated whenever we touch the
+             database (i.e., whenever we process any other kind of diff) so we eagerly perform
+             work in this queue immediately after applying any other kind of diff. *)
+    ; root_transitions : Diff.Root_transition.Lite.t Queue.t
+    }
 
   type nonrec create_args = create_args
 
   type output = unit
 
   (* worker assumes database has already been checked and initialized *)
-  let create ({db; logger} : create_args) : t =
-    {db; logger; root_transitions= Queue.create ()}
+  let create ({ db; logger } : create_args) : t =
+    { db; logger; root_transitions = Queue.create () }
 
   let eagerly_perform_root_transitions t =
     let start = Time.now () in
@@ -40,7 +41,7 @@ module Worker = struct
       match Queue.peek t.root_transitions with
       | None ->
           count
-      | Some {new_root; garbage} -> (
+      | Some { new_root; garbage } -> (
           let garbage = match garbage with Lite garbage -> garbage in
           match Database.move_root t.db ~new_root ~garbage with
           | Ok _old_root ->
@@ -55,7 +56,8 @@ module Worker = struct
     [%log' trace t.logger] "Eagerly performed $n root transitions in $time"
       ~metadata:
         [ ("n", `Int count)
-        ; ("time", `String Time.(Span.to_string_hum (diff (now ()) start))) ]
+        ; ("time", `String Time.(Span.to_string_hum (diff (now ()) start)))
+        ]
 
   let make_immediate_progress t diffs =
     let root_transitions, other_diffs =
@@ -64,7 +66,7 @@ module Worker = struct
           | Root_transitioned rt ->
               `Fst rt
           | _ ->
-              `Snd (Diff.Lite.E.E d) )
+              `Snd (Diff.Lite.E.E d))
     in
     Queue.enqueue_all t.root_transitions root_transitions ;
     eagerly_perform_root_transitions t ;
@@ -74,7 +76,7 @@ module Worker = struct
   let close _ = Deferred.unit
 
   type apply_diff_error =
-    [`Apply_diff of [`New_node | `Root_transitioned | `Best_tip_changed]]
+    [ `Apply_diff of [ `New_node | `Root_transitioned | `Best_tip_changed ] ]
 
   type apply_diff_error_internal =
     [ `Not_found of
@@ -103,7 +105,7 @@ module Worker = struct
       Result.map_error result ~f:(fun err ->
           [%log' error t.logger] "error applying %s diff: %s" diff_type_name
             (apply_diff_error_internal_to_string err) ;
-          `Apply_diff diff_type )
+          `Apply_diff diff_type)
     in
     match diff with
     | New_node (Lite transition) -> (
@@ -124,11 +126,12 @@ module Worker = struct
                       (State_hash.to_base58_check
                          (Mina_transition.External_transition.Validated
                           .state_hash transition)) )
-                ; ("parent", `String (State_hash.to_base58_check h)) ] ;
+                ; ("parent", `String (State_hash.to_base58_check h))
+                ] ;
             Ok ()
         | _ ->
             map_error ~diff_type:`New_node ~diff_type_name:"New_node" r )
-    | Root_transitioned {new_root; garbage= Lite garbage} ->
+    | Root_transitioned { new_root; garbage = Lite garbage } ->
         map_error ~diff_type:`Root_transitioned
           ~diff_type_name:"Root_transitioned"
           ( Database.move_root t.db ~new_root ~garbage
@@ -165,9 +168,9 @@ module Worker = struct
          * other tasks in between diff applications.
          * If implemented otherwise, all diffs would be
          * applied during the same scheduler cycle.
-         *)
+      *)
       deferred_result_list_fold other_diffs ~init:() ~f:(fun () diff ->
-          Deferred.return (handle_diff t diff) )
+          Deferred.return (handle_diff t diff))
     with
     | Ok () ->
         ()

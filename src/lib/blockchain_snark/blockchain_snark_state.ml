@@ -47,6 +47,31 @@ let with_handler k w ?handler =
   let h = wrap_handler handler w in
   k ?handler:(Some h)
 
+module Impl = Pickles.Impls.Step
+
+let non_pc_registers_equal_var t1 t2 =
+  Impl.make_checked (fun () ->
+      let module F = Core_kernel.Field in
+      let ( ! ) eq x1 x2 = Impl.run_checked (eq x1 x2) in
+      let f eq acc field = eq (F.get field t1) (F.get field t2) :: acc in
+      Registers.Fields.fold ~init:[]
+        ~ledger:(f !Frozen_ledger_hash.equal_var)
+        ~pending_coinbase_stack:(fun acc f ->
+          let () = F.get f t1 and () = F.get f t2 in
+          acc)
+        ~next_available_token:(f !Token_id.Checked.equal)
+        ~local_state:(fun acc f ->
+          Local_state.Checked.equal' (F.get f t1) (F.get f t2) @ acc)
+      |> Impl.Boolean.all)
+
+let non_pc_registers_equal t1 t2 =
+  let module F = Core_kernel.Field in
+  let f eq field = eq (F.get field t1) (F.get field t2) in
+  Registers.Fields.for_all
+    ~ledger:(f Frozen_ledger_hash.equal)
+    ~pending_coinbase_stack:(f Unit.equal)
+    ~next_available_token:(f Token_id.equal) ~local_state:(f Local_state.equal)
+
 (* Blockchain_snark ~old ~nonce ~ledger_snark ~ledger_hash ~timestamp ~new_hash
       Input:
         old : Blockchain.t
@@ -138,11 +163,10 @@ let%snarkydef step ~(logger : Logger.t)
     (t, is_base_case)
   in
   let%bind txn_snark_should_verify, success =
-    let%bind ledger_hash_didn't_change =
-      Frozen_ledger_hash.equal_var
-        ( previous_state |> Protocol_state.blockchain_state
-        |> Blockchain_state.snarked_ledger_hash )
-        txn_snark.target
+    let%bind non_pc_registers_didn't_change =
+      non_pc_registers_equal_var
+        (previous_state |> Protocol_state.blockchain_state).registers
+        { txn_snark.target with pending_coinbase_stack = () }
     and supply_increase_is_zero =
       Currency.Amount.(equal_var txn_snark.supply_increase (var_of_t zero))
     in
@@ -153,7 +177,7 @@ let%snarkydef step ~(logger : Logger.t)
       let%bind root_after_delete, deleted_stack =
         Pending_coinbase.Checked.pop_coinbases ~constraint_constants
           prev_pending_coinbase_root
-          ~proof_emitted:(Boolean.not ledger_hash_didn't_change)
+          ~proof_emitted:(Boolean.not non_pc_registers_didn't_change)
       in
       (*If snarked ledger hash did not change (no new ledger proof) then pop_coinbases should be a no-op*)
       let%bind no_coinbases_popped =
@@ -174,41 +198,33 @@ let%snarkydef step ~(logger : Logger.t)
       Pending_coinbase.Stack.Checked.create_with deleted_stack
     in
     let%bind txn_snark_input_correct =
-      let lh t =
-        Protocol_state.blockchain_state t
-        |> Blockchain_state.snarked_ledger_hash
+      let registers (t : Protocol_state.var) =
+        (Protocol_state.blockchain_state t).registers
       in
       let open Checked in
       let%bind () =
         Fee_excess.(assert_equal_checked (var_of_t zero) txn_snark.fee_excess)
       in
       all
-        [ Frozen_ledger_hash.equal_var txn_snark.source (lh previous_state)
-        ; Frozen_ledger_hash.equal_var txn_snark.target (lh new_state)
+        [ non_pc_registers_equal_var
+            { txn_snark.source with pending_coinbase_stack = () }
+            (registers previous_state)
+        ; non_pc_registers_equal_var
+            { txn_snark.target with pending_coinbase_stack = () }
+            (registers new_state)
         ; Pending_coinbase.Stack.equal_var
-            txn_snark.pending_coinbase_stack_state.source
+            txn_snark.source.pending_coinbase_stack
             pending_coinbase_source_stack
         ; Pending_coinbase.Stack.equal_var
-            txn_snark.pending_coinbase_stack_state.target deleted_stack
-        ; Token_id.Checked.equal txn_snark.next_available_token_before
-            ( previous_state |> Protocol_state.blockchain_state
-            |> Blockchain_state.snarked_next_available_token )
-        ; Token_id.Checked.equal txn_snark.next_available_token_after
-            ( transition |> Snark_transition.blockchain_state
-            |> Blockchain_state.snarked_next_available_token )
+            txn_snark.target.pending_coinbase_stack deleted_stack
         ]
       >>= Boolean.all
     in
     let%bind nothing_changed =
-      let%bind next_available_token_didn't_change =
-        Token_id.Checked.equal txn_snark.next_available_token_after
-          txn_snark.next_available_token_before
-      in
       Boolean.all
-        [ ledger_hash_didn't_change
+        [ non_pc_registers_didn't_change
         ; supply_increase_is_zero
         ; no_coinbases_popped
-        ; next_available_token_didn't_change
         ]
     in
     let%bind correct_coinbase_status =
@@ -307,20 +323,18 @@ let rule ~proof_level ~constraint_constants transaction_snark self :
         [ b1; b2 ])
   ; main_value =
       (fun [ prev; (txn : Transaction_snark.Statement.With_sok.t) ] curr ->
-        let lh t =
-          Protocol_state.blockchain_state t
-          |> Blockchain_state.snarked_ledger_hash
+        let registers (t : Protocol_state.Value.t) =
+          (Protocol_state.blockchain_state t).registers
         in
         [ not
             (Consensus.Data.Consensus_state.is_genesis_state
                (Protocol_state.consensus_state curr))
         ; List.for_all ~f:Fn.id
-            [ Frozen_ledger_hash.equal (lh prev) (lh curr)
+            [ non_pc_registers_equal (registers prev) (registers curr)
             ; Currency.Amount.(equal zero)
                 txn.Transaction_snark.Statement.supply_increase
-            ; Pending_coinbase.Stack.equal
-                txn.pending_coinbase_stack_state.source
-                txn.pending_coinbase_stack_state.target
+            ; Pending_coinbase.Stack.equal txn.source.pending_coinbase_stack
+                txn.target.pending_coinbase_stack
             ]
           |> not
         ])
@@ -362,7 +376,7 @@ module type S = sig
        Witness.t
     -> ( Protocol_state.Value.t * (Transaction_snark.Statement.With_sok.t * unit)
        , N2.n * (N2.n * unit)
-       , N1.n * (N2.n * unit)
+       , N1.n * (N6.n * unit)
        , Protocol_state.Value.t
        , Proof.t Async.Deferred.t )
        Pickles.Prover.t

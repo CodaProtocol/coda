@@ -26,57 +26,46 @@ end
 
 module type Blockchain_state = sig
   module Poly : sig
-    [%%versioned:
-    module Stable : sig
-      module V1 : sig
-        type ('staged_ledger_hash, 'snarked_ledger_hash, 'token_id, 'time) t
-        [@@deriving sexp]
-      end
-    end]
+    type ( 'staged_ledger_hash
+         , 'snarked_ledger_hash
+         , 'token_id
+         , 'local_state
+         , 'time )
+         t
+    [@@deriving sexp]
   end
 
   module Value : sig
-    [%%versioned:
-    module Stable : sig
-      module V1 : sig
-        type t =
-          ( Staged_ledger_hash.t
-          , Frozen_ledger_hash.t
-          , Token_id.t
-          , Block_time.t )
-          Poly.t
-        [@@deriving sexp]
-      end
-    end]
+    type t =
+      ( Staged_ledger_hash.t
+      , Frozen_ledger_hash.t
+      , Token_id.t
+      , Parties_logic.Local_state.Value.t
+      , Block_time.t )
+      Poly.t
+    [@@deriving sexp]
   end
 
   type var =
     ( Staged_ledger_hash.var
     , Frozen_ledger_hash.var
     , Token_id.var
+    , Parties_logic.Local_state.Checked.t
     , Block_time.Unpacked.var )
     Poly.t
 
-  val create_value :
-       staged_ledger_hash:Staged_ledger_hash.t
-    -> snarked_ledger_hash:Frozen_ledger_hash.t
-    -> genesis_ledger_hash:Frozen_ledger_hash.t
-    -> snarked_next_available_token:Token_id.t
-    -> timestamp:Block_time.t
-    -> Value.t
-
   val staged_ledger_hash :
-    ('staged_ledger_hash, _, _, _) Poly.t -> 'staged_ledger_hash
+    ('staged_ledger_hash, _, _, _, _) Poly.t -> 'staged_ledger_hash
 
   val snarked_ledger_hash :
-    (_, 'frozen_ledger_hash, _, _) Poly.t -> 'frozen_ledger_hash
+    (_, 'frozen_ledger_hash, _, _, _) Poly.t -> 'frozen_ledger_hash
 
   val genesis_ledger_hash :
-    (_, 'frozen_ledger_hash, _, _) Poly.t -> 'frozen_ledger_hash
+    (_, 'frozen_ledger_hash, _, _, _) Poly.t -> 'frozen_ledger_hash
 
-  val snarked_next_available_token : (_, _, 'token_id, _) Poly.t -> 'token_id
+  val snarked_next_available_token : (_, _, 'token_id, _, _) Poly.t -> 'token_id
 
-  val timestamp : (_, _, _, 'time) Poly.t -> 'time
+  val timestamp : (_, _, _, _, 'time) Poly.t -> 'time
 end
 
 module type Protocol_state = sig
@@ -89,38 +78,23 @@ module type Protocol_state = sig
   type consensus_state_var
 
   module Poly : sig
-    [%%versioned:
-    module Stable : sig
-      module V1 : sig
-        type ('state_hash, 'body) t [@@deriving equal, hash, sexp, to_yojson]
-      end
-    end]
+    type ('state_hash, 'body) t [@@deriving equal, hash, sexp, to_yojson]
   end
 
   module Body : sig
     module Poly : sig
-      [%%versioned:
-      module Stable : sig
-        module V1 : sig
-          type ('state_hash, 'blockchain_state, 'consensus_state, 'constants) t
-          [@@deriving sexp]
-        end
-      end]
+      type ('state_hash, 'blockchain_state, 'consensus_state, 'constants) t
+      [@@deriving sexp]
     end
 
     module Value : sig
-      [%%versioned:
-      module Stable : sig
-        module V1 : sig
-          type t =
-            ( State_hash.t
-            , blockchain_state
-            , consensus_state
-            , Protocol_constants_checked.Value.Stable.V1.t )
-            Poly.Stable.V1.t
-          [@@deriving sexp, to_yojson]
-        end
-      end]
+      type t =
+        ( State_hash.t
+        , blockchain_state
+        , consensus_state
+        , Protocol_constants_checked.Value.Stable.V1.t )
+        Poly.t
+      [@@deriving sexp, to_yojson]
     end
 
     type var =
@@ -128,17 +102,12 @@ module type Protocol_state = sig
       , blockchain_state_var
       , consensus_state_var
       , Protocol_constants_checked.var )
-      Poly.Stable.Latest.t
+      Poly.t
   end
 
   module Value : sig
-    [%%versioned:
-    module Stable : sig
-      module V1 : sig
-        type t = (State_hash.t, Body.Value.Stable.V1.t) Poly.Stable.V1.t
-        [@@deriving sexp, equal, compare]
-      end
-    end]
+    type t = (State_hash.t, Body.Value.t) Poly.t
+    [@@deriving sexp, equal, compare]
   end
 
   type var = (State_hash.var, Body.var) Poly.t

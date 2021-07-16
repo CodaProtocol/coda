@@ -1,6 +1,7 @@
 open Core
 open Signature_lib
 open Mina_base
+open Mina_state
 open Snark_params
 module Global_slot = Mina_numbers.Global_slot
 open Currency
@@ -109,177 +110,6 @@ module Pending_coinbase_stack_state = struct
   include Comparable.Make (Stable.Latest)
 end
 
-module Local_state = struct
-  [%%versioned
-  module Stable = struct
-    module V1 = struct
-      type t =
-        ( Parties.Digest.Stable.V1.t
-        , Token_id.Stable.V1.t
-        , Currency.Amount.Stable.V1.t
-        , Ledger_hash.Stable.V1.t
-        , bool
-        , Parties.Transaction_commitment.Stable.V1.t )
-        Parties_logic.Local_state.Stable.V1.t
-      [@@deriving compare, equal, hash, sexp, yojson]
-
-      let to_latest = Fn.id
-    end
-  end]
-
-  let dummy : t =
-    { parties = Parties.With_hashes.empty
-    ; transaction_commitment = Parties.Transaction_commitment.empty
-    ; token_id = Token_id.default
-    ; excess = Amount.zero
-    ; ledger = Frozen_ledger_hash.empty_hash
-    ; success = true
-    ; will_succeed = true
-    }
-
-  let gen : t Quickcheck.Generator.t =
-    let open Quickcheck.Generator.Let_syntax in
-    let%map ledger = Frozen_ledger_hash.gen
-    and excess = Amount.gen
-    and transaction_commitment = Impl.Field.Constant.gen
-    and parties = Impl.Field.Constant.gen
-    and token_id = Token_id.gen
-    and success = Bool.quickcheck_generator
-    and will_succeed = Bool.quickcheck_generator in
-    { Parties_logic.Local_state.parties
-    ; transaction_commitment
-    ; token_id
-    ; ledger
-    ; excess
-    ; success
-    ; will_succeed
-    }
-
-  let to_input
-      ({ parties
-       ; transaction_commitment
-       ; token_id
-       ; excess
-       ; ledger
-       ; success
-       ; will_succeed
-       } :
-        t) =
-    let open Random_oracle.Input in
-    Array.reduce_exn ~f:append
-      [| field parties
-       ; field transaction_commitment
-       ; Token_id.to_input token_id
-       ; Amount.to_input excess
-       ; Ledger_hash.to_input ledger
-       ; bitstring [ success ]
-       ; bitstring [ will_succeed ]
-      |]
-
-  module Checked = struct
-    open Impl
-
-    type t =
-      ( Field.t
-      , Token_id.Checked.t
-      , Amount.Checked.t
-      , Ledger_hash.var
-      , Boolean.var
-      , Parties.Transaction_commitment.Checked.t )
-      Parties_logic.Local_state.t
-
-    let assert_equal (t1 : t) (t2 : t) =
-      let ( ! ) f x y = Impl.run_checked (f x y) in
-      let f eq f = Core_kernel.Field.(eq (get f t1) (get f t2)) in
-      Parties_logic.Local_state.Fields.iter ~parties:(f Field.Assert.equal)
-        ~transaction_commitment:(f Field.Assert.equal)
-        ~token_id:(f !Token_id.Checked.Assert.equal)
-        ~excess:(f !Currency.Amount.Checked.assert_equal)
-        ~ledger:(f !Ledger_hash.assert_equal)
-        ~success:(f Impl.Boolean.Assert.( = ))
-        ~will_succeed:(f Impl.Boolean.Assert.( = ))
-
-    let to_input
-        ({ parties
-         ; transaction_commitment
-         ; token_id
-         ; excess
-         ; ledger
-         ; success
-         ; will_succeed
-         } :
-          t) =
-      let open Random_oracle.Input in
-      Array.reduce_exn ~f:append
-        [| field parties
-         ; field transaction_commitment
-         ; run_checked (Token_id.Checked.to_input token_id)
-         ; Amount.var_to_input excess
-         ; Ledger_hash.var_to_input ledger
-         ; bitstring [ success ]
-         ; bitstring [ will_succeed ]
-        |]
-  end
-
-  let typ : (Checked.t, t) Impl.Typ.t =
-    let open Parties_logic.Local_state in
-    let open Impl in
-    Typ.of_hlistable
-      [ Field.typ
-      ; Field.typ
-      ; Token_id.typ
-      ; Amount.typ
-      ; Ledger_hash.typ
-      ; Boolean.typ
-      ; Boolean.typ
-      ]
-      ~var_to_hlist:to_hlist ~var_of_hlist:of_hlist ~value_to_hlist:to_hlist
-      ~value_of_hlist:of_hlist
-end
-
-module Registers = struct
-  [%%versioned
-  module Stable = struct
-    module V1 = struct
-      type ('ledger, 'pending_coinbase_stack, 'token_id, 'local_state) t =
-        { ledger : 'ledger
-        ; pending_coinbase_stack : 'pending_coinbase_stack
-        ; next_available_token : 'token_id
-        ; local_state : 'local_state
-        }
-      [@@deriving compare, equal, hash, sexp, yojson, hlist, fields]
-    end
-  end]
-
-  let gen =
-    let open Quickcheck.Generator.Let_syntax in
-    let%map ledger = Frozen_ledger_hash.gen
-    and pending_coinbase_stack = Pending_coinbase.Stack.gen
-    and next_available_token = Token_id.gen_non_default
-    and local_state = Local_state.gen in
-    { ledger; pending_coinbase_stack; next_available_token; local_state }
-
-  let to_input
-      { ledger; pending_coinbase_stack; next_available_token; local_state } =
-    Array.reduce_exn ~f:Random_oracle.Input.append
-      [| Frozen_ledger_hash.to_input ledger
-       ; Pending_coinbase.Stack.to_input pending_coinbase_stack
-       ; Token_id.to_input next_available_token
-       ; Local_state.to_input local_state
-      |]
-
-  module Checked = struct
-    let to_input
-        { ledger; pending_coinbase_stack; next_available_token; local_state } =
-      Array.reduce_exn ~f:Random_oracle.Input.append
-        [| Frozen_ledger_hash.var_to_input ledger
-         ; Pending_coinbase.Stack.var_to_input pending_coinbase_stack
-         ; Impl.run_checked (Token_id.Checked.to_input next_available_token)
-         ; Local_state.Checked.to_input local_state
-        |]
-  end
-end
-
 module Statement = struct
   module Poly = struct
     [%%versioned
@@ -342,13 +172,13 @@ module Statement = struct
           ; pending_coinbase_stack =
               t.pending_coinbase_stack_state.Pending_coinbase_stack_state.source
           ; next_available_token = t.next_available_token_before
-          ; local_state = Local_state.dummy
+          ; local_state = Local_state.empty
           }
       ; target =
           { ledger = t.target
           ; pending_coinbase_stack = t.pending_coinbase_stack_state.target
           ; next_available_token = t.next_available_token_after
-          ; local_state = Local_state.dummy
+          ; local_state = Local_state.empty
           }
       }
 
@@ -547,38 +377,43 @@ module Statement = struct
   let option lab =
     Option.value_map ~default:(Or_error.error_string lab) ~f:(fun x -> Ok x)
 
-  let registers_check_equal (t1 : _ Registers.t) (t2 : _ Registers.t) =
-    let open Or_error.Let_syntax in
-    let check' k f =
-      let x1 = Field.get f t1 and x2 = Field.get f t2 in
-      k x1 x2
-    in
-    let module S = struct
-      module type S = sig
-        type t [@@deriving eq, sexp_of]
-      end
-    end in
-    let check (type t) (module T : S.S with type t = t) f =
-      let open T in
-      check'
-        (fun x1 x2 ->
-          if equal x1 x2 then return ()
-          else
-            Or_error.errorf
-              !"%s is inconsistent between transitions (%{sexp: t} vs %{sexp: \
-                t})"
-              (Field.name f) x1 x2)
-        f
-    in
-    Registers.Fields.to_list
-      ~ledger:(check (module Ledger_hash))
-      ~pending_coinbase_stack:(check (module Pending_coinbase.Stack))
-      ~next_available_token:(check (module Token_id))
-      ~local_state:(check (module Local_state))
-    |> Or_error.combine_errors_unit
-
   let merge (s1 : _ Poly.t) (s2 : _ Poly.t) =
     let open Or_error.Let_syntax in
+    let registers_check_equal (t1 : _ Registers.t) (t2 : _ Registers.t) =
+      let check' k f =
+        let x1 = Field.get f t1 and x2 = Field.get f t2 in
+        k x1 x2
+      in
+      let module S = struct
+        module type S = sig
+          type t [@@deriving eq, sexp_of]
+        end
+      end in
+      let check (type t) (module T : S.S with type t = t) f =
+        let open T in
+        check'
+          (fun x1 x2 ->
+            if equal x1 x2 then return ()
+            else
+              Or_error.errorf
+                !"%s is inconsistent between transitions (%{sexp: t} vs \
+                  %{sexp: t})"
+                (Field.name f) x1 x2)
+          f
+      in
+      Registers.Fields.to_list
+        ~ledger:(check (module Ledger_hash))
+        ~pending_coinbase_stack:(fun _ ->
+          let `Needs_some_work_for_snapps_on_mainnet =
+            Mina_base.Util.todo_snapps
+          in
+          (* This is not checking to match the behavior on compatible. We should actually be checking here, but that
+             requires a change in how we compute scan_statement in transaction_snark_scan_statement.ml *)
+          Ok ())
+        ~next_available_token:(check (module Token_id))
+        ~local_state:(check (module Local_state))
+      |> Or_error.combine_errors_unit
+    in
     let%map fee_excess = Fee_excess.combine s1.fee_excess s2.fee_excess
     and supply_increase =
       Currency.Amount.add s1.supply_increase s2.supply_increase
@@ -627,7 +462,7 @@ module Stable = struct
   module V2 = struct
     type t =
       { statement : Statement.With_sok.Stable.V2.t; proof : Proof.Stable.V1.t }
-    [@@deriving compare, fields, sexp, version, yojson]
+    [@@deriving compare, equal, fields, sexp, version, yojson, hash]
 
     let to_latest = Fn.id
   end
@@ -675,17 +510,31 @@ module Parties_segment = struct
   module Basic = struct
     module N = Side_loaded_verification_key.Max_branches
 
-    type (_, _, _, _) t =
+    [%%versioned
+    module Stable = struct
+      module V1 = struct
+        type t =
+          | Opt_signed_unsigned
+          | Opt_signed_opt_signed
+          | Opt_signed
+          | Proved
+        [@@deriving sexp]
+
+        let to_latest = Fn.id
+      end
+    end]
+
+    type (_, _, _, _) t_typed =
       (* Corresponds to payment *)
-      | Opt_signed_unsigned : (unit, unit, unit, unit) t
-      | Opt_signed_opt_signed : (unit, unit, unit, unit) t
-      | Opt_signed : (unit, unit, unit, unit) t
+      | Opt_signed_unsigned : (unit, unit, unit, unit) t_typed
+      | Opt_signed_opt_signed : (unit, unit, unit, unit) t_typed
+      | Opt_signed : (unit, unit, unit, unit) t_typed
       | Proved
           : ( Snapp_statement.Checked.t * unit
             , Snapp_statement.t * unit
             , Nat.N2.n * unit
             , N.n * unit )
-            t
+            t_typed
 
     let opt_signed ~is_start : Spec.single =
       { predicate_type = `Nonce_or_accept; auth_type = Signature; is_start }
@@ -698,7 +547,7 @@ module Parties_segment = struct
 
     let opt_signed = opt_signed ~is_start:`Compute_in_circuit
 
-    let spec : type a b c d. (a, b, c, d) t -> Spec.single list =
+    let spec : type a b c d. (a, b, c, d) t_typed -> Spec.single list =
      fun t ->
       match t with
       | Opt_signed_unsigned ->
@@ -711,27 +560,23 @@ module Parties_segment = struct
           [ { predicate_type = `Full; auth_type = Proof; is_start = `No } ]
   end
 
-  module Witness = struct
-    type t =
-      { global_ledger : Sparse_ledger.t
-      ; local_state_init :
-          ( Party.t Parties.With_hashes.t
-          , Token_id.t
-          , Amount.t
-          , Sparse_ledger.t
-          , bool
-          , Field.t )
-          Parties_logic.Local_state.t
-      ; start_parties :
-          ( Parties.t
-          , Snapp_predicate.Protocol_state.t
-          , bool )
-          Parties_logic.Start_data.t
-          list
-      ; state_body : Mina_state.Protocol_state.Body.Value.t
-      }
-  end
+  module Witness = Transaction_witness.Parties_segment_witness
 end
+
+(* Currently, a circuit must have at least 1 of every type of constraint. *)
+let dummy_constraints () =
+  make_checked
+    Impl.(
+      fun () ->
+        let b = exists Boolean.typ_unchecked ~compute:(fun _ -> true) in
+        let g = exists Inner_curve.typ ~compute:(fun _ -> Inner_curve.one) in
+        ignore
+          ( Pickles.Step_main_inputs.Ops.scale_fast g
+              (`Plus_two_to_len [| b; b |])
+            : Pickles.Step_main_inputs.Inner_curve.t ) ;
+        ignore
+          ( Pickles.Pairing_main.Scalar_challenge.endo g (Scalar_challenge [ b ])
+            : Field.t * Field.t ))
 
 module Base = struct
   module User_command_failure = struct
@@ -1236,22 +1081,6 @@ module Base = struct
               ~receiver_account txn)
   end
 
-  (* Currently, a circuit must have at least 1 of every type of constraint. *)
-  let dummy_constraints () =
-    make_checked
-      Impl.(
-        fun () ->
-          let b = exists Boolean.typ_unchecked ~compute:(fun _ -> true) in
-          let g = exists Inner_curve.typ ~compute:(fun _ -> Inner_curve.one) in
-          ignore
-            ( Pickles.Step_main_inputs.Ops.scale_fast g
-                (`Plus_two_to_len [| b; b |])
-              : Pickles.Step_main_inputs.Inner_curve.t ) ;
-          ignore
-            ( Pickles.Pairing_main.Scalar_challenge.endo g
-                (Scalar_challenge [ b ])
-              : Field.t * Field.t ))
-
   let%snarkydef check_signature shifted ~payload ~is_user_command ~signer
       ~signature =
     let%bind input = Transaction_union_payload.Checked.to_input payload in
@@ -1381,7 +1210,6 @@ module Base = struct
           let l = Field.if_ b ~then_:h ~else_:acc
           and r = Field.if_ b ~then_:acc ~else_:h in
           let acc' = Ledger_hash.merge_var ~height l r in
-          (* TODO: Is this reversed? *)
           acc')
 
     let apply_body
@@ -1596,6 +1424,13 @@ module Base = struct
           let if_ b ~then_:(xt, rt) ~else_:(xe, re) =
             ( run_checked (Ledger_hash.if_ b ~then_:xt ~else_:xe)
             , V.if_ b ~then_:rt ~else_:re )
+
+          let empty : t =
+            let t = Ledger_hash.empty_hash in
+            ( Ledger_hash.var_of_t t
+            , V.create (fun () ->
+                  Sparse_ledger.of_root t ~depth:0
+                    ~next_available_token:Token_id.(next default)) )
         end
 
         module Parties = struct
@@ -1962,12 +1797,14 @@ module Base = struct
     let main ?(witness : Witness.t option) (spec : Spec.t) ~constraint_constants
         snapp_statements (statement : Statement.With_sok.Checked.t) =
       let open Impl in
+      run_checked (dummy_constraints ()) ;
       let ( ! ) x = Option.value_exn x in
       let state_body =
         exists (Mina_state.Protocol_state.Body.typ ~constraint_constants)
           ~compute:(fun () -> !witness.state_body)
       in
       let module V = Prover_value in
+      let `Needs_some_work_for_snapps_on_mainnet = Mina_base.Util.todo_snapps in
       (* TODO: Must check the state_body against the pending coinbase stack somehow. *)
       let init : Global_state.t * _ Parties_logic.Local_state.t =
         let g : Global_state.t =
@@ -2035,7 +1872,7 @@ module Base = struct
                   | `Skip ->
                       []
                   | `Start p ->
-                      Parties.With_hashes.create p.parties)
+                      Parties.With_hashes.create_all_parties p.parties)
               in
               let h =
                 exists Field.typ ~compute:(fun () ->
@@ -2132,6 +1969,7 @@ module Base = struct
                ; fee_token_r = Token_id.(var_of_t default)
                ; fee_excess_r = Fee.Signed.(Checked.constant zero)
                })) ;
+      let `Needs_some_work_for_snapps_on_mainnet = Mina_base.Util.todo_snapps in
       (* TODO: Check various consistency equalities between local and global and the statement *)
       ()
 
@@ -2139,7 +1977,7 @@ module Base = struct
     let witness : Witness.t option ref = ref None
 
     let rule (type a b c d) ~constraint_constants ~proof_level
-        (t : (a, b, c, d) Basic.t) :
+        (t : (a, b, c, d) Basic.t_typed) :
         ( a
         , b
         , c
@@ -3229,47 +3067,29 @@ module type S = sig
 
   val cache_handle : Pickles.Cache_handle.t
 
-  val of_transaction :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
+  val of_non_parties_transaction :
+       statement:Statement.With_sok.t
     -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
-    -> snapp_account1:Snapp_account.t option
-    -> snapp_account2:Snapp_account.t option
     -> Transaction.Valid.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t
 
   val of_user_command :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
+       statement:Statement.With_sok.t
     -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
     -> Signed_command.With_valid_signature.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t
 
   val of_fee_transfer :
-       sok_digest:Sok_message.Digest.t
-    -> source:Frozen_ledger_hash.t
-    -> target:Frozen_ledger_hash.t
+       statement:Statement.With_sok.t
     -> init_stack:Pending_coinbase.Stack.t
-    -> pending_coinbase_stack_state:Pending_coinbase_stack_state.t
-    -> next_available_token_before:Token_id.t
-    -> next_available_token_after:Token_id.t
     -> Fee_transfer.t Transaction_protocol_state.t
     -> Tick.Handler.t
     -> t Async.Deferred.t
 
   val of_parties_segment_exn :
-       (_, _, _, _) Parties_segment.Basic.t
-    -> statement:Statement.With_sok.t
+       statement:Statement.With_sok.t
     -> witness:Parties_segment.Witness.t
     -> t Async.Deferred.t
 
@@ -3463,10 +3283,34 @@ struct
         (List.map ts ~f:(fun ({ statement; proof }, _) -> (statement, proof)))
     else Async.return false
 
-  let of_parties_segment_exn (type a b c d)
-      (type_ : (a, b, c, d) Parties_segment.Basic.t) ~statement ~witness :
-      t Async.Deferred.t =
+  let of_parties_segment_exn ~statement ~witness : t Async.Deferred.t =
     Base.Parties_snark.witness := Some witness ;
+    let types =
+      List.map witness.local_state_init.parties ~f:(fun (p, _) ->
+          Control.tag p.authorization)
+      @ List.concat_map witness.start_parties ~f:(fun s ->
+            Control.Tag.Signature
+            :: List.map s.parties.other_parties ~f:(fun p ->
+                   Control.tag p.authorization))
+    in
+    let type_ : Parties_segment.Basic.t =
+      match types with
+      | [ Signature ] ->
+          Opt_signed
+      | [ None_given ] ->
+          Opt_signed
+      | [ Proof ] ->
+          Proved
+      | [ Signature; None_given ] | [ None_given; None_given ] ->
+          Opt_signed_unsigned
+      | [ Signature; Signature ] | [ None_given; Signature ] ->
+          Opt_signed_opt_signed
+      | _ ->
+          failwithf
+            !"Sequence of control types not supported as a basic sequence: \
+              %{sexp: Control.Tag.t list}"
+            types ()
+    in
     let res =
       match type_ with
       | Opt_signed ->
@@ -3498,7 +3342,11 @@ struct
                      the circuit. It would be better to use the values computed inside the circuit, but it
                      was involved to change the pickles API to allow it. *)
                   let other_parties, transaction =
-                    let ps = Parties.With_hashes.create s.parties in
+                    let ps =
+                      Parties.With_hashes.create s.parties.other_parties
+                        ~hash:(fun p -> Party.Predicated.digest p.data)
+                        ~data:Fn.id
+                    in
                     ( ps
                     , Parties.Transaction_commitment.create
                         ~other_parties_hash:(Parties.With_hashes.hash ps)
@@ -3524,35 +3372,20 @@ struct
     let%map proof = res in
     { proof; statement }
 
-  let of_transaction_union sok_digest source target ~init_stack
-      ~pending_coinbase_stack_state ~next_available_token_before
-      ~next_available_token_after transaction state_body handler =
-    let s =
-      Statement.Poly.to_latest
-        { source
-        ; target
-        ; sok_digest
-        ; next_available_token_before
-        ; next_available_token_after
-        ; fee_excess = Transaction_union.fee_excess transaction
-        ; supply_increase = Transaction_union.supply_increase transaction
-        ; pending_coinbase_stack_state
-        }
-    in
+  let of_transaction_union ~statement ~init_stack transaction state_body handler
+      =
     let open Async in
     let%map proof =
       base []
         ~handler:
           (Base.transaction_union_handler handler transaction state_body
              init_stack)
-        s
+        statement
     in
-    { statement = s; proof }
+    { statement; proof }
 
-  let of_transaction ~sok_digest ~source ~target ~init_stack
-      ~pending_coinbase_stack_state ~next_available_token_before
-      ~next_available_token_after ~snapp_account1:_ ~snapp_account2:_
-      transaction_in_block handler =
+  let of_non_parties_transaction ~statement ~init_stack transaction_in_block
+      handler =
     let transaction : Transaction.t =
       Transaction.forget
         (Transaction_protocol_state.transaction transaction_in_block)
@@ -3564,18 +3397,12 @@ struct
     | `Parties _ ->
         failwith "TODO"
     | `Transaction t ->
-        of_transaction_union sok_digest source target ~init_stack
-          ~pending_coinbase_stack_state ~next_available_token_before
-          ~next_available_token_after
+        of_transaction_union ~statement ~init_stack
           (Transaction_union.of_transaction t)
           state_body handler
 
-  let of_user_command ~sok_digest ~source ~target ~init_stack
-      ~pending_coinbase_stack_state ~next_available_token_before
-      ~next_available_token_after user_command_in_block handler =
-    of_transaction ~sok_digest ~source ~target ~init_stack
-      ~pending_coinbase_stack_state ~next_available_token_before
-      ~next_available_token_after ~snapp_account1:None ~snapp_account2:None
+  let of_user_command ~statement ~init_stack user_command_in_block handler =
+    of_non_parties_transaction ~statement ~init_stack
       { user_command_in_block with
         transaction =
           Command
@@ -3584,12 +3411,8 @@ struct
       }
       handler
 
-  let of_fee_transfer ~sok_digest ~source ~target ~init_stack
-      ~pending_coinbase_stack_state ~next_available_token_before
-      ~next_available_token_after transfer_in_block handler =
-    of_transaction ~sok_digest ~source ~target ~init_stack
-      ~pending_coinbase_stack_state ~next_available_token_before
-      ~next_available_token_after ~snapp_account1:None ~snapp_account2:None
+  let of_fee_transfer ~statement ~init_stack transfer_in_block handler =
+    of_non_parties_transaction ~statement ~init_stack
       { transfer_in_block with
         transaction =
           Fee_transfer
@@ -3760,9 +3583,25 @@ let%test_module "transaction_snark" =
         }
       in
       Async.Thread_safe.block_on_async_exn (fun () ->
-          of_user_command ~sok_digest ~source ~target ~init_stack
-            ~pending_coinbase_stack_state ~next_available_token_before
-            ~next_available_token_after user_command_in_block handler)
+          let statement =
+            let txn =
+              Transaction.Command
+                (User_command.Signed_command
+                   (Signed_command.forget_check user_command))
+            in
+            Statement.Poly.to_latest
+              { source
+              ; target
+              ; sok_digest
+              ; next_available_token_before
+              ; next_available_token_after
+              ; fee_excess = Or_error.ok_exn (Transaction.fee_excess txn)
+              ; supply_increase =
+                  Or_error.ok_exn (Transaction.supply_increase txn)
+              ; pending_coinbase_stack_state
+              }
+          in
+          of_user_command ~init_stack ~statement user_command_in_block handler)
 
     let coinbase_test state_body ~carryforward =
       let mk_pubkey () =
@@ -4034,8 +3873,9 @@ let%test_module "transaction_snark" =
                                   (Party.Predicated.digest p.data)
                                   acc)
                         ; ledger =
+                            Sparse_ledger.merkle_root w.local_state_init.ledger
                             (* TODO: This won't quite work when the transaction fails. *)
-                            Ledger.merkle_root local_state_post.ledger
+                            (*                             Ledger.merkle_root local_state_post.ledger *)
                         ; transaction_commitment =
                             w.local_state_init.transaction_commitment
                         }
@@ -4072,58 +3912,6 @@ let%test_module "transaction_snark" =
                 ())
           |> Or_error.ok_exn
           |> fun ((), ()) -> ())
-
-    (* Disabling until new-style snapp transactions are fully implemented.
-
-       let%test_unit "signed_signed" =
-         Test_util.with_randomness 123456789 (fun () ->
-             let wallets = random_wallets () in
-             Ledger.with_ledger ~depth:ledger_depth ~f:(fun ledger ->
-                 Array.iter (Array.sub wallets ~pos:1 ~len:2)
-                   ~f:(fun {account; private_key= _} ->
-                     Ledger.create_new_account_exn ledger
-                       (Account.identifier account)
-                       account ) ;
-                 let i, j = (1, 2) in
-                 let t1 = signed_signed ~wallets i j in
-                 let txn_state_view =
-                   Mina_state.Protocol_state.Body.view state_body
-                 in
-                 let next_available_token_before =
-                   Ledger.next_available_token ledger
-                 in
-                 let target, `Next_available_token next_available_token_after =
-                   Ledger.merkle_root_after_parties_exn ledger ~txn_state_view t1
-                 in
-                 let mentioned_keys = Parties.accounts_accessed t1 in
-                 let sparse_ledger =
-                   Sparse_ledger.of_ledger_subset_exn ledger mentioned_keys
-                 in
-                 let sok_message =
-                   Sok_message.create ~fee:Fee.zero
-                     ~prover:wallets.(1).account.public_key
-                 in
-                 let pending_coinbase_stack = Pending_coinbase.Stack.empty in
-                 let pending_coinbase_stack_target =
-                   pending_coinbase_stack_target (Command (Parties t1))
-                     state_body_hash pending_coinbase_stack
-                 in
-                 let pending_coinbase_stack_state =
-                   { Pending_coinbase_stack_state.source= pending_coinbase_stack
-                   ; target= pending_coinbase_stack_target }
-                 in
-                 let snapp_account1, snapp_account2 =
-                   Sparse_ledger.snapp_accounts sparse_ledger
-                     (Command (Snapp_command t1))
-                 in
-                 check_snapp_command ~constraint_constants ~sok_message
-                   ~state_body
-                   ~source:(Ledger.merkle_root ledger)
-                   ~target ~init_stack:pending_coinbase_stack
-                   ~pending_coinbase_stack_state ~next_available_token_before
-                   ~next_available_token_after ~snapp_account1 ~snapp_account2 t1
-                   (unstage @@ Sparse_ledger.handler sparse_ledger) ) )
-    *)
 
     let account_fee = Fee.to_int constraint_constants.account_creation_fee
 

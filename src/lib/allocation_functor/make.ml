@@ -260,3 +260,50 @@ module Versioned_v1 = struct
     type t = Stable.V1.t
   end
 end
+
+module Versioned_v2 = struct
+  module Sexp (M : Intf.Input.Versioned_v2.Sexp_intf) : sig
+    include
+      Intf.Output.Versioned_v2.Sexp_intf
+        with type Stable.V2.t = M.Stable.V2.t
+         and type 'a Stable.V2.creator = 'a M.Stable.V2.creator
+         and type Stable.V1.t = M.Stable.V1.t
+         and type 'a Stable.V1.creator = 'a M.Stable.V1.creator
+  end = struct
+    module Stable = struct
+      module V2 = struct
+        include Bin_io_and_sexp (struct
+          let id = M.id
+
+          include M.Stable.V2
+        end)
+
+        let __versioned__ = ()
+
+        type 'a creator = 'a M.Stable.V2.creator
+      end
+
+      module V1 = struct
+        include Bin_io_and_sexp (struct
+          let id = M.id
+
+          include M.Stable.V1
+        end)
+
+        let __versioned__ = ()
+
+        type 'a creator = 'a M.Stable.V1.creator
+
+        let to_latest = M.Stable.V1.to_latest
+      end
+
+      module Latest = V2
+
+      let versions = M.Stable.versions
+
+      let bin_read_to_latest_opt = M.Stable.bin_read_to_latest_opt
+    end
+
+    type t = Stable.V2.t
+  end
+end

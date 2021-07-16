@@ -73,6 +73,8 @@ module Base = struct
         [@@deriving sexp]
       end
     end]
+
+    let map (t : 'a t) ~(f : 'a -> 'b) : 'b t = { t with job = f t.job }
   end
 
   module Job = struct
@@ -84,6 +86,9 @@ module Base = struct
       end
     end]
 
+    let map (t : 'a t) ~(f : 'a -> 'b) : 'b t =
+      match t with Empty -> Empty | Full r -> Full (Record.map r ~f)
+
     let job_str = function Empty -> "Base.Empty" | Full _ -> "Base.Full"
   end
 
@@ -94,6 +99,8 @@ module Base = struct
       [@@deriving sexp]
     end
   end]
+
+  let map ((x, j) : 'a t) ~(f : 'a -> 'b) : 'b t = (x, Job.map j ~f)
 end
 
 (** For merge proofs: Merging two base proofs or two merge proofs*)
@@ -111,6 +118,9 @@ module Merge = struct
         [@@deriving sexp]
       end
     end]
+
+    let map (t : 'a t) ~(f : 'a -> 'b) : 'b t =
+      { t with left = f t.left; right = f t.right }
   end
 
   module Job = struct
@@ -124,6 +134,15 @@ module Merge = struct
         [@@deriving sexp]
       end
     end]
+
+    let map (t : 'a t) ~(f : 'a -> 'b) : 'b t =
+      match t with
+      | Empty ->
+          Empty
+      | Part x ->
+          Part (f x)
+      | Full r ->
+          Full (Record.map r ~f)
 
     let job_str = function
       | Empty ->
@@ -142,6 +161,8 @@ module Merge = struct
       [@@deriving sexp]
     end
   end]
+
+  let map ((x, j) : 'a t) ~(f : 'a -> 'b) : 'b t = (x, Job.map j ~f)
 end
 
 (**All the jobs on a tree that can be done. Base.Full and Merge.Full*)
@@ -895,6 +916,18 @@ end
 module State = struct
   include T
   module Hash = Hash
+
+  let map (type a1 a2 b1 b2) (t : (a1, a2) t) ~(f1 : a1 -> b1) ~(f2 : a2 -> b2)
+      : (b1, b2) t =
+    { t with
+      trees =
+        Non_empty_list.map t.trees
+          ~f:
+            (Tree.map_depth
+               ~f_merge:(fun _ -> Merge.map ~f:f1)
+               ~f_base:(Base.map ~f:f2))
+    ; acc = Option.map t.acc ~f:(fun (m, bs) -> (f1 m, List.map bs ~f:f2))
+    }
 
   let hash t f_merge f_base =
     let { trees; acc; max_base_jobs; curr_job_seq_no; delay; _ } =

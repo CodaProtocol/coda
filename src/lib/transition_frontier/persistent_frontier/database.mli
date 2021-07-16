@@ -29,11 +29,11 @@ module Error : sig
     | `Arcs of State_hash.t
     | `Protocol_states_for_root_scan_state ]
 
-  type not_found = [`Not_found of not_found_member]
+  type not_found = [ `Not_found of not_found_member ]
 
-  type raised = [`Raised of Error.t]
+  type raised = [ `Raised of Error.t ]
 
-  type t = [not_found | raised | `Invalid_version]
+  type t = [ not_found | raised | `Invalid_version ]
 
   val not_found_message : not_found -> string
 
@@ -71,7 +71,7 @@ val add :
   -> transition:External_transition.Validated.t
   -> ( unit
      , [> `Not_found of
-          [> `Parent_transition of State_hash.t | `Arcs of State_hash.t] ] )
+          [> `Parent_transition of State_hash.t | `Arcs of State_hash.t ] ] )
      Result.t
 
 val move_root :
@@ -79,36 +79,39 @@ val move_root :
   -> new_root:Root_data.Limited.t
   -> garbage:State_hash.t list
   -> ( State_hash.t
-     , [> `Not_found of [> `New_root_transition | `Old_root_transition]] )
+     , [> `Not_found of [> `New_root_transition | `Old_root_transition ] ] )
      Result.t
 
 val get_transition :
      t
   -> State_hash.t
   -> ( External_transition.Validated.t
-     , [> `Not_found of [> `Transition of State_hash.t]] )
+     , [> `Not_found of [> `Transition of State_hash.t ] ] )
      Result.t
 
 val get_arcs :
      t
   -> State_hash.t
-  -> (State_hash.t list, [> `Not_found of [> `Arcs of State_hash.t]]) Result.t
+  -> (State_hash.t list, [> `Not_found of [> `Arcs of State_hash.t ] ]) Result.t
 
-val get_root : t -> (Root_data.Minimal.t, [> `Not_found of [> `Root]]) Result.t
+val get_root :
+  t -> (Root_data.Minimal.t, [> `Not_found of [> `Root ] ]) Result.t
 
 val get_protocol_states_for_root_scan_state :
      t
   -> ( Mina_state.Protocol_state.value list
-     , [> `Not_found of [> `Protocol_states_for_root_scan_state]] )
+     , [> `Not_found of [> `Protocol_states_for_root_scan_state ] ] )
      Result.t
 
-val get_root_hash : t -> (State_hash.t, [> `Not_found of [> `Root]]) Result.t
+val get_root_hash : t -> (State_hash.t, [> `Not_found of [> `Root ] ]) Result.t
 
 val get_best_tip :
-  t -> (State_hash.t, [> `Not_found of [> `Best_tip]]) Result.t
+  t -> (State_hash.t, [> `Not_found of [> `Best_tip ] ]) Result.t
 
 val set_best_tip :
-  t -> State_hash.t -> (State_hash.t, [> `Not_found of [> `Best_tip]]) Result.t
+     t
+  -> State_hash.t
+  -> (State_hash.t, [> `Not_found of [> `Best_tip ] ]) Result.t
 
 val crawl_successors :
      t
@@ -117,6 +120,6 @@ val crawl_successors :
   -> f:('a -> External_transition.Validated.t -> ('a, 'b) Deferred.Result.t)
   -> ( unit
      , [> `Crawl_error of 'b
-       | `Not_found of [> `Arcs of State_hash.t | `Transition of State_hash.t]
+       | `Not_found of [> `Arcs of State_hash.t | `Transition of State_hash.t ]
        ] )
      Deferred.Result.t

@@ -14,3 +14,5 @@ end]
 type 'proof t = 'proof Stable.Latest.t =
   { proof : 'proof; fee : Fee_with_prover.t }
 [@@deriving compare, fields, sexp, yojson, hash]
+
+let map t ~f = { t with proof = f t.proof }

@@ -128,7 +128,7 @@ struct
               true
           | _ ->
               false )
-      | Snapp_command _ ->
+      | Parties _ ->
           false
     in
     let check () _node (breadcrumb_added : Event_type.Breadcrumb_added.t) =

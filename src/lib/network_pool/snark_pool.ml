@@ -8,6 +8,18 @@ module Snark_tables = struct
   module Serializable = struct
     [%%versioned
     module Stable = struct
+      module V2 = struct
+        type t =
+          ( Ledger_proof.Stable.V2.t One_or_two.Stable.V1.t
+            Priced_proof.Stable.V1.t
+          * [ `Rebroadcastable of Core.Time.Stable.With_utc_sexp.V2.t
+            | `Not_rebroadcastable ] )
+          Transaction_snark_work.Statement.Stable.V2.Table.t
+        [@@deriving sexp]
+
+        let to_latest = Fn.id
+      end
+
       module V1 = struct
         type t =
           ( Ledger_proof.Stable.V1.t One_or_two.Stable.V1.t
@@ -17,7 +29,14 @@ module Snark_tables = struct
           Transaction_snark_work.Statement.Stable.V1.Table.t
         [@@deriving sexp]
 
-        let to_latest = Fn.id
+        let to_latest (t : t) : V2.t =
+          Transaction_snark_work.Statement.Stable.V1.Table.to_alist t
+          |> List.map ~f:(fun (k, (p, x)) ->
+                 ( Transaction_snark_work.Statement.Stable.V1.to_latest k
+                 , ( Priced_proof.map p
+                       ~f:(One_or_two.map ~f:Ledger_proof.Stable.V1.to_latest)
+                   , x ) ))
+          |> Transaction_snark_work.Statement.Table.of_alist_exn
       end
     end]
   end
@@ -649,8 +668,20 @@ module Diff_versioned = struct
   module Stable = struct
     [@@@no_toplevel_latest_type]
 
-    module V1 = struct
+    module V2 = struct
       type t = Resource_pool.Diff.t =
+        | Add_solved_work of
+            Transaction_snark_work.Statement.Stable.V2.t
+            * Ledger_proof.Stable.V2.t One_or_two.Stable.V1.t
+              Priced_proof.Stable.V1.t
+        | Empty
+      [@@deriving compare, sexp, to_yojson, hash]
+
+      let to_latest = Fn.id
+    end
+
+    module V1 = struct
+      type t =
         | Add_solved_work of
             Transaction_snark_work.Statement.Stable.V1.t
             * Ledger_proof.Stable.V1.t One_or_two.Stable.V1.t
@@ -658,7 +689,15 @@ module Diff_versioned = struct
         | Empty
       [@@deriving compare, sexp, to_yojson, hash]
 
-      let to_latest = Fn.id
+      let to_latest (t : t) : V2.t =
+        match t with
+        | Empty ->
+            Empty
+        | Add_solved_work (s, p) ->
+            Add_solved_work
+              ( Transaction_snark_work.Statement.Stable.V1.to_latest s
+              , Priced_proof.map p
+                  ~f:(One_or_two.map ~f:Ledger_proof.Stable.V1.to_latest) )
     end
   end]
 

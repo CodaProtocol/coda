@@ -10,7 +10,7 @@ module Raw_versioned__ = struct
   module Stable = struct
     module V1 = struct
       type t =
-        { state : Protocol_state.Value.Stable.V1.t; proof : Proof.Stable.V1.t }
+        { state : Protocol_state.Value.Stable.V2.t; proof : Proof.Stable.V1.t }
       [@@deriving fields, sexp, yojson]
 
       let to_latest = Fn.id

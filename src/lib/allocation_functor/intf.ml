@@ -153,6 +153,52 @@ module Input = struct
       end]
     end
   end
+
+  module Versioned_v2 = struct
+    module type Basic_intf = sig
+      val id : string
+
+      [%%versioned:
+      module Stable : sig
+        module V2 : sig
+          type t
+
+          include Higher_order_creatable_intf with type t := t
+        end
+
+        module V1 : sig
+          type t
+
+          include Higher_order_creatable_intf with type t := t
+        end
+      end]
+    end
+
+    module type Sexp_intf = sig
+      val id : string
+
+      [%%versioned:
+      module Stable : sig
+        module V2 : sig
+          type t
+
+          include Higher_order_creatable_intf with type t := t
+
+          include Partial.Sexp_intf with type t := t
+        end
+
+        module V1 : sig
+          type t
+
+          include Higher_order_creatable_intf with type t := t
+
+          include Partial.Sexp_intf with type t := t
+
+          val to_latest : t -> V2.t
+        end
+      end]
+    end
+  end
 end
 
 module Output = struct
@@ -266,6 +312,48 @@ module Output = struct
           include Partial.Sexp_intf with type t := t
 
           include Partial.Yojson_intf with type t := t
+        end
+      end]
+    end
+  end
+
+  module Versioned_v2 = struct
+    module type Basic_intf = sig
+      [%%versioned:
+      module Stable : sig
+        module V2 : sig
+          type t
+
+          include Creatable_intf with type t := t
+        end
+
+        module V1 : sig
+          type t
+
+          include Creatable_intf with type t := t
+        end
+      end]
+    end
+
+    module type Sexp_intf = sig
+      [%%versioned:
+      module Stable : sig
+        module V2 : sig
+          type t
+
+          include Creatable_intf with type t := t
+
+          include Partial.Sexp_intf with type t := t
+        end
+
+        module V1 : sig
+          type t
+
+          include Creatable_intf with type t := t
+
+          include Partial.Sexp_intf with type t := t
+
+          val to_latest : t -> V2.t
         end
       end]
     end

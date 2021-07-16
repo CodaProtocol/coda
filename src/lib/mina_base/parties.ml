@@ -157,7 +157,13 @@ end
 module Digest = Zexe_backend.Pasta.Fp
 
 module With_hashes = struct
-  type 'a t = ('a * Random_oracle.Digest.t) list
+  [%%versioned
+  module Stable = struct
+    module V1 = struct
+      type 'a t = ('a * Digest.Stable.V1.t) list
+      [@@deriving sexp, compare, equal, hash, yojson]
+    end
+  end]
 
   let empty = Outside_hash_image.t
 
@@ -171,18 +177,14 @@ module With_hashes = struct
   let hash (t : _ t) : Random_oracle.Digest.t =
     match t with [] -> empty | (_, h) :: _ -> h
 
-  let create { other_parties; fee_payer; protocol_state = _ } : Party.t t =
-    let parties =
-      let p = fee_payer in
-      { Party.authorization = Control.Signature p.authorization
-      ; data =
-          { p.data with predicate = Party.Predicate.Nonce p.data.predicate }
-      }
-      :: other_parties
-    in
-    List.fold (List.rev parties) ~init:[] ~f:(fun acc p ->
-        let hash = Party.Predicated.digest p.data in
-        cons { hash; data = p } acc)
+  let create ps ~hash ~data =
+    List.fold ~init:[] (List.rev ps) ~f:(fun acc p ->
+        cons { hash = hash p; data = data p } acc)
+
+  let create_all_parties t =
+    create ~data:Fn.id
+      ~hash:(fun p -> Party.Predicated.digest p.data)
+      (Party.of_signed t.fee_payer :: t.other_parties)
 
   let other_parties_hash t =
     List.fold (List.rev t.other_parties) ~init:empty ~f:(fun acc p ->
@@ -192,6 +194,31 @@ module With_hashes = struct
   let digest (t : _ t) : Random_oracle.Digest.t =
     match t with [] -> empty | (_, h) :: _ -> h
 end
+
+module Verifiable = struct
+  [%%versioned
+  module Stable = struct
+    module V1 = struct
+      type t =
+        { fee_payer : Party.Signed.Stable.V1.t
+        ; other_parties :
+            ( Party.Stable.V1.t
+            * Pickles.Side_loaded.Verification_key.Stable.V1.t option )
+            With_hashes.Stable.V1.t
+        ; protocol_state : Snapp_predicate.Protocol_state.Stable.V1.t
+        }
+      [@@deriving sexp, compare, equal, hash, yojson]
+
+      let to_latest = Fn.id
+    end
+  end]
+end
+
+let of_verifiable (t : Verifiable.t) : t =
+  { fee_payer = t.fee_payer
+  ; other_parties = List.map t.other_parties ~f:(fun ((x, _), _) -> x)
+  ; protocol_state = t.protocol_state
+  }
 
 let valid_interval (t : t) =
   let open Snapp_predicate.Closed_interval in

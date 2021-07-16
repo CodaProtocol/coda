@@ -8,8 +8,16 @@ type t [@@deriving sexp]
 module Scan_state : sig
   [%%versioned:
   module Stable : sig
+    module V2 : sig
+      type t [@@deriving sexp]
+
+      val hash : t -> Staged_ledger_hash.Aux_hash.t
+    end
+
     module V1 : sig
       type t [@@deriving sexp]
+
+      val to_latest : t -> V2.t
 
       val hash : t -> Staged_ledger_hash.Aux_hash.t
     end
@@ -90,21 +98,29 @@ val of_scan_state_and_ledger :
      logger:Logger.t
   -> constraint_constants:Genesis_constants.Constraint_constants.t
   -> verifier:Verifier.t
-  -> snarked_ledger_hash:Frozen_ledger_hash.t
-  -> snarked_next_available_token:Token_id.t
+  -> snarked_registers:
+       ( Frozen_ledger_hash.t
+       , unit
+       , Token_id.t
+       , Mina_state.Local_state.t )
+       Mina_state.Registers.t
   -> ledger:Ledger.t
   -> scan_state:Scan_state.t
   -> pending_coinbase_collection:Pending_coinbase.t
-  -> t Or_error.t Deferred.t
+  -> t Deferred.Or_error.t
 
 val of_scan_state_and_ledger_unchecked :
      constraint_constants:Genesis_constants.Constraint_constants.t
-  -> snarked_ledger_hash:Frozen_ledger_hash.t
-  -> snarked_next_available_token:Token_id.t
+  -> snarked_registers:
+       ( Frozen_ledger_hash.t
+       , unit
+       , Token_id.t
+       , Mina_state.Local_state.t )
+       Mina_state.Registers.t
   -> ledger:Ledger.t
   -> scan_state:Scan_state.t
   -> pending_coinbase_collection:Pending_coinbase.t
-  -> t Or_error.t Deferred.t
+  -> t Deferred.Or_error.t
 
 val replace_ledger_exn : t -> Ledger.t -> t
 
@@ -190,6 +206,7 @@ val of_scan_state_pending_coinbases_and_snarked_ledger :
   -> verifier:Verifier.t
   -> scan_state:Scan_state.t
   -> snarked_ledger:Ledger.t
+  -> snarked_local_state:Mina_state.Local_state.t
   -> expected_merkle_root:Ledger_hash.t
   -> pending_coinbases:Pending_coinbase.t
   -> get_state:(State_hash.t -> Mina_state.Protocol_state.value Or_error.t)
@@ -198,10 +215,7 @@ val of_scan_state_pending_coinbases_and_snarked_ledger :
 val all_work_pairs :
      t
   -> get_state:(State_hash.t -> Mina_state.Protocol_state.value Or_error.t)
-  -> ( Transaction.t
-     , Transaction_witness.t
-     , Ledger_proof.t )
-     Snark_work_lib.Work.Single.Spec.t
+  -> (Transaction_witness.t, Ledger_proof.t) Snark_work_lib.Work.Single.Spec.t
      One_or_two.t
      list
      Or_error.t

@@ -62,8 +62,6 @@ module Make
     | Empty ->
         1
 
-  let verified_size _ = 1
-
   let max_per_15_seconds = 20
 
   let summary = function
@@ -79,8 +77,7 @@ module Make
 
   let of_result
       (res :
-        ( ('a, 'b, 'c) Snark_work_lib.Work.Single.Spec.t
-          Snark_work_lib.Work.Spec.t
+        ( (_, _) Snark_work_lib.Work.Single.Spec.t Snark_work_lib.Work.Spec.t
         , Ledger_proof.t )
         Snark_work_lib.Work.Result.t) =
     Add_solved_work

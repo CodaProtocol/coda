@@ -508,6 +508,7 @@ module For_tests = struct
                           ~depth:constraint_constants.pending_coinbase_depth ()
                      )
                    ~snarked_ledger:genesis_ledger
+                   ~snarked_local_state:Mina_state.Local_state.empty
                    ~expected_merkle_root:(Ledger.merkle_root genesis_ledger) ))
         in
         Breadcrumb.create ~validated_transition:genesis_transition

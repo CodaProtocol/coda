@@ -29,14 +29,13 @@ end
 
 module Node_list : sig
   type full_node =
-    { transition: External_transition.Validated.t
-    ; scan_state: Staged_ledger.Scan_state.t }
+    { transition : External_transition.Validated.t
+    ; scan_state : Staged_ledger.Scan_state.t
+    }
 
   type lite_node = State_hash.Stable.V1.t
 
-  type _ t =
-    | Full : full_node list -> full t
-    | Lite : lite_node list -> lite t
+  type _ t = Full : full_node list -> full t | Lite : lite_node list -> lite t
 
   type 'repr node_list = 'repr t
 
@@ -59,15 +58,21 @@ end
  *  by transitioning the root.
  *)
 module Root_transition : sig
-  type 'repr t = {new_root: Root_data.Limited.t; garbage: 'repr Node_list.t}
+  type 'repr t = { new_root : Root_data.Limited.t; garbage : 'repr Node_list.t }
 
   type 'repr root_transition = 'repr t
 
   module Lite : sig
     [%%versioned:
     module Stable : sig
-      module V1 : sig
+      module V2 : sig
         type t = lite root_transition
+      end
+
+      module V1 : sig
+        type t
+
+        val to_latest : t -> V2.t
       end
     end]
   end
@@ -127,8 +132,12 @@ module Lite : sig
   module E : sig
     [%%versioned:
     module Stable : sig
-      module V1 : sig
+      module V2 : sig
         type t = E : (lite, 'mutant) diff -> t
+      end
+
+      module V1 : sig
+        type t
       end
     end]
   end

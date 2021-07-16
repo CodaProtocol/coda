@@ -2,9 +2,6 @@ open Core_kernel
 open Mina_base
 open Currency
 
-let option lab =
-  Option.value_map ~default:(Or_error.error_string lab) ~f:(fun x -> Ok x)
-
 let map2_or_error xs ys ~f =
   let rec go xs ys acc =
     match (xs, ys) with
@@ -32,17 +29,17 @@ end
 module Transaction_with_witness = struct
   [%%versioned
   module Stable = struct
-    module V1 = struct
+    module V2 = struct
       (* TODO: The statement is redundant here - it can be computed from the
          witness and the transaction
       *)
       type t =
         { transaction_with_info :
-            Transaction_logic.Transaction_applied.Stable.V1.t
+            Transaction_logic.Transaction_applied.Stable.V2.t
         ; state_hash : State_hash.Stable.V1.t * State_body_hash.Stable.V1.t
               (* TODO: It's inefficient to store this here. Optimize it someday. *)
         ; state_view : Mina_base.Snapp_predicate.Protocol_state.View.Stable.V1.t
-        ; statement : Transaction_snark.Statement.Stable.V1.t
+        ; statement : Transaction_snark.Statement.Stable.V2.t
         ; init_stack :
             Transaction_snark.Pending_coinbase_stack_state.Init_stack.Stable.V1
             .t
@@ -52,17 +49,51 @@ module Transaction_with_witness = struct
 
       let to_latest = Fn.id
     end
+
+    module V1 = struct
+      type t =
+        { transaction_with_info :
+            Transaction_logic.Transaction_applied.Stable.V1.t
+        ; state_hash : State_hash.Stable.V1.t * State_body_hash.Stable.V1.t
+        ; state_view : Mina_base.Snapp_predicate.Protocol_state.View.Stable.V1.t
+        ; statement : Transaction_snark.Statement.Stable.V1.t
+        ; init_stack :
+            Transaction_snark.Pending_coinbase_stack_state.Init_stack.Stable.V1
+            .t
+        ; ledger_witness : Mina_base.Sparse_ledger.Stable.V1.t [@sexp.opaque]
+        }
+      [@@deriving sexp]
+
+      let to_latest (t : t) : V2.t =
+        { transaction_with_info =
+            Transaction_logic.Transaction_applied.Stable.V1.to_latest
+              t.transaction_with_info
+        ; state_hash = t.state_hash
+        ; state_view = t.state_view
+        ; statement =
+            Transaction_snark.Statement.Stable.V1.to_latest t.statement
+        ; init_stack = t.init_stack
+        ; ledger_witness = t.ledger_witness
+        }
+    end
   end]
 end
 
 module Ledger_proof_with_sok_message = struct
   [%%versioned
   module Stable = struct
+    module V2 = struct
+      type t = Ledger_proof.Stable.V2.t * Sok_message.Stable.V1.t
+      [@@deriving sexp]
+
+      let to_latest = Fn.id
+    end
+
     module V1 = struct
       type t = Ledger_proof.Stable.V1.t * Sok_message.Stable.V1.t
       [@@deriving sexp]
 
-      let to_latest = Fn.id
+      let to_latest ((x, y) : t) : V2.t = (Ledger_proof.Stable.V1.to_latest x, y)
     end
   end]
 end
@@ -82,12 +113,20 @@ module Job_view = struct
   [@@deriving sexp]
 
   let to_yojson ({ value; position } : t) : Yojson.Safe.t =
-    let hash_yojson h = Frozen_ledger_hash.to_yojson h in
+    let module R = struct
+      type t =
+        ( Frozen_ledger_hash.t
+        , Pending_coinbase.Stack_versioned.t
+        , Token_id.t
+        , Mina_state.Local_state.t )
+        Mina_state.Registers.t
+      [@@deriving to_yojson]
+    end in
     let statement_to_yojson (s : Transaction_snark.Statement.t) =
       `Assoc
         [ ("Work_id", `Int (Transaction_snark.Statement.hash s))
-        ; ("Source", hash_yojson s.source)
-        ; ("Target", hash_yojson s.target)
+        ; ("Source", R.to_yojson s.source)
+        ; ("Target", R.to_yojson s.target)
         ; ( "Fee Excess"
           , `List
               [ `Assoc
@@ -100,9 +139,6 @@ module Job_view = struct
                   ]
               ] )
         ; ("Supply Increase", Currency.Amount.to_yojson s.supply_increase)
-        ; ( "Pending coinbase stack"
-          , Transaction_snark.Pending_coinbase_stack_state.to_yojson
-              s.pending_coinbase_stack_state )
         ]
     in
     let job_to_yojson =
@@ -146,6 +182,25 @@ type job = Available_job.t [@@deriving sexp]
 
 [%%versioned
 module Stable = struct
+  module V2 = struct
+    type t =
+      ( Ledger_proof_with_sok_message.Stable.V2.t
+      , Transaction_with_witness.Stable.V2.t )
+      Parallel_scan.State.Stable.V1.t
+    [@@deriving sexp]
+
+    let to_latest = Fn.id
+
+    let hash (t : t) =
+      let state_hash =
+        Parallel_scan.State.hash t
+          (Binable.to_string (module Ledger_proof_with_sok_message.Stable.V2))
+          (Binable.to_string (module Transaction_with_witness.Stable.V2))
+      in
+      Staged_ledger_hash.Aux_hash.of_bytes
+        (state_hash |> Digestif.SHA256.to_raw_string)
+  end
+
   module V1 = struct
     type t =
       ( Ledger_proof_with_sok_message.Stable.V1.t
@@ -153,7 +208,10 @@ module Stable = struct
       Parallel_scan.State.Stable.V1.t
     [@@deriving sexp]
 
-    let to_latest = Fn.id
+    let to_latest (t : t) : V2.t =
+      Parallel_scan.State.map t
+        ~f1:Ledger_proof_with_sok_message.Stable.V1.to_latest
+        ~f2:Transaction_with_witness.Stable.V1.to_latest
 
     (* TODO: Review this. The version bytes for the underlying types are
        included in the hash, so it can never be stable between versions.
@@ -223,22 +281,28 @@ let create_expected_statement ~constraint_constants
         pending_coinbase_with_state
   in
   let%bind fee_excess = Transaction.fee_excess transaction in
+  (* TODO: Not sure what the local_state should be in there. *)
+  let `Needs_some_work_for_snapps_on_mainnet = Mina_base.Util.todo_snapps in
   let%map supply_increase = Transaction.supply_increase transaction in
-  { Transaction_snark.Statement.source
-  ; target
-  ; fee_excess
-  ; next_available_token_before
-  ; next_available_token_after
-  ; supply_increase
-  ; pending_coinbase_stack_state =
-      { statement.pending_coinbase_stack_state with
-        target = pending_coinbase_after
+  { Transaction_snark.Statement.source =
+      { ledger = source
+      ; pending_coinbase_stack = statement.source.pending_coinbase_stack
+      ; next_available_token = next_available_token_before
+      ; local_state = Mina_state.Local_state.empty
       }
+  ; target =
+      { ledger = target
+      ; pending_coinbase_stack = pending_coinbase_after
+      ; next_available_token = next_available_token_after
+      ; local_state = Mina_state.Local_state.empty
+      }
+  ; fee_excess
+  ; supply_increase
   ; sok_digest = ()
   }
 
 let completed_work_to_scanable_work (job : job) (fee, current_proof, prover) :
-    'a Or_error.t =
+    Ledger_proof_with_sok_message.t Or_error.t =
   let sok_digest = Ledger_proof.sok_digest current_proof
   and proof = Ledger_proof.underlying_proof current_proof in
   match job with
@@ -246,22 +310,30 @@ let completed_work_to_scanable_work (job : job) (fee, current_proof, prover) :
       let ledger_proof = Ledger_proof.create ~statement ~sok_digest ~proof in
       Ok (ledger_proof, Sok_message.create ~fee ~prover)
   | Merge ((p, _), (p', _)) ->
-      let s = Ledger_proof.statement p and s' = Ledger_proof.statement p' in
       let open Or_error.Let_syntax in
+      (*
+      let%map statement =
+        Transaction_snark.Statement.merge (Ledger_proof.statement p)
+          (Ledger_proof.statement p')
+      in *)
+      let s = Ledger_proof.statement p and s' = Ledger_proof.statement p' in
+      let option lab =
+        Option.value_map ~default:(Or_error.error_string lab) ~f:(fun x -> Ok x)
+      in
       let%map fee_excess = Fee_excess.combine s.fee_excess s'.fee_excess
       and supply_increase =
         Amount.add s.supply_increase s'.supply_increase
         |> option "Error adding supply_increases"
       and _valid_pending_coinbase_stack =
         if
-          Pending_coinbase.Stack.equal s.pending_coinbase_stack_state.target
-            s'.pending_coinbase_stack_state.source
+          Pending_coinbase.Stack.equal s.target.pending_coinbase_stack
+            s'.source.pending_coinbase_stack
         then Ok ()
         else Or_error.error_string "Invalid pending coinbase stack state"
       and () =
         if
-          Token_id.equal s.next_available_token_after
-            s'.next_available_token_before
+          Token_id.equal s.target.next_available_token
+            s'.source.next_available_token
         then Ok ()
         else
           Or_error.error_string
@@ -271,13 +343,7 @@ let completed_work_to_scanable_work (job : job) (fee, current_proof, prover) :
         { source = s.source
         ; target = s'.target
         ; supply_increase
-        ; pending_coinbase_stack_state =
-            { source = s.pending_coinbase_stack_state.source
-            ; target = s'.pending_coinbase_stack_state.target
-            }
         ; fee_excess
-        ; next_available_token_before = s.next_available_token_before
-        ; next_available_token_after = s'.next_available_token_after
         ; sok_digest = ()
         }
       in
@@ -475,15 +541,55 @@ struct
     | Error e ->
         M.return (Error (`Error e))
 
-  let check_invariants t ~constraint_constants ~verifier ~error_prefix
-      ~ledger_hash_end:current_ledger_hash
-      ~ledger_hash_begin:snarked_ledger_hash
-      ~next_available_token_begin:snarked_ledger_next_available_token
-      ~next_available_token_end:current_ledger_next_available_token =
+  let check_invariants t (type a)
+      ~(pending_coinbase_stack_equal : a -> a -> bool)
+      ~(pending_coinbase_stack_equal' : a -> Pending_coinbase.Stack.t -> bool)
+      ~constraint_constants ~verifier ~error_prefix
+      ~(registers_begin :
+         ( Frozen_ledger_hash.t
+         , a
+         , Token_id.t
+         , Mina_state.Local_state.t )
+         Mina_state.Registers.t
+         option)
+      ~(registers_end :
+         ( Frozen_ledger_hash.t
+         , a
+         , Token_id.t
+         , Mina_state.Local_state.t )
+         Mina_state.Registers.t) =
     let clarify_error cond err =
       if not cond then Or_error.errorf "%s : %s" error_prefix err else Ok ()
     in
     let open M.Let_syntax in
+    let check_registers pc_eq (reg1 : _ Mina_state.Registers.t)
+        (reg2 : _ Mina_state.Registers.t) =
+      let open Or_error.Let_syntax in
+      let%map () =
+        clarify_error
+          (Frozen_ledger_hash.equal reg1.ledger reg2.ledger)
+          "did not connect with snarked ledger hash"
+      and () =
+        clarify_error
+          (Token_id.equal reg1.next_available_token reg2.next_available_token)
+          "did not connect with next available token"
+      and () =
+        clarify_error
+          (let `Needs_some_work_for_snapps_on_mainnet =
+             Mina_base.Util.todo_snapps
+           in
+           (* TODO: This should be the else branch, but is not because of an error in how certain things
+              are computed. This matches behavior on compatible. *)
+           true || pc_eq reg1.pending_coinbase_stack reg2.pending_coinbase_stack)
+          "did not connect with pending-coinbase stack"
+      and () =
+        clarify_error
+          (Parties_logic.Local_state.Value.equal reg1.local_state
+             reg2.local_state)
+          "did not connect with local state"
+      in
+      ()
+    in
     match%map
       time "scan_statement" (fun () ->
           scan_statement ~constraint_constants ~verifier t)
@@ -491,31 +597,25 @@ struct
     | Error (`Error e) ->
         Error e
     | Error `Empty ->
-        let current_ledger_hash = current_ledger_hash in
-        Option.value_map ~default:(Ok ()) snarked_ledger_hash ~f:(fun hash ->
-            clarify_error
-              (Frozen_ledger_hash.equal hash current_ledger_hash)
-              "did not connect with snarked ledger hash")
+        Option.value_map ~default:(Ok ()) registers_begin
+          ~f:(fun registers_begin ->
+            check_registers pending_coinbase_stack_equal registers_begin
+              registers_end)
     | Ok
         { fee_excess = { fee_token_l; fee_excess_l; fee_token_r; fee_excess_r }
         ; source
         ; target
-        ; next_available_token_before
-        ; next_available_token_after
         ; supply_increase = _
-        ; pending_coinbase_stack_state = _ (*TODO: check pending coinbases?*)
         ; sok_digest = ()
         } ->
         let open Or_error.Let_syntax in
         let%map () =
-          Option.value_map ~default:(Ok ()) snarked_ledger_hash ~f:(fun hash ->
-              clarify_error
-                (Frozen_ledger_hash.equal hash source)
-                "did not connect with snarked ledger hash")
+          Option.value_map ~default:(Ok ()) registers_begin
+            ~f:(fun registers_begin ->
+              check_registers pending_coinbase_stack_equal' registers_begin
+                source)
         and () =
-          clarify_error
-            (Frozen_ledger_hash.equal current_ledger_hash target)
-            "incorrect statement target hash"
+          check_registers pending_coinbase_stack_equal' registers_end target
         and () =
           clarify_error
             (Fee.Signed.equal Fee.Signed.zero fee_excess_l)
@@ -532,17 +632,6 @@ struct
           clarify_error
             (Token_id.equal Token_id.default fee_token_r)
             "nondefault fee token"
-        and () =
-          Option.value_map ~default:(Ok ()) snarked_ledger_next_available_token
-            ~f:(fun next_tkn ->
-              clarify_error
-                Token_id.(next_available_token_before = next_tkn)
-                "next available token from snarked ledger does not match")
-        and () =
-          clarify_error
-            Token_id.(
-              next_available_token_after = current_ledger_next_available_token)
-            "next available token from staged ledger does not match"
         in
         ()
 end
@@ -563,39 +652,10 @@ let statement_of_job : job -> Transaction_snark.Statement.t option = function
   | Base { statement; _ } ->
       Some statement
   | Merge ((p1, _), (p2, _)) ->
-      let stmt1 = Ledger_proof.statement p1
-      and stmt2 = Ledger_proof.statement p2 in
-      let open Option.Let_syntax in
-      let%bind () =
-        Option.some_if (Frozen_ledger_hash.equal stmt1.target stmt2.source) ()
-      in
-      let%map fee_excess =
-        match Fee_excess.combine stmt1.fee_excess stmt2.fee_excess with
-        | Ok ret ->
-            Some ret
-        | Error _ ->
-            None
-      and supply_increase =
-        Currency.Amount.add stmt1.supply_increase stmt2.supply_increase
-      and () =
-        Option.some_if
-          (Token_id.equal stmt1.next_available_token_after
-             stmt2.next_available_token_before)
-          ()
-      in
-      ( { source = stmt1.source
-        ; target = stmt2.target
-        ; supply_increase
-        ; pending_coinbase_stack_state =
-            { source = stmt1.pending_coinbase_stack_state.source
-            ; target = stmt2.pending_coinbase_stack_state.target
-            }
-        ; fee_excess
-        ; next_available_token_before = stmt1.next_available_token_before
-        ; next_available_token_after = stmt2.next_available_token_after
-        ; sok_digest = ()
-        }
-        : Transaction_snark.Statement.t )
+      Transaction_snark.Statement.merge
+        (Ledger_proof.statement p1)
+        (Ledger_proof.statement p2)
+      |> Result.ok
 
 let create ~work_delay ~transaction_capacity_log_2 =
   let k = Int.pow 2 transaction_capacity_log_2 in
@@ -630,13 +690,6 @@ let all_jobs = Parallel_scan.all_jobs
 let next_on_new_tree = Parallel_scan.next_on_new_tree
 
 let base_jobs_on_latest_tree = Parallel_scan.base_jobs_on_latest_tree
-
-(* TODO: make this operation O(1) -- gets used in Sync_handler RPC, which is performance sensitive (#3733) *)
-let target_merkle_root t =
-  let open Transaction_with_witness in
-  let open Option.Let_syntax in
-  let%map last_item = List.last (Parallel_scan.pending_data t) in
-  last_item.statement.target
 
 (*All the transactions in the order in which they were applied*)
 let staged_transactions t =
@@ -733,10 +786,7 @@ let work_statements_for_new_diff t : Transaction_snark_work.Statement.t list =
 
 let all_work_pairs t
     ~(get_state : State_hash.t -> Mina_state.Protocol_state.value Or_error.t) :
-    ( Transaction.t
-    , Transaction_witness.t
-    , Ledger_proof.t )
-    Snark_work_lib.Work.Single.Spec.t
+    (Transaction_witness.t, Ledger_proof.t) Snark_work_lib.Work.Single.Spec.t
     One_or_two.t
     list
     Or_error.t =
@@ -751,6 +801,9 @@ let all_work_pairs t
         , state_hash
         , ledger_witness
         , init_stack ) ->
+        let `Needs_update_for_multiple_slots_per_txn =
+          Mina_base.Util.todo_multiple_slots_per_transaction
+        in
         let { With_status.data = transaction; status } =
           Ledger.Transaction_applied.transaction transaction_with_info
         in
@@ -767,12 +820,13 @@ let all_work_pairs t
         in
         Snark_work_lib.Work.Single.Spec.Transition
           ( statement
-          , transaction
-          , { Transaction_witness.ledger = ledger_witness
-            ; protocol_state_body
-            ; init_stack
-            ; status
-            } )
+          , Transaction_witness.Non_parties
+              { ledger = ledger_witness
+              ; transaction
+              ; protocol_state_body
+              ; init_stack
+              ; status
+              } )
     | Second (p1, p2) ->
         let%map merged =
           Transaction_snark.Statement.merge
@@ -830,8 +884,16 @@ let fill_work_and_enqueue_transactions t transactions work =
           Option.value_map ~default:curr_source old_proof
             ~f:(fun ((p', _), _) -> (Ledger_proof.statement p').target)
         in
-        if Frozen_ledger_hash.equal curr_source prev_target then
-          Ok (Some (proof, extract_txns txns_with_witnesses))
+        let `Needs_some_work_for_snapps_on_mainnet =
+          Mina_base.Util.todo_snapps
+        in
+        (* This is not checking to match the behavior on compatible. We should actually be checking here, but that
+            requires a change in how we compute scan_statement in transaction_snark_scan_statement.ml *)
+        if
+          Mina_state.Registers.Without_pending_coinbase_stack.equal
+            { curr_source with pending_coinbase_stack = () }
+            { prev_target with pending_coinbase_stack = () }
+        then Ok (Some (proof, extract_txns txns_with_witnesses))
         else Or_error.error_string "Unexpected ledger proof emitted")
   in
   (result_opt, updated_scan_state)

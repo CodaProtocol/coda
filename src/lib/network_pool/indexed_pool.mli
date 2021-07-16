@@ -27,13 +27,43 @@ module Command_error : sig
         * [ `Current_global_slot of Mina_numbers.Global_slot.t ]
     | Unwanted_fee_token of Token_id.t
     | Invalid_transaction
-  [@@deriving sexp_of, to_yojson]
+  [@@deriving sexp, to_yojson]
+
+  val grounds_for_diff_rejection : t -> bool
 end
 
 val replace_fee : Currency.Fee.t
 
+module Config : sig
+  type t
+end
+
+module Sender_local_state : sig
+  type t [@@deriving sexp, to_yojson]
+
+  val sender : t -> Account_id.t
+
+  val is_remove : t -> bool
+end
+
 (** Transaction pool. This is a purely functional data structure. *)
 type t [@@deriving sexp_of]
+
+val config : t -> Config.t
+
+val get_sender_local_state : t -> Account_id.t -> Sender_local_state.t
+
+val set_sender_local_state : t -> Sender_local_state.t -> t
+
+module rec Update : sig
+  val apply : Update.t -> t -> t
+
+  type t [@@deriving to_yojson, sexp]
+
+  val merge : t -> t -> t
+
+  val empty : t
+end
 
 (* TODO sexp is debug only, remove *)
 
@@ -88,10 +118,35 @@ val handle_committed_txn :
     are required to keep the pool in sync with the ledger you are applying
     transactions against.
 *)
+val add_from_gossip_exn_async :
+     config:Config.t
+  -> sender_local_state:Sender_local_state.t
+  -> verify:
+       (   User_command.Verifiable.t
+        -> User_command.Valid.t option Async.Deferred.t)
+  -> [ `Unchecked of Transaction_hash.User_command.t * User_command.Verifiable.t
+     | `Checked of Transaction_hash.User_command_with_valid_signature.t ]
+  -> Account_nonce.t
+  -> Currency.Amount.t
+  -> ( ( Transaction_hash.User_command_with_valid_signature.t
+       * Transaction_hash.User_command_with_valid_signature.t list )
+       * Sender_local_state.t
+       * Update.t
+     , Command_error.t )
+     Async.Deferred.Result.t
+(** Returns the commands dropped as a result of adding the command, which will
+    be empty unless we're replacing one. *)
+
+(** Add a command to the pool. Pass the current nonce for the account and
+    its current balance. Throws if the contents of the pool before adding the
+    new command are invalid given the supplied current nonce and balance - you
+    are required to keep the pool in sync with the ledger you are applying
+    transactions against.
+*)
 val add_from_gossip_exn :
      t
-  -> verify:(User_command.t -> User_command.Valid.t option)
-  -> [ `Unchecked of Transaction_hash.User_command.t
+  -> verify:(User_command.Verifiable.t -> User_command.Valid.t option)
+  -> [ `Unchecked of Transaction_hash.User_command.t * User_command.Verifiable.t
      | `Checked of Transaction_hash.User_command_with_valid_signature.t ]
   -> Account_nonce.t
   -> Currency.Amount.t

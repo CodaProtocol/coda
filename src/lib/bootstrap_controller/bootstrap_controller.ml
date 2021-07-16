@@ -346,6 +346,10 @@ let run ~logger ~trust_system ~verifier ~network ~consensus_local_state
                 let%map result =
                   Staged_ledger
                   .of_scan_state_pending_coinbases_and_snarked_ledger ~logger
+                    ~snarked_local_state:
+                      ( t.current_root
+                      |> External_transition.Initial_validated.blockchain_state
+                      |> Blockchain_state.registers |> Registers.local_state )
                     ~verifier ~constraint_constants ~scan_state
                     ~snarked_ledger:temp_mask ~expected_merkle_root
                     ~pending_coinbases ~get_state
@@ -829,6 +833,11 @@ let%test_module "Bootstrap_controller tests" =
                 Transition_frontier.root_snarked_ledger frontier
                 |> Ledger.of_database
               in
+              let snarked_local_state =
+                Transition_frontier.root frontier
+                |> Transition_frontier.Breadcrumb.blockchain_state
+                |> Blockchain_state.registers |> Registers.local_state
+              in
               let scan_state = Staged_ledger.scan_state staged_ledger in
               let get_state hash =
                 match Transition_frontier.find_protocol_state frontier hash with
@@ -846,8 +855,8 @@ let%test_module "Bootstrap_controller tests" =
               let%map actual_staged_ledger =
                 Staged_ledger.of_scan_state_pending_coinbases_and_snarked_ledger
                   ~scan_state ~logger ~verifier ~constraint_constants
-                  ~snarked_ledger ~expected_merkle_root ~pending_coinbases
-                  ~get_state
+                  ~snarked_ledger ~snarked_local_state ~expected_merkle_root
+                  ~pending_coinbases ~get_state
                 |> Deferred.Or_error.ok_exn
               in
               assert (

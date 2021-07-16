@@ -3,8 +3,16 @@ open Mina_base
 
 [%%versioned:
 module Stable : sig
+  module V2 : sig
+    type t [@@deriving sexp]
+
+    val hash : t -> Staged_ledger_hash.Aux_hash.t
+  end
+
   module V1 : sig
     type t [@@deriving sexp]
+
+    val to_latest : t -> V2.t
 
     val hash : t -> Staged_ledger_hash.Aux_hash.t
   end
@@ -67,13 +75,24 @@ module Make_statement_scanner
 
   val check_invariants :
        t
+    -> pending_coinbase_stack_equal:('a -> 'a -> bool)
+    -> pending_coinbase_stack_equal':('a -> Pending_coinbase.Stack.t -> bool)
     -> constraint_constants:Genesis_constants.Constraint_constants.t
     -> verifier:Verifier.t
     -> error_prefix:string
-    -> ledger_hash_end:Frozen_ledger_hash.t
-    -> ledger_hash_begin:Frozen_ledger_hash.t option
-    -> next_available_token_begin:Token_id.t option
-    -> next_available_token_end:Token_id.t
+    -> registers_begin:
+         ( Frozen_ledger_hash.t
+         , 'a
+         , Token_id.t
+         , Mina_state.Local_state.t )
+         Mina_state.Registers.t
+         option
+    -> registers_end:
+         ( Frozen_ledger_hash.t
+         , 'a
+         , Token_id.t
+         , Mina_state.Local_state.t )
+         Mina_state.Registers.t
     -> (unit, Error.t) result M.t
 end
 
@@ -113,8 +132,6 @@ val free_space : t -> int
 val base_jobs_on_latest_tree : t -> Transaction_with_witness.t list
 
 val hash : t -> Staged_ledger_hash.Aux_hash.t
-
-val target_merkle_root : t -> Frozen_ledger_hash.t option
 
 (** All the transactions in the order in which they were applied*)
 val staged_transactions : t -> Transaction.t With_status.t list
@@ -166,10 +183,7 @@ val check_required_protocol_states :
 val all_work_pairs :
      t
   -> get_state:(State_hash.t -> Mina_state.Protocol_state.value Or_error.t)
-  -> ( Transaction.t
-     , Transaction_witness.t
-     , Ledger_proof.t )
-     Snark_work_lib.Work.Single.Spec.t
+  -> (Transaction_witness.t, Ledger_proof.t) Snark_work_lib.Work.Single.Spec.t
      One_or_two.t
      list
      Or_error.t

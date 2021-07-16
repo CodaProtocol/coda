@@ -34,7 +34,7 @@ end = struct
 end
 
 module User_command_type = struct
-  type t = [`Payment | `Delegation]
+  type t = [ `Payment | `Delegation ]
 
   let encode = function
     | `Payment ->

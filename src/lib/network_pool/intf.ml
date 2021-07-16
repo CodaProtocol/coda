@@ -64,7 +64,9 @@ module type Resource_pool_diff_intf = sig
    *  smaller after application is completed. *)
   val size : t -> int
 
-  val verified_size : verified -> int
+  (* TODO
+     val verified_size : verified -> int
+  *)
 
   (** How big to consider this diff for purposes of metering. *)
   val score : t -> int
@@ -261,8 +263,7 @@ module type Snark_pool_diff_intf = sig
   val compact_json : t -> Yojson.Safe.t option
 
   val of_result :
-       ( ('a, 'b, 'c) Snark_work_lib.Work.Single.Spec.t
-         Snark_work_lib.Work.Spec.t
+       ( (_, _) Snark_work_lib.Work.Single.Spec.t Snark_work_lib.Work.Spec.t
        , Ledger_proof.t )
        Snark_work_lib.Work.Result.t
     -> t

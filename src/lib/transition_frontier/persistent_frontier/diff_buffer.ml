@@ -4,7 +4,7 @@ open Core_kernel
 open Frontier_base
 
 let max_latency
-    {Genesis_constants.Constraint_constants.block_window_duration_ms; _} =
+    { Genesis_constants.Constraint_constants.block_window_duration_ms; _ } =
   Block_time.Span.(
     (block_window_duration_ms |> Int64.of_int |> Block_time.Span.of_ms)
     * of_ms 5L)
@@ -20,41 +20,43 @@ module Timer = struct
   open Block_time
 
   type t =
-    { time_controller: Controller.t
-    ; f: unit -> unit
-    ; span: Span.t
-    ; mutable timeout: unit Timeout.t option }
+    { time_controller : Controller.t
+    ; f : unit -> unit
+    ; span : Span.t
+    ; mutable timeout : unit Timeout.t option
+    }
 
   let create ~time_controller ~f span =
-    {time_controller; span; f; timeout= None}
+    { time_controller; span; f; timeout = None }
 
   let start t =
     assert (Option.is_none t.timeout) ;
     let rec run_timeout t =
-      t.timeout
-      <- Some
-           (Timeout.create t.time_controller t.span ~f:(fun _ ->
-                t.f () ; run_timeout t ))
+      t.timeout <-
+        Some
+          (Timeout.create t.time_controller t.span ~f:(fun _ ->
+               t.f () ; run_timeout t))
     in
     run_timeout t
 
   let stop t =
     Option.iter t.timeout ~f:(fun timeout ->
-        Timeout.cancel t.time_controller timeout () ) ;
+        Timeout.cancel t.time_controller timeout ()) ;
     t.timeout <- None
 
   let reset t = stop t ; start t
 end
 
-type work = {diffs: Diff.Lite.E.t list}
+type work = { diffs : Diff.Lite.E.t list }
 
 type t =
-  { diff_array: Diff.Lite.E.t DynArray.t
-  ; worker: Worker.t
+  { diff_array : Diff.Lite.E.t DynArray.t
+  ; worker : Worker.t
         (* timer unfortunately needs to be mutable to break recursion *)
-  ; mutable timer: Timer.t option
-  ; mutable flush_job: unit Deferred.t option
-  ; mutable closed: bool }
+  ; mutable timer : Timer.t option
+  ; mutable flush_job : unit Deferred.t option
+  ; mutable closed : bool
+  }
 
 let check_for_overflow t =
   if DynArray.length t.diff_array > Capacity.max then
@@ -79,11 +81,12 @@ let flush t =
 let create ~(constraint_constants : Genesis_constants.Constraint_constants.t)
     ~time_controller ~worker =
   let t =
-    { diff_array= DynArray.create ()
+    { diff_array = DynArray.create ()
     ; worker
-    ; timer= None
-    ; flush_job= None
-    ; closed= false }
+    ; timer = None
+    ; flush_job = None
+    ; closed = false
+    }
   in
   let timer =
     Timer.create ~time_controller

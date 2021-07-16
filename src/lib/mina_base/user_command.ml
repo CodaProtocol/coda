@@ -103,7 +103,7 @@ module Stable = struct
       (Signed_command.Stable.V1.t, Snapp_command.Stable.V1.t) Poly.Stable.V1.t
     [@@deriving sexp, compare, equal, hash, yojson]
 
-    let to_latest = Poly.Stable.V1.to_latest
+    let to_latest : t -> V2.t = Poly.Stable.V1.to_latest
   end
 end]
 
@@ -144,10 +144,7 @@ module Verifiable = struct
     module V2 = struct
       type t =
         ( Signed_command.Stable.V1.t
-        , Snapp_predicate.Protocol_state.Stable.V1.t
-          * ( Party.Stable.V1.t
-            * Pickles.Side_loaded.Verification_key.Stable.V1.t option )
-            list )
+        , Parties.Verifiable.Stable.V1.t )
         Poly.Stable.V2.t
       [@@deriving sexp, compare, equal, hash, yojson]
 
@@ -167,27 +164,44 @@ module Verifiable = struct
       let to_latest = Poly.Stable.V1.to_latest
     end
   end]
+
+  let fee_payer (t : t) =
+    match t with
+    | Signed_command x ->
+        Signed_command.fee_payer x
+    | Parties p ->
+        Party.Signed.account_id p.fee_payer
 end
 
-let to_verifiable_exn (t : t) ~ledger ~get ~location_of_account =
+let to_verifiable (t : t) ~ledger ~get ~location_of_account : Verifiable.t =
   let find_vk (p : Party.t) =
     let ( ! ) x = Option.value_exn x in
     let id = Party.account_id p in
-    let account : Account.t = !(get ledger !(location_of_account ledger id)) in
-    !(!(account.snapp).verification_key).data
+    Option.try_with (fun () ->
+        let account : Account.t =
+          !(get ledger !(location_of_account ledger id))
+        in
+        !(!(account.snapp).verification_key).data)
   in
   match t with
   | Signed_command c ->
       Signed_command c
-  | Parties ps ->
+  | Parties { fee_payer; other_parties; protocol_state } ->
       Parties
-        ( ps.protocol_state
-        , List.map (Parties.parties ps) ~f:(fun p ->
-              (p, Option.try_with (fun () -> find_vk p))) )
+        { fee_payer
+        ; protocol_state
+        ; other_parties =
+            Parties.With_hashes.create other_parties
+              ~hash:(fun p -> Party.Predicated.digest p.data)
+              ~data:(fun p -> (p, find_vk p))
+        }
 
-let to_verifiable t ~ledger ~get ~location_of_account =
-  Option.try_with (fun () ->
-      to_verifiable_exn t ~ledger ~get ~location_of_account)
+let of_verifiable (t : Verifiable.t) : t =
+  match t with
+  | Signed_command x ->
+      Signed_command x
+  | Parties p ->
+      Parties (Parties.of_verifiable p)
 
 let fee_exn : t -> Currency.Fee.t = function
   | Signed_command x ->

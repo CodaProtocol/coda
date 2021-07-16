@@ -27,10 +27,7 @@ module Make (Inputs : Intf.Inputs_intf) = struct
 
     type t =
       { mutable available_jobs :
-          ( Inputs.Transaction.t
-          , Inputs.Transaction_witness.t
-          , Inputs.Ledger_proof.t )
-          Work_spec.t
+          (Inputs.Transaction_witness.t, Inputs.Ledger_proof.t) Work_spec.t
           One_or_two.t
           list
       ; jobs_seen : (Seen_key.t, Job_status.t) Hashtbl.t
@@ -130,8 +127,8 @@ module Make (Inputs : Intf.Inputs_intf) = struct
   end
 
   let get_expensive_work ~snark_pool ~fee
-      (jobs : ('a, 'b, 'c) Work_spec.t One_or_two.t list) :
-      ('a, 'b, 'c) Work_spec.t One_or_two.t list =
+      (jobs : ('a, 'b) Work_spec.t One_or_two.t list) :
+      ('a, 'b) Work_spec.t One_or_two.t list =
     List.filter jobs ~f:(fun job ->
         does_not_have_better_fee ~snark_pool ~fee
           (One_or_two.map job ~f:Work_spec.statement))

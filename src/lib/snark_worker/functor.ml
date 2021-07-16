@@ -1,6 +1,5 @@
 open Core
 open Async
-open Mina_base
 
 type Structured_log_events.t +=
   | Merge_snark_generated of
@@ -40,11 +39,7 @@ module Make (Inputs : Intf.Inputs_intf) :
 
     module Single = struct
       module Spec = struct
-        type t =
-          ( Transaction.t
-          , Transaction_witness.t
-          , Ledger_proof.t )
-          Work.Single.Spec.t
+        type t = (Transaction_witness.t, Ledger_proof.t) Work.Single.Spec.t
         [@@deriving sexp, to_yojson]
 
         let statement = Work.Single.Spec.statement

@@ -45,7 +45,10 @@ let get_status ~frontier_broadcast_pipe ~transaction_pool cmd =
             List.exists (Transition_frontier.Breadcrumb.commands breadcrumb)
               ~f:(fun { data = cmd'; _ } ->
                 match cmd' with
-                | Snapp_command _ ->
+                | Parties _ ->
+                    let `Needs_some_work_for_snapps_on_mainnet =
+                      Mina_base.Util.todo_snapps
+                    in
                     false
                 | Signed_command cmd' ->
                     Signed_command.equal cmd (Signed_command.forget_check cmd'))

@@ -21,19 +21,14 @@ module Inputs = struct
     (* Use a dummy proof. *)
     let stmt =
       match s with
-      | Snark_work_lib.Work.Single.Spec.Transition (stmt, _, _) ->
+      | Snark_work_lib.Work.Single.Spec.Transition (stmt, _) ->
           stmt
       | Merge (stmt, _, _) ->
           stmt
     in
     let sok_digest = Sok_message.digest message in
     Deferred.Or_error.return
-    @@ ( Transaction_snark.create ~source:stmt.source ~target:stmt.target
-           ~supply_increase:stmt.supply_increase
-           ~pending_coinbase_stack_state:stmt.pending_coinbase_stack_state
-           ~next_available_token_before:stmt.next_available_token_before
-           ~next_available_token_after:stmt.next_available_token_after
-           ~fee_excess:stmt.fee_excess ~sok_digest
+    @@ ( Transaction_snark.create ~statement:{ stmt with sok_digest }
            ~proof:Proof.transaction_dummy
        , Time.Span.zero )
 end

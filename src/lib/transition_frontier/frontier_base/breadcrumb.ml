@@ -9,10 +9,11 @@ module T = struct
   let id = "breadcrumb"
 
   type t =
-    { validated_transition: External_transition.Validated.t
-    ; staged_ledger: Staged_ledger.t [@sexp.opaque]
-    ; just_emitted_a_proof: bool
-    ; transition_receipt_time: Time.t option }
+    { validated_transition : External_transition.Validated.t
+    ; staged_ledger : Staged_ledger.t [@sexp.opaque]
+    ; just_emitted_a_proof : bool
+    ; transition_receipt_time : Time.t option
+    }
   [@@deriving sexp, fields]
 
   type 'a creator =
@@ -33,13 +34,15 @@ module T = struct
     { validated_transition
     ; staged_ledger
     ; just_emitted_a_proof
-    ; transition_receipt_time }
+    ; transition_receipt_time
+    }
 
   let to_yojson
       { validated_transition
-      ; staged_ledger= _
+      ; staged_ledger = _
       ; just_emitted_a_proof
-      ; transition_receipt_time } =
+      ; transition_receipt_time
+      } =
     `Assoc
       [ ( "validated_transition"
         , External_transition.Validated.to_yojson validated_transition )
@@ -47,9 +50,9 @@ module T = struct
       ; ("just_emitted_a_proof", `Bool just_emitted_a_proof)
       ; ( "transition_receipt_time"
         , `String
-            (Option.value_map transition_receipt_time
-               ~default:"<not available>"
-               ~f:(Time.to_string_iso8601_basic ~zone:Time.Zone.utc)) ) ]
+            (Option.value_map transition_receipt_time ~default:"<not available>"
+               ~f:(Time.to_string_iso8601_basic ~zone:Time.Zone.utc)) )
+      ]
 end
 
 [%%define_locally
@@ -62,17 +65,16 @@ T.
 
 include Allocation_functor.Make.Sexp (T)
 
-let build ?skip_staged_ledger_verification ~logger ~precomputed_values
-    ~verifier ~trust_system ~parent
-    ~transition:(transition_with_validation :
-                  External_transition.Almost_validated.t) ~sender
-    ~transition_receipt_time () =
+let build ?skip_staged_ledger_verification ~logger ~precomputed_values ~verifier
+    ~trust_system ~parent
+    ~transition:
+      (transition_with_validation : External_transition.Almost_validated.t)
+    ~sender ~transition_receipt_time () =
   O1trace.trace_recurring "Breadcrumb.build" (fun () ->
       let open Deferred.Let_syntax in
       match%bind
-        External_transition.Staged_ledger_validation
-        .validate_staged_ledger_diff ?skip_staged_ledger_verification ~logger
-          ~precomputed_values ~verifier
+        External_transition.Staged_ledger_validation.validate_staged_ledger_diff
+          ?skip_staged_ledger_verification ~logger ~precomputed_values ~verifier
           ~parent_staged_ledger:(staged_ledger parent)
           ~parent_protocol_state:
             (External_transition.Validated.protocol_state
@@ -81,8 +83,7 @@ let build ?skip_staged_ledger_verification ~logger ~precomputed_values
       with
       | Ok
           ( `Just_emitted_a_proof just_emitted_a_proof
-          , `External_transition_with_validation
-              fully_valid_external_transition
+          , `External_transition_with_validation fully_valid_external_transition
           , `Staged_ledger transitioned_staged_ledger ) ->
           return
           @@ Ok
@@ -96,7 +97,7 @@ let build ?skip_staged_ledger_verification ~logger ~precomputed_values
                 | `Incorrect_target_staged_ledger_hash ->
                     "staged ledger hash"
                 | `Incorrect_target_snarked_ledger_hash ->
-                    "snarked ledger hash" ))
+                    "snarked ledger hash"))
           in
           let message = "invalid staged ledger diff: incorrect " ^ reasons in
           let%map () =
@@ -127,12 +128,12 @@ let build ?skip_staged_ledger_verification ~logger ~precomputed_values
                   ( action
                   , Some
                       ( "Staged_ledger error: $error"
-                      , [("error", `String error_string)] ) )
+                      , [ ("error", `String error_string) ] ) )
                 in
                 let open Trust_system.Actions in
                 (* TODO : refine these actions (#2375) *)
                 let open Staged_ledger.Pre_diff_info.Error in
-                with_return (fun {return} ->
+                with_return (fun { return } ->
                     let action =
                       match staged_ledger_error with
                       | Couldn't_reach_verifier _ ->
@@ -149,15 +150,14 @@ let build ?skip_staged_ledger_verification ~logger ~precomputed_values
                           make_actions Gossiped_invalid_transition
                       | Unexpected _ ->
                           failwith
-                            "build: Unexpected staged ledger error should \
-                             have been caught in another pattern"
+                            "build: Unexpected staged ledger error should have \
+                             been caught in another pattern"
                     in
-                    Trust_system.record trust_system logger peer action )
+                    Trust_system.record trust_system logger peer action)
           in
           Error
             (`Invalid_staged_ledger_diff
-              (Staged_ledger.Staged_ledger_error.to_error staged_ledger_error))
-  )
+              (Staged_ledger.Staged_ledger_error.to_error staged_ledger_error)))
 
 let lift f breadcrumb = f (validated_transition breadcrumb)
 
@@ -201,10 +201,11 @@ let name t =
   @@ state_hash t
 
 type display =
-  { state_hash: string
-  ; blockchain_state: Blockchain_state.display
-  ; consensus_state: Consensus.Data.Consensus_state.display
-  ; parent: string }
+  { state_hash : string
+  ; blockchain_state : Blockchain_state.display
+  ; consensus_state : Consensus.Data.Consensus_state.display
+  ; parent : string
+  }
 [@@deriving yojson]
 
 let display t =
@@ -214,22 +215,11 @@ let display t =
     Visualization.display_prefix_of_string @@ State_hash.to_base58_check
     @@ parent_hash t
   in
-  { state_hash= name t
+  { state_hash = name t
   ; blockchain_state
-  ; consensus_state= Consensus.Data.Consensus_state.display consensus_state
-  ; parent }
-
-let all_user_commands breadcrumbs =
-  Sequence.fold (Sequence.of_list breadcrumbs) ~init:Signed_command.Set.empty
-    ~f:(fun acc_set breadcrumb ->
-      breadcrumb |> commands
-      |> List.filter_map ~f:(fun {data; _} ->
-             match data with
-             | Snapp_command _ ->
-                 None
-             | Signed_command c ->
-                 Some (Signed_command.forget_check c) )
-      |> Signed_command.Set.of_list |> Set.union acc_set )
+  ; consensus_state = Consensus.Data.Consensus_state.display consensus_state
+  ; parent
+  }
 
 module For_tests = struct
   open Currency
@@ -242,7 +232,7 @@ module For_tests = struct
       Signed_command.With_valid_signature.t Sequence.t =
     let account_ids =
       List.map accounts_with_secret_keys ~f:(fun (_, account) ->
-          Account.identifier account )
+          Account.identifier account)
     in
     Sequence.filter_map (accounts_with_secret_keys |> Sequence.of_list)
       ~f:(fun (sender_sk, sender_account) ->
@@ -265,7 +255,7 @@ module For_tests = struct
               sender_account
             |> Or_error.ok_exn
           in
-          assert ([%equal: [`Existed | `Added]] status `Existed) ;
+          assert ([%equal: [ `Existed | `Added ]] status `Existed) ;
           (Option.value_exn (Ledger.get ledger account_location)).nonce
         in
         let send_amount = Currency.Amount.of_int 1 in
@@ -280,12 +270,13 @@ module For_tests = struct
             ~valid_until:None ~memo:Signed_command_memo.dummy
             ~body:
               (Payment
-                 { source_pk= sender_pk
+                 { source_pk = sender_pk
                  ; receiver_pk
-                 ; token_id= token
-                 ; amount= send_amount })
+                 ; token_id = token
+                 ; amount = send_amount
+                 })
         in
-        Signed_command.sign sender_keypair payload )
+        Signed_command.sign sender_keypair payload)
 
   let gen ?(logger = Logger.null ())
       ~(precomputed_values : Precomputed_values.t) ~verifier
@@ -314,17 +305,18 @@ module For_tests = struct
       in
       let largest_account_public_key = Account.public_key largest_account in
       let get_completed_work stmts =
-        let {Keypair.public_key; _} = Keypair.create () in
+        let { Keypair.public_key; _ } = Keypair.create () in
         let prover = Public_key.compress public_key in
         Some
           Transaction_snark_work.Checked.
-            { fee= Fee.of_int 1
-            ; proofs=
+            { fee = Fee.of_int 1
+            ; proofs =
                 One_or_two.map stmts ~f:(fun statement ->
                     Ledger_proof.create ~statement
                       ~sok_digest:Sok_message.Digest.default
-                      ~proof:Proof.transaction_dummy )
-            ; prover }
+                      ~proof:Proof.transaction_dummy)
+            ; prover
+            }
       in
       let current_state_view, state_and_body_hash =
         let prev_state =
@@ -368,23 +360,17 @@ module For_tests = struct
       let previous_protocol_state =
         previous_transition |> External_transition.Validated.protocol_state
       in
-      let previous_ledger_hash =
+      let previous_registers =
         previous_protocol_state |> Protocol_state.blockchain_state
-        |> Blockchain_state.snarked_ledger_hash
+        |> Blockchain_state.registers
       in
-      let next_ledger_hash =
+      let next_registers =
         Option.value_map ledger_proof_opt
           ~f:(fun (proof, _) ->
-            Ledger_proof.statement proof |> Ledger_proof.statement_target )
-          ~default:previous_ledger_hash
-      in
-      let snarked_next_available_token =
-        match ledger_proof_opt with
-        | Some (proof, _) ->
-            (Ledger_proof.statement proof).next_available_token_after
-        | None ->
-            previous_protocol_state |> Protocol_state.blockchain_state
-            |> Blockchain_state.snarked_next_available_token
+            { (Ledger_proof.statement proof |> Ledger_proof.statement_target) with
+              pending_coinbase_stack = ()
+            })
+          ~default:previous_registers
       in
       let genesis_ledger_hash =
         previous_protocol_state |> Protocol_state.blockchain_state
@@ -393,20 +379,20 @@ module For_tests = struct
       let next_blockchain_state =
         Blockchain_state.create_value
           ~timestamp:(Block_time.now @@ Block_time.Controller.basic ~logger)
-          ~snarked_ledger_hash:next_ledger_hash ~snarked_next_available_token
-          ~staged_ledger_hash:next_staged_ledger_hash ~genesis_ledger_hash
+          ~registers:next_registers ~staged_ledger_hash:next_staged_ledger_hash
+          ~genesis_ledger_hash
       in
       let previous_state_hash = Protocol_state.hash previous_protocol_state in
       let consensus_state =
-        make_next_consensus_state ~snarked_ledger_hash:previous_ledger_hash
+        make_next_consensus_state ~snarked_ledger_hash:previous_registers.ledger
           ~previous_protocol_state:
             With_hash.
-              {data= previous_protocol_state; hash= previous_state_hash}
+              { data = previous_protocol_state; hash = previous_state_hash }
           ~coinbase_receiver ~supercharge_coinbase
       in
       let genesis_state_hash =
-        Protocol_state.genesis_state_hash
-          ~state_hash:(Some previous_state_hash) previous_protocol_state
+        Protocol_state.genesis_state_hash ~state_hash:(Some previous_state_hash)
+          previous_protocol_state
       in
       let protocol_state =
         Protocol_state.create_value ~genesis_state_hash ~previous_state_hash
@@ -440,8 +426,8 @@ module For_tests = struct
       | Ok new_breadcrumb ->
           [%log info]
             ~metadata:
-              [ ( "state_hash"
-                , state_hash new_breadcrumb |> State_hash.to_yojson ) ]
+              [ ("state_hash", state_hash new_breadcrumb |> State_hash.to_yojson)
+              ]
             "Producing a breadcrumb with hash: $state_hash" ;
           new_breadcrumb
       | Error (`Fatal_error exn) ->
@@ -475,7 +461,7 @@ module For_tests = struct
         Deferred.List.fold breadcrumbs_constructors ~init:(root, [])
           ~f:(fun (previous, acc) make_breadcrumb ->
             let%map breadcrumb = make_breadcrumb previous in
-            (breadcrumb, breadcrumb :: acc) )
+            (breadcrumb, breadcrumb :: acc))
       in
       List.rev ls
 end
