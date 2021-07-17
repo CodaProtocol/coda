@@ -183,6 +183,9 @@ val subscriptions : t -> Coda_subscriptions.t
 val most_recent_valid_transition :
   t -> External_transition.Initial_validated.t Broadcast_pipe.Reader.t
 
+val block_produced_bvar :
+  t -> (Transition_frontier.Breadcrumb.t, read_write) Bvar.t
+
 val top_level_logger : t -> Logger.t
 
 val config : t -> Config.t

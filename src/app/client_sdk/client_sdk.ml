@@ -18,6 +18,7 @@ open Mina_base_nonconsensus
 open Rosetta_lib_nonconsensus
 open Rosetta_coding_nonconsensus
 open Js_util
+module String_sign = String_sign_nonconsensus.String_sign
 
 let _ =
   Js.export "minaSDK"

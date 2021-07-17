@@ -8,7 +8,7 @@
             child_processes incremental secrets work_selector
             mina_networking block_producer genesis_constants sync_handler transition_router node_addrs_and_ports
             otp_lib protocol_version snark_worker participating_state transaction_inclusion_status
-            sync_status daemon_rpcs archive_lib exit_handlers)
+            sync_status daemon_rpcs archive_lib exit_handlers uptime_service)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_jane ppx_coda ppx_version ppx_inline_test ppx_deriving.std))
  (synopsis "Coda gut layer"))

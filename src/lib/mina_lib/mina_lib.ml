@@ -39,7 +39,7 @@ exception Snark_worker_error of int
 
 exception Snark_worker_signal_interrupt of Signal.t
 
-(* A way to run a single snark worker for a daemon in a lazy manner. Evaluating
+(* A way to run a single snark worker for a daemon in a lazy manner. Forcing
    this lazy value will run the snark worker process. A snark work is
    assigned to a public key. This public key can change throughout the entire time
    the daemon is running *)
@@ -52,7 +52,8 @@ type processes =
   { prover: Prover.t
   ; verifier: Verifier.t
   ; mutable snark_worker:
-      [`On of snark_worker * Currency.Fee.t | `Off of Currency.Fee.t] }
+      [`On of snark_worker * Currency.Fee.t | `Off of Currency.Fee.t]
+  ; uptime_snark_worker_opt: Uptime_service.Uptime_snark_worker.t option }
 
 type components =
   { net: Mina_networking.t
@@ -60,13 +61,18 @@ type components =
   ; snark_pool: Network_pool.Snark_pool.t
   ; transition_frontier: Transition_frontier.t option Broadcast_pipe.Reader.t
   ; most_recent_valid_block:
-      External_transition.Initial_validated.t Broadcast_pipe.Reader.t }
+      External_transition.Initial_validated.t Broadcast_pipe.Reader.t
+  ; block_produced_bvar: (Transition_frontier.Breadcrumb.t, read_write) Bvar.t
+  }
 
 type pipes =
   { validated_transitions_reader:
       External_transition.Validated.t Strict_pipe.Reader.t
   ; producer_transition_writer:
-      (Transition_frontier.Breadcrumb.t, synchronous, unit Deferred.t) Writer.t
+      ( Transition_frontier.Breadcrumb.t
+      , Strict_pipe.synchronous
+      , unit Deferred.t )
+      Strict_pipe.Writer.t
   ; external_transitions_writer:
       ( External_transition.t Envelope.Incoming.t
       * Block_time.t
@@ -144,8 +150,9 @@ let client_port t =
 
 (* Get the most recently set public keys  *)
 let block_production_pubkeys t : Public_key.Compressed.Set.t =
-  let public_keys, _ = Agent.get t.block_production_keypairs in
-  Public_key.Compressed.Set.map public_keys ~f:snd
+  let keypair_and_compressed_pks, _ = Agent.get t.block_production_keypairs in
+  Public_key.Compressed.Set.map keypair_and_compressed_pks
+    ~f:(fun (_keypair, pk_compressed) -> pk_compressed)
 
 let coinbase_receiver t = !(t.coinbase_receiver)
 
@@ -686,6 +693,8 @@ let top_level_logger t = t.config.logger
 
 let most_recent_valid_transition t = t.components.most_recent_valid_block
 
+let block_produced_bvar t = t.components.block_produced_bvar
+
 let staged_ledger_ledger_proof t =
   let open Option.Let_syntax in
   let%bind sl = best_staged_ledger_opt t in
@@ -1074,8 +1083,18 @@ let start t =
     ~transition_writer:t.pipes.producer_transition_writer
     ~log_block_creation:t.config.log_block_creation
     ~precomputed_values:t.config.precomputed_values
-    ~block_reward_threshold:t.config.block_reward_threshold ;
+    ~block_reward_threshold:t.config.block_reward_threshold
+    ~block_produced_bvar:t.components.block_produced_bvar ;
   perform_compaction t ;
+  Uptime_service.start ~logger:t.config.logger ~uptime_url:t.config.uptime_url
+    ~snark_worker_opt:t.processes.uptime_snark_worker_opt
+    ~transition_frontier:t.components.transition_frontier
+    ~time_controller:t.config.time_controller
+    ~block_produced_bvar:t.components.block_produced_bvar
+    ~uptime_submitter_keypair:t.config.uptime_submitter_keypair
+    ~get_next_producer_timing:(fun () -> t.next_producer_timing)
+    ~get_snark_work_fee:(fun () -> snark_work_fee t)
+    ~get_peer:(fun () -> t.config.gossip_net_params.addrs_and_ports.peer) ;
   Snark_worker.start t
 
 let start_with_precomputed_blocks t blocks =
@@ -1178,6 +1197,26 @@ let create ?wallets (config : Config.t) =
                     ; process= Ivar.create ()
                     ; kill_ivar= Ivar.create () }
                   , config.snark_work_fee ) )
+          in
+          let%bind uptime_snark_worker_opt =
+            (* if uptime URL provided, run uptime service SNARK worker *)
+            Option.value_map config.uptime_url ~default:(return None)
+              ~f:(fun _url ->
+                Monitor.try_with ~here:[%here]
+                  ~rest:
+                    (`Call
+                      (fun exn ->
+                        let err = Error.of_exn ~backtrace:`Get exn in
+                        [%log' warn config.logger]
+                          "unhandled exception from uptime service SNARK \
+                           worker: $exn"
+                          ~metadata:[("exn", Error_json.error_to_yojson err)]
+                        ))
+                  (fun () ->
+                    trace "uptime SNARK worker" (fun () ->
+                        Uptime_service.Uptime_snark_worker.create
+                          ~logger:config.logger ~pids:config.pids ) )
+                >>| Result.ok )
           in
           log_snark_coordinator_warning config snark_worker ;
           Protocol_version.set_current config.initial_protocol_version ;
@@ -1495,6 +1534,7 @@ let create ?wallets (config : Config.t) =
           let local_snark_work_reader, local_snark_work_writer =
             Strict_pipe.(create ~name:"local snark work" Synchronous)
           in
+          let block_produced_bvar = Bvar.create () in
           let txn_pool_config =
             Network_pool.Transaction_pool.Resource_pool.make_config ~verifier
               ~trust_system:config.trust_system
@@ -1821,14 +1861,16 @@ let create ?wallets (config : Config.t) =
           Deferred.return
             { config
             ; next_producer_timing= None
-            ; processes= {prover; verifier; snark_worker}
+            ; processes=
+                {prover; verifier; snark_worker; uptime_snark_worker_opt}
             ; initialization_finish_signal
             ; components=
                 { net
                 ; transaction_pool
                 ; snark_pool
                 ; transition_frontier= frontier_broadcast_pipe_r
-                ; most_recent_valid_block= most_recent_valid_block_reader }
+                ; most_recent_valid_block= most_recent_valid_block_reader
+                ; block_produced_bvar }
             ; pipes=
                 { validated_transitions_reader= valid_transitions_for_api
                 ; producer_transition_writer

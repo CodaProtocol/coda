@@ -17,7 +17,7 @@ open Snark_params_nonconsensus
 [%%versioned_asserted
 module Stable = struct
   module V1 = struct
-    type t = Inner_curve.Scalar.t
+    type t = Inner_curve.Scalar.t [@@deriving compare, sexp]
 
     let to_latest = Fn.id
 
@@ -79,6 +79,8 @@ let create () =
 let create () = Quickcheck.random_value ~seed:`Nondeterministic gen
 
 [%%endif]
+
+include Comparable.Make_binable (Stable.Latest)
 
 let of_bigstring_exn = Binable.of_bigstring (module Stable.Latest)
 

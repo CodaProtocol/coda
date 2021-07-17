@@ -4,7 +4,7 @@
  (name mina_cli_entrypoint)
  (public_name cli.mina_cli_entrypoint)
  (modes native)
- (libraries init tests consensus child_processes memory_stats node_addrs_and_ports jemalloc genesis_ledger_helper mina_plugins error_json)
+ (libraries init tests consensus child_processes memory_stats node_addrs_and_ports uptime_service jemalloc genesis_ledger_helper mina_plugins error_json)
  (preprocessor_deps ../../../../config.mlh)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_coda ppx_version ppx_here ppx_let ppx_sexp_conv ppx_optcomp ppx_deriving_yojson)))

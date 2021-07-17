@@ -447,7 +447,8 @@ let run ~logger ~prover ~verifier ~trust_system ~get_completed_work
     ~transaction_resource_pool ~time_controller ~keypairs
     ~consensus_local_state ~coinbase_receiver ~frontier_reader
     ~transition_writer ~set_next_producer_timing ~log_block_creation
-    ~(precomputed_values : Precomputed_values.t) ~block_reward_threshold =
+    ~(precomputed_values : Precomputed_values.t) ~block_reward_threshold
+    ~block_produced_bvar =
   trace "block_producer" (fun () ->
       let constraint_constants = precomputed_values.constraint_constants in
       let consensus_constants = precomputed_values.consensus_constants in
@@ -683,13 +684,15 @@ let run ~logger ~prover ~verifier ~trust_system ~get_completed_work
                       ~metadata:
                         [("breadcrumb", Breadcrumb.to_yojson breadcrumb)]
                       Block_produced ;
-                    let metadata =
-                      [("state_hash", State_hash.to_yojson protocol_state_hash)]
-                    in
+                    (* let uptime service (and any other waiters) know about breadcrumb *)
+                    Bvar.broadcast block_produced_bvar breadcrumb ;
                     Mina_metrics.(
                       Counter.inc_one Block_producer.blocks_produced) ;
                     let%bind.Async () =
                       Strict_pipe.Writer.write transition_writer breadcrumb
+                    in
+                    let metadata =
+                      [("state_hash", State_hash.to_yojson protocol_state_hash)]
                     in
                     [%log debug] ~metadata
                       "Waiting for block $state_hash to be inserted into \

@@ -1,0 +1,10 @@
+(library
+ (name string_sign_nonconsensus)
+ (public_name string_sign_nonconsensus)
+ (library_flags -linkall)
+ (libraries snark_params_nonconsensus mina_base_nonconsensus random_oracle_nonconsensus
+            signature_lib_nonconsensus digestif.ocaml)
+ (preprocessor_deps ../../config.mlh)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_version ppx_snarky ppx_optcomp))
+ (synopsis "Schnorr signatures for strings"))

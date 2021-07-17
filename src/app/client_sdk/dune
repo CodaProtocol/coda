@@ -3,8 +3,8 @@
  (modes js)
  (js_of_ocaml (flags +toplevel.js +dynlink.js))
  (libraries snark_params_nonconsensus rosetta_lib_nonconsensus mina_base_nonconsensus data_hash_lib_nonconsensus
-            random_oracle_nonconsensus signature_lib_nonconsensus zarith_stubs_js integers integers_stubs_js js_of_ocaml
-            digestif.ocaml)
+            random_oracle_nonconsensus signature_lib_nonconsensus string_sign_nonconsensus
+            zarith_stubs_js integers integers_stubs_js js_of_ocaml digestif.ocaml)
  (preprocessor_deps ../../config.mlh)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_version ppx_custom_printf ppx_optcomp js_of_ocaml-ppx)))

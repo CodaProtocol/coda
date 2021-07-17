@@ -369,6 +369,14 @@ let setup_daemon logger =
       ~doc:
         "true|false whether to track the set of all peers ever seen for the \
          all_peers metric (default: false)"
+  and uptime_url_string =
+    flag "--uptime-url" ~aliases:["uptime-url"] (optional string)
+      ~doc:"URL URL of the uptime service of the Mina delegation program"
+  and uptime_submitter_string =
+    flag "--uptime-submitter" ~aliases:["uptime-submitter"] (optional string)
+      ~doc:
+        "PUBLICKEY Public key of the submitter to the uptime service of the \
+         Mina delegation program"
   in
   fun () ->
     let open Deferred.Let_syntax in
@@ -870,14 +878,12 @@ let setup_daemon logger =
             in
             Some kp
         | _, Some tracked_pubkey ->
-            let%bind wallets =
-              Secrets.Wallets.load ~logger
-                ~disk_location:(conf_dir ^/ "wallets")
-            in
-            let sk_file = Secrets.Wallets.get_path wallets tracked_pubkey in
             let%map kp =
-              Secrets.Keypair.Terminal_stdin.read_from_env_exn ~logger
-                ~which:"block producer keypair" sk_file
+              Secrets.Wallets.get_tracked_keypair ~logger
+                ~which:"block producer keypair"
+                ~read_from_env_exn:
+                  Secrets.Keypair.Terminal_stdin.read_from_env_exn ~conf_dir
+                tracked_pubkey
             in
             Some kp
       in
@@ -1103,6 +1109,46 @@ Pass one of -peer, -peer-list-file, -seed, -peer-list-url.|} ;
         Coda_run.get_proposed_protocol_version_opt ~conf_dir ~logger
           proposed_protocol_version
       in
+      ( match (uptime_url_string, uptime_submitter_string) with
+      | Some _, Some _ | None, None ->
+          ()
+      | _ ->
+          Mina_user_error.raise
+            "Must provide both --uptime-url and --uptime-submitter" ) ;
+      let uptime_url =
+        Option.map uptime_url_string ~f:(fun s -> Uri.of_string s)
+      in
+      let uptime_submitter =
+        Option.map uptime_submitter_string ~f:(fun s ->
+            match Public_key.Compressed.of_base58_check s with
+            | Ok pk -> (
+              match Public_key.decompress pk with
+              | Some _ ->
+                  pk
+              | None ->
+                  failwithf
+                    "Invalid public key %s for uptime submitter (could not \
+                     decompress)"
+                    s () )
+            | Error err ->
+                Mina_user_error.raisef
+                  "Invalid public key %s for uptime submitter, %s" s
+                  (Error.to_string_hum err) () )
+      in
+      let%bind uptime_submitter_keypair =
+        match uptime_submitter with
+        | None ->
+            return None
+        | Some pk ->
+            let%map kp =
+              Secrets.Wallets.get_tracked_keypair ~logger
+                ~which:"uptime submitter keypair"
+                ~read_from_env_exn:
+                  Secrets.Uptime_keypair.Terminal_stdin.read_from_env_exn
+                ~conf_dir pk
+            in
+            Some kp
+      in
       let start_time = Time.now () in
       let%map coda =
         Mina_lib.create ~wallets
@@ -1130,7 +1176,8 @@ Pass one of -peer, -peer-list-file, -seed, -peer-list-url.|} ;
              ~consensus_local_state ~is_archive_rocksdb ~work_reassignment_wait
              ~archive_process_location ~log_block_creation ~precomputed_values
              ~start_time ?precomputed_blocks_path ~log_precomputed_blocks
-             ~upload_blocks_to_gcloud ~block_reward_threshold ())
+             ~upload_blocks_to_gcloud ~block_reward_threshold ~uptime_url
+             ~uptime_submitter_keypair ())
       in
       { Coda_initialization.coda
       ; client_trustlist

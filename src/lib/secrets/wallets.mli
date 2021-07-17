@@ -47,3 +47,14 @@ val get_path : t -> Public_key.Compressed.t -> string
 
 val delete :
   t -> Public_key.Compressed.t -> (unit, [`Not_found]) Deferred.Result.t
+
+val get_tracked_keypair :
+     logger:Logger.t
+  -> which:string
+  -> read_from_env_exn:(   logger:Logger.t
+                        -> which:string
+                        -> string
+                        -> Keypair.t Deferred.t)
+  -> conf_dir:string
+  -> Public_key.Compressed.t
+  -> Keypair.t Deferred.t

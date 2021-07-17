@@ -1,0 +1,8 @@
+(library
+ (name string_sign)
+ (public_name string_sign)
+ (libraries snark_params mina_base random_oracle signature_lib digestif.ocaml)
+ (preprocessor_deps ../../config.mlh)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_version ppx_snarky ppx_optcomp))
+ (synopsis "Schnorr signatures for strings"))
