@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
-#[derive(std::fmt::Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct CamlPointer<T>(pub Rc<T>);
 
 impl<T> CamlPointer<T> {

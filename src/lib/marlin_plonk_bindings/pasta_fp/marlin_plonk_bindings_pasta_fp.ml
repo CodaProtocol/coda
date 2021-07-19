@@ -69,3 +69,10 @@ external deep_copy : t -> t = "caml_pasta_fp_deep_copy"
 let%test "deep_copy" =
   let x = random () in
   deep_copy x = x
+
+let%test "operations" =
+  let six = of_int 6 in
+  let two = of_int 2 in
+  let three = div six two in
+  let six' = add three three in
+  compare six six' = 0

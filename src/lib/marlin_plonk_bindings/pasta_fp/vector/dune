@@ -1,8 +1,9 @@
 (library
  (name marlin_plonk_bindings_pasta_fp_vector)
  (public_name marlin_plonk_bindings.pasta_fp.vector)
- (libraries
-   marlin_plonk_bindings_stubs
-   marlin_plonk_bindings_pasta_fp)
- (instrumentation (backend bisect_ppx))
- (preprocess (pps ppx_version)))
+ (inline_tests)
+ (libraries marlin_plonk_bindings_stubs marlin_plonk_bindings_pasta_fp)
+ (instrumentation
+  (backend bisect_ppx))
+ (preprocess
+  (pps ppx_version ppx_inline_test)))

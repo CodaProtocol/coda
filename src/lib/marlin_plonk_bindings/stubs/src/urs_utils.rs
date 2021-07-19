@@ -1,5 +1,5 @@
-use algebra::{fields::PrimeField, One, UniformRand, VariableBaseMSM, Zero};
-
+use ark_ec::msm::VariableBaseMSM;
+use ark_ff::{batch_inversion, One, PrimeField, UniformRand, Zero};
 use commitment_dlog::{
     commitment::{b_poly_coefficients, CommitmentCurve},
     srs::SRS,
@@ -23,7 +23,7 @@ pub fn batch_dlog_accumulator_check<G: CommitmentCurve>(
     assert_eq!(chals.len() % rounds, 0);
 
     let rs = {
-        let r = G::ScalarField::rand(&mut rand_core::OsRng);
+        let r = G::ScalarField::rand(&mut rand::rngs::OsRng);
         let mut rs = vec![G::ScalarField::one(); k];
         for i in 1..k {
             rs[i] = r * &rs[i - 1];
@@ -40,7 +40,7 @@ pub fn batch_dlog_accumulator_check<G: CommitmentCurve>(
 
     let chal_invs = {
         let mut cs = chals.clone();
-        algebra::fields::batch_inversion(&mut cs);
+        batch_inversion(&mut cs);
         cs
     };
 

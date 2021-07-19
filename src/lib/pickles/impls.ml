@@ -4,9 +4,14 @@ open Import
 open Backend
 module Wrap_impl = Snarky_backendless.Snark.Run.Make (Tock) (Unit)
 
+(** returns [true] if the [i]th bit of [x] is set to 1 *)
 let test_bit x i = B.(shift_right x i land one = one)
 
-let forbidden_shifted_values ~modulus:r ~size_in_bits ~f =
+(** returns all the values that can fit in [~size_in_bits] bits and that are
+ * either congruent with -2^[~size_in_bits] mod [~modulus] 
+ * or congruent with -2^[~size_in_bits] - 1 mod [~modulus] 
+ *)
+let forbidden_shifted_values ~modulus:r ~size_in_bits =
   let two_to_n = B.(pow (of_int 2) (of_int size_in_bits)) in
   let neg_two_to_n = B.(neg two_to_n) in
   let representatives x =
@@ -20,7 +25,6 @@ let forbidden_shifted_values ~modulus:r ~size_in_bits ~f =
   in
   List.concat_map [ neg_two_to_n; B.(neg_two_to_n - one) ] ~f:representatives
   |> List.dedup_and_sort ~compare:B.compare
-  |> List.map ~f
 
 module Step = struct
   module Impl = Snarky_backendless.Snark.Run.Make (Tick) (Unit)
@@ -36,11 +40,15 @@ module Step = struct
       Field.t * Boolean.var
 
     let forbidden_shifted_values =
-      forbidden_shifted_values ~size_in_bits:Constant.size_in_bits
-        ~modulus:(Wrap_impl.Bigint.to_bignum_bigint Constant.size) ~f:(fun x ->
-          let hi = test_bit x (Field.size_in_bits - 1) in
-          let lo = B.shift_right x 1 in
-          (Impl.Bigint.(to_field (of_bignum_bigint lo)), hi))
+      let f x =
+        let hi = test_bit x (Field.size_in_bits - 1) in
+        let lo = B.shift_right x 1 in
+        (Impl.Bigint.(to_field (of_bignum_bigint lo)), hi)
+      in
+      let modulus = Wrap_impl.Bigint.to_bignum_bigint Constant.size in
+      let size_in_bits = Constant.size_in_bits in
+      let values = forbidden_shifted_values ~size_in_bits ~modulus in
+      values |> List.filter ~f:(fun x -> B.compare modulus x > 0) |> List.map ~f
 
     let (typ_unchecked : (t, Constant.t) Typ.t), check =
       let t0 =
@@ -107,9 +115,11 @@ module Wrap = struct
     type t = Field.t
 
     let forbidden_shifted_values =
-      forbidden_shifted_values ~size_in_bits:Constant.size_in_bits
-        ~modulus:(Step.Impl.Bigint.to_bignum_bigint Constant.size) ~f:(fun x ->
-          Impl.Bigint.(to_field (of_bignum_bigint x)))
+      let f x = Impl.Bigint.(to_field (of_bignum_bigint x)) in
+      let modulus = Step.Impl.Bigint.to_bignum_bigint Constant.size in
+      let size_in_bits = Constant.size_in_bits in
+      let values = forbidden_shifted_values ~size_in_bits ~modulus in
+      values |> List.filter ~f:(fun x -> B.compare modulus x > 0) |> List.map ~f
 
     let typ_unchecked, check =
       let t0 =

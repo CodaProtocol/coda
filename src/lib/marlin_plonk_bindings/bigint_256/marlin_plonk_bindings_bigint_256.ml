@@ -27,3 +27,21 @@ external deep_copy : t -> t = "caml_bigint_256_deep_copy"
 let%test "deep_copy" =
   let x = of_decimal_string "12345" in
   deep_copy x = x
+
+let%test "serialization and deserialization" =
+  let x = of_decimal_string "3" in
+  let bytes = to_bytes x in
+  let y = of_bytes bytes in
+  x = y
+
+let%test "div and compare" =
+  let x = of_decimal_string "3" in
+  let y = of_numeral "3" 1 10 in
+  compare x y = 0
+
+let%test "test_bit" =
+  let x = of_decimal_string "6" in
+  let y = of_decimal_string "2" in
+  (* z = 0b0000_0011 *)
+  let z = div x y in
+  test_bit z 0 && test_bit z 1 && not (test_bit z 2)

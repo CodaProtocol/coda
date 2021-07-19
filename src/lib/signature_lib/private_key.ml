@@ -28,8 +28,8 @@ module Stable = struct
 
     let gen =
       let open Snark_params.Tick.Inner_curve.Scalar in
-      let size' = Bignum_bigint.to_string size |> of_string in
-      gen_uniform_incl one (size' - one)
+      let upperbound = Bignum_bigint.(pred size |> to_string) |> of_string in
+      gen_uniform_incl one upperbound
 
     [%%else]
 

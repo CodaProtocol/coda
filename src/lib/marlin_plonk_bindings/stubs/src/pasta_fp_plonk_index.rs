@@ -1,28 +1,24 @@
+use crate::arkworks::CamlFp;
+use crate::index_serialization;
+use crate::pasta_fp_urs::CamlPastaFpUrs;
+use crate::plonk_gate::{CamlPlonkCol, CamlPlonkGate, CamlPlonkWire};
+use ark_poly::{EvaluationDomain, Radix2EvaluationDomain as Domain};
+use commitment_dlog::srs::{SRSSpec, SRS};
 #[allow(unused_imports)]
 use mina_curves::pasta::{
-    vesta::{Affine as GAffine, VestaParameters},
-    pallas::Affine as GAffineOther,
     fp::Fp,
+    pallas::Affine as GAffineOther,
+    vesta::{Affine as GAffine, VestaParameters},
 };
-
 use plonk_circuits::constraints::ConstraintSystem;
 use plonk_circuits::gate::{CircuitGate, Gate};
 use plonk_circuits::wires::{Col::*, GateWires, Wire};
-
-use ff_fft::{EvaluationDomain, Radix2EvaluationDomain as Domain};
-
-use commitment_dlog::srs::{SRS, SRSSpec};
 use plonk_protocol_dlog::index::Index as DlogIndex;
-
 use std::{
     fs::{File, OpenOptions},
     io::{BufReader, BufWriter, Seek, SeekFrom::Start},
     rc::Rc,
 };
-
-use crate::index_serialization;
-use crate::plonk_gate::{CamlPlonkCol, CamlPlonkGate, CamlPlonkWire};
-use crate::pasta_fp_urs::CamlPastaFpUrs;
 
 pub struct CamlPastaFpPlonkGateVector(Vec<Gate<Fp>>);
 pub type CamlPastaFpPlonkGateVectorPtr<'a> = ocaml::Pointer<'a, CamlPastaFpPlonkGateVector>;
@@ -46,12 +42,12 @@ pub fn caml_pasta_fp_plonk_gate_vector_create() -> CamlPastaFpPlonkGateVector {
 #[ocaml::func]
 pub fn caml_pasta_fp_plonk_gate_vector_add(
     mut v: CamlPastaFpPlonkGateVectorPtr,
-    gate: CamlPlonkGate<Vec<Fp>>,
+    gate: CamlPlonkGate<Vec<CamlFp>>,
 ) {
     v.as_mut().0.push(Gate {
         typ: gate.typ.into(),
         wires: gate.wires.into(),
-        c: gate.c,
+        c: gate.c.iter().map(Into::into).collect(),
     });
 }
 
@@ -59,9 +55,9 @@ pub fn caml_pasta_fp_plonk_gate_vector_add(
 pub fn caml_pasta_fp_plonk_gate_vector_get(
     v: CamlPastaFpPlonkGateVectorPtr,
     i: ocaml::Int,
-) -> CamlPlonkGate<Vec<Fp>> {
+) -> CamlPlonkGate<Vec<CamlFp>> {
     let gate = &(v.as_ref().0)[i as usize];
-    let c = gate.c.iter().map(|x| *x).collect();
+    let c = gate.c.iter().map(Into::into).collect();
     CamlPlonkGate {
         typ: (&gate.typ).into(),
         wires: (&gate.wires).into(),
@@ -152,8 +148,7 @@ pub fn caml_pasta_fp_plonk_index_create(
 
     let (endo_q, _endo_r) = commitment_dlog::srs::endos::<GAffineOther>();
     let cs =
-        match ConstraintSystem::<Fp>::create(gates, oracle::pasta::fp::params(), public as usize)
-        {
+        match ConstraintSystem::<Fp>::create(gates, oracle::pasta::fp::params(), public as usize) {
             None => Err(ocaml::Error::failwith(
                 "caml_pasta_fp_plonk_index_create: could not create constraint system",
             )

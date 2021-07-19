@@ -1,32 +1,31 @@
+use crate::arkworks::{CamlFq, CamlGPallas};
 use crate::caml_pointer;
 use crate::index_serialization;
+use crate::pasta_fq_plonk_index::CamlPastaFqPlonkIndexPtr;
+use crate::pasta_fq_urs::CamlPastaFqUrs;
 use crate::plonk_verifier_index::{
     CamlPlonkDomain, CamlPlonkVerificationEvals, CamlPlonkVerificationShifts,
     CamlPlonkVerifierIndex,
 };
-use crate::pasta_fq_plonk_index::CamlPastaFqPlonkIndexPtr;
-use crate::pasta_fq_urs::CamlPastaFqUrs;
-use mina_curves::pasta::{vesta::Affine as GAffineOther, pallas::Affine as GAffine, fq::Fq};
-use algebra::{
-    curves::AffineCurve,
-    One,
+use ark_ec::AffineCurve;
+use ark_ff::One;
+use ark_poly::{EvaluationDomain, Radix2EvaluationDomain as Domain};
+use commitment_dlog::commitment::caml::CamlPolyComm;
+use commitment_dlog::{
+    commitment::PolyComm,
+    srs::{SRSValue, SRS},
 };
-
-use ff_fft::{EvaluationDomain, Radix2EvaluationDomain as Domain};
-
-use commitment_dlog::{commitment::PolyComm, srs::{SRS, SRSValue}};
+use mina_curves::pasta::{fq::Fq, pallas::Affine as GAffine, vesta::Affine as GAffineOther};
 use plonk_circuits::constraints::{zk_polynomial, zk_w, ConstraintSystem};
-use plonk_protocol_dlog::index::{VerifierIndex as DlogVerifierIndex};
-
+use plonk_protocol_dlog::index::VerifierIndex as DlogVerifierIndex;
+use std::rc::Rc;
 use std::{
     fs::{File, OpenOptions},
     io::{BufReader, BufWriter, Seek, SeekFrom::Start},
 };
 
-use std::rc::Rc;
-
 pub type CamlPastaFqPlonkVerifierIndex =
-    CamlPlonkVerifierIndex<Fq, CamlPastaFqUrs, PolyComm<GAffine>>;
+    CamlPlonkVerifierIndex<CamlFq, CamlPastaFqUrs, CamlPolyComm<CamlGPallas>>;
 
 pub fn to_ocaml<'a>(
     urs: &Rc<SRS<GAffine>>,
@@ -37,32 +36,35 @@ pub fn to_ocaml<'a>(
     CamlPlonkVerifierIndex {
         domain: CamlPlonkDomain {
             log_size_of_group: vi.domain.log_size_of_group as isize,
-            group_gen: vi.domain.group_gen,
+            group_gen: vi.domain.group_gen.into(),
         },
         max_poly_size: vi.max_poly_size as isize,
         max_quot_size: vi.max_quot_size as isize,
         urs: caml_pointer::create(Rc::clone(urs)),
         evals: CamlPlonkVerificationEvals {
-            sigma_comm0: sigma_comm0,
-            sigma_comm1: sigma_comm1,
-            sigma_comm2: sigma_comm2,
-            ql_comm: vi.ql_comm,
-            qr_comm: vi.qr_comm,
-            qo_comm: vi.qo_comm,
-            qm_comm: vi.qm_comm,
-            qc_comm: vi.qc_comm,
-            rcm_comm0: rcm_comm0,
-            rcm_comm1: rcm_comm1,
-            rcm_comm2: rcm_comm2,
-            psm_comm: vi.psm_comm,
-            add_comm: vi.add_comm,
-            mul1_comm: vi.mul1_comm,
-            mul2_comm: vi.mul2_comm,
-            emul1_comm: vi.emul1_comm,
-            emul2_comm: vi.emul2_comm,
-            emul3_comm: vi.emul3_comm,
+            sigma_comm0: sigma_comm0.into(),
+            sigma_comm1: sigma_comm1.into(),
+            sigma_comm2: sigma_comm2.into(),
+            ql_comm: vi.ql_comm.into(),
+            qr_comm: vi.qr_comm.into(),
+            qo_comm: vi.qo_comm.into(),
+            qm_comm: vi.qm_comm.into(),
+            qc_comm: vi.qc_comm.into(),
+            rcm_comm0: rcm_comm0.into(),
+            rcm_comm1: rcm_comm1.into(),
+            rcm_comm2: rcm_comm2.into(),
+            psm_comm: vi.psm_comm.into(),
+            add_comm: vi.add_comm.into(),
+            mul1_comm: vi.mul1_comm.into(),
+            mul2_comm: vi.mul2_comm.into(),
+            emul1_comm: vi.emul1_comm.into(),
+            emul2_comm: vi.emul2_comm.into(),
+            emul3_comm: vi.emul3_comm.into(),
         },
-        shifts: CamlPlonkVerificationShifts { r: vi.r, o: vi.o },
+        shifts: CamlPlonkVerificationShifts {
+            r: vi.r.into(),
+            o: vi.o.into(),
+        },
     }
 }
 
@@ -75,32 +77,35 @@ pub fn to_ocaml_copy<'a>(
     CamlPlonkVerifierIndex {
         domain: CamlPlonkDomain {
             log_size_of_group: vi.domain.log_size_of_group as isize,
-            group_gen: vi.domain.group_gen,
+            group_gen: vi.domain.group_gen.into(),
         },
         max_poly_size: vi.max_poly_size as isize,
         max_quot_size: vi.max_quot_size as isize,
         urs: caml_pointer::create(Rc::clone(urs)),
         evals: CamlPlonkVerificationEvals {
-            sigma_comm0: sigma_comm0.clone(),
-            sigma_comm1: sigma_comm1.clone(),
-            sigma_comm2: sigma_comm2.clone(),
-            ql_comm: vi.ql_comm.clone(),
-            qr_comm: vi.qr_comm.clone(),
-            qo_comm: vi.qo_comm.clone(),
-            qm_comm: vi.qm_comm.clone(),
-            qc_comm: vi.qc_comm.clone(),
-            rcm_comm0: rcm_comm0.clone(),
-            rcm_comm1: rcm_comm1.clone(),
-            rcm_comm2: rcm_comm2.clone(),
-            psm_comm: vi.psm_comm.clone(),
-            add_comm: vi.add_comm.clone(),
-            mul1_comm: vi.mul1_comm.clone(),
-            mul2_comm: vi.mul2_comm.clone(),
-            emul1_comm: vi.emul1_comm.clone(),
-            emul2_comm: vi.emul2_comm.clone(),
-            emul3_comm: vi.emul3_comm.clone(),
+            sigma_comm0: sigma_comm0.clone().into(),
+            sigma_comm1: sigma_comm1.clone().into(),
+            sigma_comm2: sigma_comm2.clone().into(),
+            ql_comm: vi.ql_comm.clone().into(),
+            qr_comm: vi.qr_comm.clone().into(),
+            qo_comm: vi.qo_comm.clone().into(),
+            qm_comm: vi.qm_comm.clone().into(),
+            qc_comm: vi.qc_comm.clone().into(),
+            rcm_comm0: rcm_comm0.clone().into(),
+            rcm_comm1: rcm_comm1.clone().into(),
+            rcm_comm2: rcm_comm2.clone().into(),
+            psm_comm: vi.psm_comm.clone().into(),
+            add_comm: vi.add_comm.clone().into(),
+            mul1_comm: vi.mul1_comm.clone().into(),
+            mul2_comm: vi.mul2_comm.clone().into(),
+            emul1_comm: vi.emul1_comm.clone().into(),
+            emul2_comm: vi.emul2_comm.clone().into(),
+            emul3_comm: vi.emul3_comm.clone().into(),
         },
-        shifts: CamlPlonkVerificationShifts { r: vi.r, o: vi.o },
+        shifts: CamlPlonkVerificationShifts {
+            r: vi.r.into(),
+            o: vi.o.into(),
+        },
     }
 }
 
@@ -109,8 +114,8 @@ pub fn of_ocaml<'a>(
     max_quot_size: ocaml::Int,
     log_size_of_group: ocaml::Int,
     urs: CamlPastaFqUrs,
-    evals: CamlPlonkVerificationEvals<PolyComm<GAffine>>,
-    shifts: CamlPlonkVerificationShifts<Fq>,
+    evals: CamlPlonkVerificationEvals<CamlPolyComm<CamlGPallas>>,
+    shifts: CamlPlonkVerificationShifts<CamlFq>,
 ) -> (DlogVerifierIndex<'a, GAffine>, Rc<SRS<GAffine>>) {
     let urs_copy = Rc::clone(&*urs);
     let urs_copy_outer = Rc::clone(&*urs);
@@ -128,22 +133,30 @@ pub fn of_ocaml<'a>(
         max_poly_size: max_poly_size as usize,
         max_quot_size: max_quot_size as usize,
         srs,
-        sigma_comm: [evals.sigma_comm0, evals.sigma_comm1, evals.sigma_comm2],
-        ql_comm: evals.ql_comm,
-        qr_comm: evals.qr_comm,
-        qo_comm: evals.qo_comm,
-        qm_comm: evals.qm_comm,
-        qc_comm: evals.qc_comm,
-        rcm_comm: [evals.rcm_comm0, evals.rcm_comm1, evals.rcm_comm2],
-        psm_comm: evals.psm_comm,
-        add_comm: evals.add_comm,
-        mul1_comm: evals.mul1_comm,
-        mul2_comm: evals.mul2_comm,
-        emul1_comm: evals.emul1_comm,
-        emul2_comm: evals.emul2_comm,
-        emul3_comm: evals.emul3_comm,
-        r: shifts.r,
-        o: shifts.o,
+        sigma_comm: [
+            evals.sigma_comm0.into(),
+            evals.sigma_comm1.into(),
+            evals.sigma_comm2.into(),
+        ],
+        ql_comm: evals.ql_comm.into(),
+        qr_comm: evals.qr_comm.into(),
+        qo_comm: evals.qo_comm.into(),
+        qm_comm: evals.qm_comm.into(),
+        qc_comm: evals.qc_comm.into(),
+        rcm_comm: [
+            evals.rcm_comm0.into(),
+            evals.rcm_comm1.into(),
+            evals.rcm_comm2.into(),
+        ],
+        psm_comm: evals.psm_comm.into(),
+        add_comm: evals.add_comm.into(),
+        mul1_comm: evals.mul1_comm.into(),
+        mul2_comm: evals.mul2_comm.into(),
+        emul1_comm: evals.emul1_comm.into(),
+        emul2_comm: evals.emul2_comm.into(),
+        emul3_comm: evals.emul3_comm.into(),
+        r: shifts.r.into(),
+        o: shifts.o.into(),
         fr_sponge_params: oracle::pasta::fq::params(),
         fq_sponge_params: oracle::pasta::fp::params(),
         endo: endo_q,
@@ -250,9 +263,12 @@ pub fn caml_pasta_fq_plonk_verifier_index_create(
 #[ocaml::func]
 pub fn caml_pasta_fq_plonk_verifier_index_shifts(
     log2_size: ocaml::Int,
-) -> CamlPlonkVerificationShifts<Fq> {
-    let (a, b) = ConstraintSystem::sample_shifts(&Domain::new(1 << log2_size).unwrap());
-    CamlPlonkVerificationShifts { r: a, o: b }
+) -> CamlPlonkVerificationShifts<CamlFq> {
+    let (a, b): (Fq, Fq) = ConstraintSystem::sample_shifts(&Domain::new(1 << log2_size).unwrap());
+    CamlPlonkVerificationShifts {
+        r: a.into(),
+        o: b.into(),
+    }
 }
 
 #[ocaml::func]
@@ -265,34 +281,34 @@ pub fn caml_pasta_fq_plonk_verifier_index_dummy() -> CamlPastaFqPlonkVerifierInd
     CamlPlonkVerifierIndex {
         domain: CamlPlonkDomain {
             log_size_of_group: 1,
-            group_gen: Fq::one(),
+            group_gen: Fq::one().into(),
         },
         max_poly_size: 0,
         max_quot_size: 0,
         urs: caml_pointer::create(Rc::new(SRS::create(0))),
         evals: CamlPlonkVerificationEvals {
-            sigma_comm0: comm(),
-            sigma_comm1: comm(),
-            sigma_comm2: comm(),
-            ql_comm: comm(),
-            qr_comm: comm(),
-            qo_comm: comm(),
-            qm_comm: comm(),
-            qc_comm: comm(),
-            rcm_comm0: comm(),
-            rcm_comm1: comm(),
-            rcm_comm2: comm(),
-            psm_comm: comm(),
-            add_comm: comm(),
-            mul1_comm: comm(),
-            mul2_comm: comm(),
-            emul1_comm: comm(),
-            emul2_comm: comm(),
-            emul3_comm: comm(),
+            sigma_comm0: comm().into(),
+            sigma_comm1: comm().into(),
+            sigma_comm2: comm().into(),
+            ql_comm: comm().into(),
+            qr_comm: comm().into(),
+            qo_comm: comm().into(),
+            qm_comm: comm().into(),
+            qc_comm: comm().into(),
+            rcm_comm0: comm().into(),
+            rcm_comm1: comm().into(),
+            rcm_comm2: comm().into(),
+            psm_comm: comm().into(),
+            add_comm: comm().into(),
+            mul1_comm: comm().into(),
+            mul2_comm: comm().into(),
+            emul1_comm: comm().into(),
+            emul2_comm: comm().into(),
+            emul3_comm: comm().into(),
         },
         shifts: CamlPlonkVerificationShifts {
-            r: Fq::one(),
-            o: Fq::one(),
+            r: Fq::one().into(),
+            o: Fq::one().into(),
         },
     }
 }

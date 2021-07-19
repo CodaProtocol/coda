@@ -1,16 +1,21 @@
 (data_only_dirs src)
-(dirs :standard \ target) ;; Ignore target if it exists locally
+
+(dirs :standard \ target)
+
+;; Ignore target if it exists locally
 
 (rule
  (targets libmarlin_plonk_stubs.a target)
  (deps
-   Cargo.toml
-   rust-toolchain.toml
-   (source_tree src)
-   (source_tree ../../marlin))
+  Cargo.toml
+  rust-toolchain.toml
+  (source_tree src)
+  (source_tree ../../marlin))
  (action
   (progn
-   (setenv RUSTFLAGS "-C target-feature=+bmi2,+adx"
+   (setenv
+    RUSTFLAGS
+    "-C target-feature=+bmi2,+adx"
     (run cargo build --release))
    (run cp target/release/libmarlin_plonk_stubs.a .))))
 
@@ -19,6 +24,8 @@
  (name marlin_plonk_bindings_stubs)
  (foreign_archives marlin_plonk_stubs)
  (c_library_flags :standard "-lpthread")
- (instrumentation (backend bisect_ppx))
+ (instrumentation
+  (backend bisect_ppx))
  (inline_tests)
- (preprocess (pps ppx_version ppx_inline_test)))
+ (preprocess
+  (pps ppx_version ppx_inline_test)))

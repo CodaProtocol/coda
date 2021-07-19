@@ -224,7 +224,7 @@ rm -rf /tmp/s3_cache_dir /tmp/coda_cache_dir
 # proof are not required in /tmp
 echo "Checking PV keys"
 mkdir -p "${BUILDDIR}/var/lib/coda"
-compile_keys=("step" "vk-step" "wrap" "vk-wrap" "tweedledee" "tweedledum")
+compile_keys=("step" "vk-step" "wrap" "vk-wrap")
 for key in ${compile_keys[*]}
 do
     echo -n "Looking for keys matching: ${key} -- "

@@ -1,19 +1,19 @@
-use mina_curves::pasta::{pallas::Affine as GAffine, fq::Fq};
-use algebra::{One, Zero};
-use ff_fft::{DensePolynomial, EvaluationDomain, Evaluations};
-
+use crate::{
+    arkworks::{CamlFq, CamlGPallas},
+    caml_pointer::{self, CamlPointer},
+};
+use ark_ff::{One, Zero};
+use ark_poly::{univariate::DensePolynomial, EvaluationDomain, Evaluations, UVPolynomial};
 use commitment_dlog::{
-    commitment::{b_poly_coefficients, PolyComm},
+    commitment::{b_poly_coefficients, caml::CamlPolyComm},
     srs::SRS,
 };
-
+use mina_curves::pasta::{fq::Fq, pallas::Affine as GAffine};
 use std::{
     fs::{File, OpenOptions},
     io::{BufReader, BufWriter, Seek, SeekFrom::Start},
     rc::Rc,
 };
-
-use crate::caml_pointer::{self, CamlPointer};
 
 pub type CamlPastaFqUrs = CamlPointer<Rc<SRS<GAffine>>>;
 
@@ -71,7 +71,7 @@ pub fn caml_pasta_fq_urs_lagrange_commitment(
     urs: CamlPastaFqUrs,
     domain_size: ocaml::Int,
     i: ocaml::Int,
-) -> Result<PolyComm<GAffine>, ocaml::Error> {
+) -> Result<CamlPolyComm<CamlGPallas>, ocaml::Error> {
     match EvaluationDomain::<Fq>::new(domain_size as usize) {
         None => Err(
             ocaml::Error::invalid_argument("caml_pasta_fq_urs_lagrange_commitment")
@@ -92,8 +92,8 @@ pub fn caml_pasta_fq_urs_lagrange_commitment(
 pub fn caml_pasta_fq_urs_commit_evaluations(
     urs: CamlPastaFqUrs,
     domain_size: ocaml::Int,
-    evals: Vec<Fq>,
-) -> Result<PolyComm<GAffine>, ocaml::Error> {
+    evals: Vec<CamlFq>,
+) -> Result<CamlPolyComm<CamlGPallas>, ocaml::Error> {
     match EvaluationDomain::<Fq>::new(domain_size as usize) {
         None => Err(
             ocaml::Error::invalid_argument("caml_pasta_fq_urs_commit_evaluations")
@@ -101,7 +101,7 @@ pub fn caml_pasta_fq_urs_commit_evaluations(
                 .unwrap(),
         ),
         Some(x_domain) => {
-            let evals = evals.into_iter().map(From::from).collect();
+            let evals = evals.into_iter().map(Into::into).collect();
             let p = Evaluations::<Fq>::from_vec_and_domain(evals, x_domain).interpolate();
             Ok((*urs).commit_non_hiding(&p, None).into())
         }
@@ -111,9 +111,9 @@ pub fn caml_pasta_fq_urs_commit_evaluations(
 #[ocaml::func]
 pub fn caml_pasta_fq_urs_b_poly_commitment(
     urs: CamlPastaFqUrs,
-    chals: Vec<Fq>,
-) -> Result<PolyComm<GAffine>, ocaml::Error> {
-    let chals: Vec<Fq> = chals.into_iter().map(From::from).collect();
+    chals: Vec<CamlFq>,
+) -> Result<CamlPolyComm<CamlGPallas>, ocaml::Error> {
+    let chals: Vec<Fq> = chals.into_iter().map(Into::into).collect();
     let coeffs = b_poly_coefficients(&chals);
     let p = DensePolynomial::<Fq>::from_coefficients_vec(coeffs);
     Ok((*urs).commit_non_hiding(&p, None).into())
@@ -122,17 +122,17 @@ pub fn caml_pasta_fq_urs_b_poly_commitment(
 #[ocaml::func]
 pub fn caml_pasta_fq_urs_batch_accumulator_check(
     urs: CamlPastaFqUrs,
-    comms: Vec<GAffine>,
-    chals: Vec<Fq>,
+    comms: Vec<CamlGPallas>,
+    chals: Vec<CamlFq>,
 ) -> bool {
     crate::urs_utils::batch_dlog_accumulator_check(
         &*urs,
-        &comms.into_iter().map(From::from).collect(),
-        &chals.into_iter().map(From::from).collect(),
+        &comms.into_iter().map(Into::into).collect(),
+        &chals.into_iter().map(Into::into).collect(),
     )
 }
 
 #[ocaml::func]
-pub fn caml_pasta_fq_urs_h(urs: CamlPastaFqUrs) -> GAffine {
+pub fn caml_pasta_fq_urs_h(urs: CamlPastaFqUrs) -> CamlGPallas {
     (*urs).h.into()
 }

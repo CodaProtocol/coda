@@ -1,14 +1,12 @@
-use algebra::{
-    curves::AffineCurve,
-    fields::{Field, PrimeField},
-    FromBytes, ToBytes,
+use ark_ec::AffineCurve;
+use ark_ff::{Field, FromBytes, PrimeField, ToBytes};
+use ark_poly::{
+    univariate::DensePolynomial, EvaluationDomain, Evaluations, Radix2EvaluationDomain as Domain,
 };
-
 use commitment_dlog::{
     commitment::{CommitmentCurve, CommitmentField, PolyComm},
-    srs::{SRS, SRSValue as PlonkSRSValue},
+    srs::{SRSValue as PlonkSRSValue, SRS},
 };
-use ff_fft::{DensePolynomial, EvaluationDomain, Evaluations, Radix2EvaluationDomain as Domain};
 use oracle::poseidon::ArithmeticSpongeParams;
 use plonk_circuits::{
     constraints::{zk_polynomial, zk_w, ConstraintSystem as PlonkConstraintSystem},
@@ -17,14 +15,21 @@ use plonk_circuits::{
 use plonk_protocol_dlog::index::{Index as PlonkIndex, VerifierIndex as PlonkVerifierIndex};
 use std::io::{Error, ErrorKind, Read, Result as IoResult, Write};
 
+/// Serializes a [Vec] of some type `A` as `[8-byte length in little-endian, data]`
+/// where `data` is the type serialized using its defined serialization ([ToBytes])
 pub fn write_vec<A: ToBytes, W: Write>(v: &Vec<A>, mut writer: W) -> IoResult<()> {
-    u64::write(&(v.len() as u64), &mut writer)?;
+    if v.len() > (u64::MAX as usize) {
+        return Err(Error::new(ErrorKind::Other, "write_vec: vector too large"));
+    }
+    (v.len() as u64).write(&mut writer)?;
     for x in v {
         x.write(&mut writer)?;
     }
     Ok(())
 }
 
+/// Deserializes a [Vec] of some type `A` from a buffer `[8-byte length in little-endian, data]`
+/// where `data` can be deserialized using the type's defined deserialization ([FromBytes])
 pub fn read_vec<A: FromBytes, R: Read>(mut reader: R) -> IoResult<Vec<A>> {
     let mut v = vec![];
     let n = u64::read(&mut reader)? as usize;
@@ -34,24 +39,30 @@ pub fn read_vec<A: FromBytes, R: Read>(mut reader: R) -> IoResult<Vec<A>> {
     Ok(v)
 }
 
+/// Serializes an [Option] as `[0]` for [None] and `[1, data]`
+/// where `data` is the serialized type using its defined serialization ([ToBytes])
 pub fn write_option<A: ToBytes, W: Write>(a: &Option<A>, mut w: W) -> IoResult<()> {
     match a {
         None => u8::write(&0, &mut w),
         Some(a) => {
-            u8::write(&1, &mut w)?;
+            1u8.write(&mut w)?;
             A::write(a, &mut w)
         }
     }
 }
 
+/// Deserializes an [Option] by reading `[0]` as [None] and `[1, data]` as [Some] `data`
+/// where `data` can be deserialized using the type's defined deserialization ([FromBytes])
 pub fn read_option<A: FromBytes, R: Read>(mut r: R) -> IoResult<Option<A>> {
     match u8::read(&mut r)? {
         0 => Ok(None),
         1 => Ok(Some(A::read(&mut r)?)),
-        _ => panic!("read_option: expected 0 or 1"),
+        _ => Err(Error::new(ErrorKind::Other, "read_option: expected 0 or 1")),
     }
 }
 
+/// Serializes a [PolyComm] as a vector of `unshifted` (see [write_vec])
+/// and an option of `shifted` (see [write_option])
 pub fn write_poly_comm<A: ToBytes + AffineCurve, W: Write>(
     p: &PolyComm<A>,
     mut w: W,
@@ -60,12 +71,14 @@ pub fn write_poly_comm<A: ToBytes + AffineCurve, W: Write>(
     write_option(&p.shifted, &mut w)
 }
 
+/// Deserializes a [PolyComm] (see [write_poly_comm]).
 pub fn read_poly_comm<A: FromBytes + AffineCurve, R: Read>(mut r: R) -> IoResult<PolyComm<A>> {
     let unshifted = read_vec(&mut r)?;
     let shifted = read_option(&mut r)?;
     Ok(PolyComm { unshifted, shifted })
 }
 
+/// Serializes a [DensePolynomial] as a vector (see [write_vec])
 pub fn write_dense_polynomial<A: ToBytes + Field, W: Write>(
     p: &DensePolynomial<A>,
     w: W,
@@ -73,16 +86,19 @@ pub fn write_dense_polynomial<A: ToBytes + Field, W: Write>(
     write_vec(&p.coeffs, w)
 }
 
+/// Deserializes a [DensePolynomial] (see [write_dense_polynomial])
 pub fn read_dense_polynomial<A: ToBytes + Field, R: Read>(r: R) -> IoResult<DensePolynomial<A>> {
     let coeffs = read_vec(r)?;
     Ok(DensePolynomial { coeffs })
 }
 
+/// Serializes a [Domain] as `size`
 pub fn write_domain<A: ToBytes + PrimeField, W: Write>(d: &Domain<A>, mut w: W) -> IoResult<()> {
     (d.size as u64).write(&mut w)?;
     Ok(())
 }
 
+/// Deserializes a [Domain] (see [write_domain])
 pub fn read_domain<A: ToBytes + PrimeField, R: Read>(mut r: R) -> IoResult<Domain<A>> {
     let size = u64::read(&mut r)?;
     match Domain::new(size as usize) {
@@ -229,8 +245,10 @@ where
     let emul2_comm = read_poly_comm(&mut r)?;
     let emul3_comm = read_poly_comm(&mut r)?;
 
-    let r_value = G::ScalarField::read(&mut r)?;
-    let o = G::ScalarField::read(&mut r)?;
+    // the <_ as FromBytes> is to disambiguate the FromBytes trait from the Read trait
+    // https://doc.rust-lang.org/rust-by-example/trait/disambiguating.html
+    let r_value = <G::ScalarField as FromBytes>::read(&mut r)?;
+    let o = <G::ScalarField as FromBytes>::read(&mut r)?;
     let srs = PlonkSRSValue::Ref(unsafe { &(*srs) });
     let vk = PlonkVerifierIndex {
         domain,
@@ -415,9 +433,11 @@ where
     let l08 = read_plonk_evaluations(&mut r)?;
     let l1 = read_plonk_evaluations(&mut r)?;
 
-    let r_value = G::ScalarField::read(&mut r)?;
-    let o = G::ScalarField::read(&mut r)?;
-    let endo = G::ScalarField::read(&mut r)?;
+    // the <_ as FromBytes> is to disambiguate the FromBytes trait from the Read trait
+    // https://doc.rust-lang.org/rust-by-example/trait/disambiguating.html
+    let r_value = <G::ScalarField as FromBytes>::read(&mut r)?;
+    let o = <G::ScalarField as FromBytes>::read(&mut r)?;
+    let endo = <G::ScalarField as FromBytes>::read(&mut r)?;
 
     let zkpm = zk_polynomial(domain.d1);
     let zkpl = zkpm.evaluate_over_domain_by_ref(domain.d8);
