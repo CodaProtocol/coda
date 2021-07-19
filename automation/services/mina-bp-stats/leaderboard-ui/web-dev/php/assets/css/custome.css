@@ -1,0 +1,303 @@
+@font-face {
+    font-family: Monument Grotesk;
+    src: url(MonumentGrotesk-Regular.ttf);
+}
+
+.container {
+    font-family: Monument Grotesk;
+    font-style: normal;
+    font-weight: normal;
+    margin-top: 5rem;
+}
+
+a:active {
+    color: #FF603B;
+    text-decoration: none;
+}
+
+
+/* visited link */
+
+a:visited {
+    color: #FF603B;
+    text-decoration: none;
+}
+
+
+/* mouse over link */
+
+a:hover {
+    color: #FF603B;
+    text-decoration: none;
+}
+
+.mr-5,
+.mx-5 {
+    margin-right: 38rem!important;
+}
+
+.row>p {
+    font-size: 18px;
+    line-height: 27px;
+}
+
+.row>p>a {
+    color: #FF603B;
+}
+
+.Mina-Refrance-color {
+    color: #FF603B;
+}
+
+.navbar-font {
+    font-family: Monument Grotesk;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+}
+
+.navbar-brand {
+    margin-right: 50%;
+}
+
+.navbar>.navbar-brand {
+    color: #2D2D2D;
+}
+
+.navbar-nav>.nav-item {
+    margin: 2%;
+    color: #2D2D2D;
+}
+
+.navbar-nav {
+    float: none;
+    margin-top: 2%;
+}
+
+.toggle-button {
+    position: absolute;
+    top: .75rem;
+    right: 1rem;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 30px;
+    height: 21px;
+}
+
+.toggle-button .bar {
+    height: 3px;
+    width: 100%;
+    background-color: black;
+    border-radius: 10px;
+}
+
+.delegationButton {
+    border: 1px solid #2D2D2D;
+    box-sizing: border-box;
+    border-radius: 4px 1px;
+    z-index: 2;
+    font-family: Monument Grotesk;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 1px;
+    width: 230px;
+}
+
+.bottomPlate {
+    border: 1px solid #2D2D2D;
+    box-sizing: border-box;
+    border-radius: 4px 1px;
+    position: relative;
+    margin-top: 3px;
+    width: 221px;
+    height: 48px;
+    z-index: -1;
+    left: -216px;
+    top: 3px;
+}
+#pagination>a.pages {
+    padding: 10px 14px;
+    color: #000000;
+    border-radius: 20%;
+    background: #CCC;
+    text-decoration: none;
+    margin: 0px 6px;
+    font-size: 0.9em;
+}
+
+#pagination>a.pages:hover {
+    color: #ffffff;
+    background: #666;
+}
+.current {
+    padding: 10px 14px;
+    color: #ffffff;
+    background: #73AD21;
+    text-decoration: none;
+    border-radius: 20%;
+    margin: 0px 6px;
+}
+
+
+
+/* for policyInfo New Design page */
+
+.breadcrumb-item.active {
+    color: #2D2D2D;
+}
+
+.subheader>p {
+    font-size: 24px;
+    line-height: 58px;
+}
+
+.topButton>.bottomPlate {
+    left: 4px;
+    top: -47px;
+    width: 230px;
+}
+
+.topButton>.delegationButton {
+    height: 48px;
+}
+
+.mina-page-links {
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.margin-spanicing-zero {
+    padding-right: 0px;
+    padding-left: 0px;
+}
+
+
+/* for uptime leaderboard  */
+
+.table td+td {
+    text-align: left;
+}
+
+/* .table td+td+td {
+    text-align: center;
+    margin-left: 10px;
+    padding-left: 201px;
+} */
+
+th {
+    font-family: Monument Grotesk;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 14px;
+    background-color: #2D2D2D;
+    color: white;
+    line-height: 16px;
+    height: 48px;
+}
+
+.table td {
+    font-size: 18px;
+    line-height: 64px;
+    color: #000000;
+}
+
+.mina-top-right-button {
+    margin-left: 29rem!important;
+}
+
+
+/* for Performance Tracker page */
+
+.nav-pills .nav-link.active,
+.nav-pills .show>.nav-link {
+    color: #fff;
+    background-color: #FF603B;
+    height: 46px;
+}
+
+.nav-pills .nav-link,
+.nav-pills .show>.nav-link {
+    color: #2D2D2D;
+    background-color: #fff;
+    letter-spacing: 1px;
+    font-size: 12px;
+    line-height: 16px;
+    border-radius: 0px;
+    padding-top: 15px;
+}
+
+.right-box {
+    border: 1px solid #2D2D2D;
+    box-sizing: border-box;
+    width: 271px;
+    height: 48px;
+    border-radius: 0px 1px 4px;
+}
+
+.left-box {
+    border: 1px solid #2D2D2D;
+    box-sizing: border-box;
+    width: 257px;
+    height: 48px;
+    border-radius: 4px 1px 0px 0px;
+    z-index: 15;
+}
+
+.bottom-plate-tab {
+    position: relative;
+    width: 528px;
+    height: 48px;
+    top: -45px;
+    left: 2px;
+    border: 1px solid #2D2D2D;
+    box-sizing: border-box;
+    border-radius: 0px 1px 4px;
+    background: #FFFFFF;
+    z-index: -2;
+}
+
+.search-box {
+    border: 1px solid #D9D9D9;
+    box-sizing: border-box;
+    box-shadow: inset 0px 2px 2px rgba(0, 0, 0, 0.15);
+    border-radius: 2px;
+    width: 233px;
+    height: 52px;
+}
+
+
+/* for image Design */
+
+.logo-bg-color {
+    background-color: #001749;
+    letter-spacing: 1px;
+}
+
+.mina-image-font-color {
+    color: #001749;
+}
+
+.mina-project-text {
+    letter-spacing: 0.20em;
+}
+
+.mina-body-background {
+    background: #f2f2f2;
+}
+
+.navbar-light .navbar-nav .nav-link {
+    color: rgba(0, 0, 0, 1);
+}
+
+.fixed-bottom {
+    align-items: center;
+    bottom: 0;
+}
+
+div.year {
+    text-align: right;
+}

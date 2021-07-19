@@ -1,0 +1,310 @@
+@media (max-width: 575.98px) {
+    .container {
+        width: 91%;
+        margin-right: 10px;
+        margin-left: 15px;
+        align-content: center;
+    }
+    /* for delegation policy */
+    .row>p {
+        text-align: justify;
+    }
+    .h1,
+    h1 {
+        font-size: 2.0rem;
+        text-align: center;
+    }
+    .toggle-button {
+        display: flex;
+    }
+    .No-colaps {
+        display: flex;
+    }
+    .navbar-nav {
+        flex-direction: row;
+        justify-content: space-around;
+    }
+    /* leader Board Responcive */
+    .Link-responcive>.row {
+        justify-content: left;
+    }
+    .Link-responcive>.row>.ml-auto,
+    .mx-auto {
+        margin-left: 0px!important
+    }
+    .Responcive-Bottom-Padding>.topButton {
+        margin-bottom: 0rem!important;
+    }
+    .topButton {
+        margin-bottom: 0rem!important;
+    }
+    .topButton>.ml-auto {
+        margin-left: 0rem!important;
+    }
+    .table td+td+td {
+        margin-left: 0px!important;
+        padding-left: 0px!important;
+        text-align: center;
+    }
+    .table thead th {
+        vertical-align: middle;
+    }
+    .text-left {
+        text-align: unset!important;
+    }
+    /* Performance Tracker Responcive Css */
+    .performance-Container {
+        width: auto!important;
+    }
+    .mina-top-right-button {
+        margin-left: unset!important;
+    }
+    .Responcive-Bottom-Padding>.Link-responcive {
+        margin-bottom: 3rem!important;
+    }
+    .subheader>p {
+        font-size: 24px;
+        line-height: 35px;
+        text-align: left;
+    }
+    .performance-Container>.responcive-tab>.row {
+        display: flex;
+        flex-direction: column;
+    }
+    .row>a.mr-3 {
+        margin-right: 0rem!important;
+    }
+    .bottom-plate-tab {
+        display: none!important;
+    }
+    .right-box {
+        width: 257px;
+    }
+    .delegation-Bottom-Button>.bottomPlate {
+        left: 4px!important;
+        top: -47px;
+        width: 231px;
+    }
+    .delegation-Bottom-Button>.delegationButton {
+        height: 46px;
+        left: 5px!important;
+        top: -32px;
+    }
+    .policyInfo-Bottom-Button>.bottomPlate {
+        left: 4px!important;
+        top: -47px;
+        width: 231px;
+    }
+    .policyInfo-Bottom-Button>.delegationButton {
+        height: 46px;
+        left: 5px!important;
+        top: -32px;
+    }
+    .table td {
+        font-size: 18px;
+        line-height: 27px;
+        color: #000000;
+    }
+    /* for Image to Design */
+    .Margin-right-for-text {
+        margin-right: 38rem;
+    }
+}
+
+@media (min-width: 576px) {
+    .toggle-button {
+        display: flex;
+    }
+    .No-colaps {
+        display: flex;
+    }
+    .navbar-nav {
+        flex-direction: row;
+        justify-content: space-around;
+    }
+    /* leader Board Responcive */
+    .table td+td+td {
+        margin-left: 0px!important;
+        padding-left: 0px!important;
+        text-align: center;
+    }
+    .table thead th {
+        vertical-align: middle;
+    }
+    .text-left {
+        text-align: unset!important;
+    }
+    .Link-responcive>.row {
+        justify-content: center;
+    }
+    .Link-responcive>.row>.ml-auto,
+    .mx-auto {
+        margin-left: 0px!important
+    }
+    .delegationButton {
+        transform: translate(-50%, -50%);
+        position: absolute;
+        left: 50%;
+        display: block;
+    }
+    .topButton>.bottomPlate {
+        left: 50%;
+        top: 0px;
+        transform: translate(-50%, -50%);
+        position: absolute;
+    }
+    .topButton {
+        margin-bottom: 3rem!important;
+    }
+}
+/* // Medium devices (tablets, 768px and up) */
+
+@media (min-width: 768px) {
+    .container {
+        width: 100%;
+    }
+    .toggle-button {
+        display: flex;
+    }
+    .No-colaps {
+        display: flex;
+    }
+    .navbar-nav {
+        flex-direction: row;
+        justify-content: space-around;
+    }
+    .delegationButton {
+        transform: unset!important;
+        position: unset!important;
+        left: unset!important;
+        display: unset!important;
+    }
+    /* performance Tracker  */
+    .topButton>.bottomPlate {
+        left: 50%;
+        top: 0px;
+        transform: unset!important;
+        position: absolute;
+    }
+    #bottomPlate.topButton>.bottomPlate.for-normal-screen {
+        left: 4px!important;
+        top: -47px!important;
+        transform: unset!important;
+        position: unset!important;
+    }
+    .topButton>.bottomPlate.for-normal {
+        left: 4px!important;
+        top: -47px!important;
+        transform: unset!important;
+        position: relative!important;
+    }
+    .mina-top-right-button {
+        margin-left: 11rem!important;
+    }
+}
+/* // Large devices (desktops, 992px and up) */
+
+@media (min-width: 992px) {
+    .container {
+        width: 90%;
+    }
+    /* for delegation policy */
+    .mr-5,
+    .mx-5 {
+        margin-right: 20rem!important;
+    }
+    .toggle-button {
+        display: none;
+    }
+    /* for delegation policy */
+    .delegationButton {
+        transform: unset!important;
+        position: unset!important;
+        left: unset!important;
+        display: unset!important;
+    }
+    /* performance Tracker  */
+    .topButton>.bottomPlate {
+        left: 50%;
+        top: 0px;
+        transform: unset!important;
+        position: absolute;
+    }
+    .mina-top-right-button {
+        margin-left: 15rem!important;
+    }
+}
+/* // Extra large devices (large desktops, 1200px and up) */
+
+@media (min-width: 1200px) {
+    .container {
+        width: 100%;
+    }
+    /* for delegation policy */
+    .mr-5,
+    .mx-5 {
+        margin-right: 35rem!important;
+    }
+    /* leader Board Responcive */
+    .Link-responcive>.row {
+        justify-content: unset!important;
+    }
+    .Link-responcive>.row>.ml-auto,
+    .mx-auto {
+        margin-left: auto!important
+    }
+    .delegationButton {
+        transform: unset!important;
+        position: unset!important;
+        left: unset!important;
+        display: unset!important;
+    }
+    .topButton>.bottomPlate {
+        left: 4px!important;
+        top: -47px!important;
+        transform: unset!important;
+        position: relative!important;
+    }
+    .topButton {
+        margin-bottom: unset!important;
+    }
+    .table td+td+td {
+        margin-left: 0px!important;
+        padding-left: 0px!important;
+        text-align: center;
+    }
+    .table thead th {
+        vertical-align: middle;
+    }
+    .text-left {
+        text-align: left!important;
+    }
+    /* Performance Tracker Responcive Css */
+    .Responcive-Bottom-Padding>.Link-responcive {
+        margin-bottom: unset!important;
+    }
+    .mina-top-right-button {
+        margin-left: 29rem!important;
+        ;
+    }
+    .Performace-track>.mina-top-right-button {
+        margin-left: 21rem!important;
+        ;
+    }
+    .row>a.mr-3 {
+        margin-right: 1rem!important;
+    }
+    .Responcive-Bottom-Padding>.topButton {
+        margin-bottom: 3rem!important;
+    }
+    .performance-Container>.row {
+        display: flex;
+        flex-direction: unset!important;
+    }
+    .bottom-plate-tab {
+        display: block!important;
+    }
+    .right-box {
+        width: 271px;
+    }
+}
