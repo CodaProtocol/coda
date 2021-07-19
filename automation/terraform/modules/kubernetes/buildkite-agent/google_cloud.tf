@@ -2,7 +2,8 @@ locals {
   gke_project = "o1labs-192920"
   gcs_artifact_buckets = [
     "buildkite_k8s",
-    "coda-charts"
+    "coda-charts",
+    "mina_network_block_data"
   ]
 
   buildkite_roles = [
