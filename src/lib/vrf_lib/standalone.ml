@@ -1,5 +1,7 @@
 open Core
 
+(* This VRF is based on the one described in appendix C of https://eprint.iacr.org/2017/573.pdf *)
+
 module Context = struct
   type ('message, 'pk) t = { message : 'message; public_key : 'pk }
   [@@deriving sexp, hlist]
