@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="script-src 'self' 'unsafe-inline'"
+    />
+    <link rel="stylesheet" href="css/materialize.min.css" />
+  </head>
+  <body>
+    <div class="container center-align">
+      <h3>SNAPP Credit Check</h3>
+      <form id="snapp-form">
+        <div class="content">
+          <label for="eth-address">Ethereum Address</label>
+          <input
+            placeholder="Ethereum Address"
+            id="eth-address"
+            type="text"
+            class="input-field"
+          />
+        </div>
+        <div class="content">
+          <label for="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            placeholder="Email"
+            class="input-field"
+          />
+        </div>
+        <div class="content">
+          <label for="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            placeholder="Password"
+            class="input-field"
+          />
+        </div>
+        <div class="file-field input-field">
+          <div class="btn">
+            <span id="browse-btn">Browse</span>
+            <input id="output-path-input" type="file" />
+          </div>
+          <div class="file-path-wrapper">
+            <input
+              id="output-path-display"
+              type="text"
+              class="file-path validate"
+              placeholder="Choose a destination folder"
+            />
+          </div>
+        </div>
+        <div>
+          <label>
+            <input id="radio-usa" name="group1" type="radio" checked />
+            <span>USA</span>
+          </label>
+          <label>
+            <input id="radio-ca" name="group1" type="radio" />
+            <span>Canada</span>
+          </label>
+        </div>
+        <button id="gen-snapp-btn" class="btn" style="margin-top: 1.5rem">
+          <span>Generate SNAPP Proof</span>
+        </button>
+      </form>
+      <div id="progress-container" style="margin-top: 1.5rem">
+        <p id="progress-status-text"></p>
+        <div id="progress-status-spinner" class="preloader-wrapper big">
+          <div class="spinner-layer spinner-blue-only">
+            <div class="circle-clipper left">
+              <div class="circle"></div>
+            </div>
+            <div class="gap-patch">
+              <div class="circle"></div>
+            </div>
+            <div class="circle-clipper right">
+              <div class="circle"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="index.js"></script>
+    <script src="js/materialize.min.js"></script>
+  </body>
+</html>
