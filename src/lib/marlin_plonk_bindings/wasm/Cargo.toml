@@ -33,7 +33,7 @@ mina-curves = { path = "../../marlin/curves" }
 oracle = { path = "../../marlin/oracle" }
 plonk_circuits = { path = "../../marlin/circuits/plonk", features = [ ] }
 
-commitment_dlog = { path = "../../marlin/dlog/commitment", features = [ ] }
+commitment_dlog = { path = "../../marlin/dlog/commitment" }
 plonk_protocol_dlog = { path = "../../marlin/dlog/plonk", features = [ ] }
 
 [profile.release]

@@ -420,3 +420,181 @@ let _ =
          assert (Pasta_fq.equal (Pasta_fq.of_int 30) (get first 2)) ;
          assert (Pasta_fq.equal (Pasta_fq.of_int 1) (get second 0))
     end)
+
+let _ =
+  let open Pasta_pallas in
+  Js.export "pasta_pallas_test"
+    (object%js (_self)
+       method run =
+         let eq x y =
+           match (x, y) with
+           | Types.Or_infinity.Infinity, Types.Or_infinity.Infinity ->
+               true
+           | Types.Or_infinity.Finite (x1, y1), Types.Or_infinity.Finite (x2, y2)
+             ->
+               Pasta_fp.equal x1 x2 && Pasta_fp.equal y1 y2
+           | _ ->
+               false
+         in
+         let one_ = one () in
+         let two = add one_ one_ in
+         let infinity = sub one_ one_ in
+         let one_again = sub two one_ in
+         let neg_one = negate one_ in
+         let two_again = double one_ in
+         let two_again_ = scale one_ (Pasta_fq.of_int 2) in
+         let rand1 = random () in
+         let rand2 = rng 15 in
+         let affine_one = to_affine one_ in
+         let affine_two = to_affine two in
+         assert (not (eq affine_one affine_two)) ;
+         let affine_infinity = to_affine infinity in
+         assert (not (eq affine_one affine_infinity)) ;
+         assert (not (eq affine_two affine_infinity)) ;
+         assert (eq affine_infinity Infinity) ;
+         let affine_neg_one = to_affine neg_one in
+         assert (not (eq affine_one affine_neg_one)) ;
+         assert (not (eq affine_two affine_neg_one)) ;
+         assert (not (eq affine_infinity affine_neg_one)) ;
+         let affine_one_again = to_affine one_again in
+         assert (eq affine_one affine_one_again) ;
+         let affine_two_again = to_affine two_again in
+         assert (eq affine_two affine_two_again) ;
+         let affine_two_again_ = to_affine two_again_ in
+         assert (eq affine_two affine_two_again_) ;
+         let affine_rand1 = to_affine rand1 in
+         let affine_rand2 = to_affine rand2 in
+         let copy_using_of_affine_coordinates pt =
+           match pt with
+           | Types.Or_infinity.Infinity ->
+               of_affine Types.Or_infinity.Infinity
+           | Types.Or_infinity.Finite (x, y) ->
+               of_affine_coordinates x y
+         in
+         let rand1_again = copy_using_of_affine_coordinates affine_rand1 in
+         let rand2_again = copy_using_of_affine_coordinates affine_rand2 in
+         let affine_rand1_again = to_affine rand1_again in
+         let affine_rand2_again = to_affine rand2_again in
+         ( match
+             ( eq affine_rand1 affine_rand2
+             , eq affine_rand1_again affine_rand2_again )
+           with
+         | true, true | false, false ->
+             ()
+         | _ ->
+             assert false ) ;
+         assert (eq affine_rand1 affine_rand1_again) ;
+         assert (eq affine_rand2 affine_rand2_again) ;
+         assert (
+           eq
+             (to_affine (negate (sub rand1 rand2)))
+             (to_affine (sub rand2_again rand1_again)) ) ;
+         let endo_base = endo_base () in
+         assert (
+           String.equal
+             (Pasta_fp.to_string endo_base)
+             "20444556541222657078399132219657928148671392403212669005631716460534733845831"
+         ) ;
+         let endo_scalar = endo_scalar () in
+         assert (
+           String.equal
+             (Pasta_fq.to_string endo_scalar)
+             "26005156700822196841419187675678338661165322343552424574062261873906994770353"
+         ) ;
+         let one_copied = affine_deep_copy affine_one in
+         assert (eq affine_one one_copied) ;
+         let infinity_copied = affine_deep_copy affine_infinity in
+         assert (eq affine_infinity infinity_copied) ;
+         assert (eq affine_infinity Infinity) ;
+         let infinity_copied_ = affine_deep_copy Infinity in
+         assert (eq infinity_copied_ Infinity)
+    end)
+
+let _ =
+  let open Pasta_vesta in
+  Js.export "pasta_vesta_test"
+    (object%js (_self)
+       method run =
+         let eq x y =
+           match (x, y) with
+           | Types.Or_infinity.Infinity, Types.Or_infinity.Infinity ->
+               true
+           | Types.Or_infinity.Finite (x1, y1), Types.Or_infinity.Finite (x2, y2)
+             ->
+               Pasta_fq.equal x1 x2 && Pasta_fq.equal y1 y2
+           | _ ->
+               false
+         in
+         let one_ = one () in
+         let two = add one_ one_ in
+         let infinity = sub one_ one_ in
+         let one_again = sub two one_ in
+         let neg_one = negate one_ in
+         let two_again = double one_ in
+         let two_again_ = scale one_ (Pasta_fp.of_int 2) in
+         let rand1 = random () in
+         let rand2 = rng 15 in
+         let affine_one = to_affine one_ in
+         let affine_two = to_affine two in
+         assert (not (eq affine_one affine_two)) ;
+         let affine_infinity = to_affine infinity in
+         assert (not (eq affine_one affine_infinity)) ;
+         assert (not (eq affine_two affine_infinity)) ;
+         assert (eq affine_infinity Infinity) ;
+         let affine_neg_one = to_affine neg_one in
+         assert (not (eq affine_one affine_neg_one)) ;
+         assert (not (eq affine_two affine_neg_one)) ;
+         assert (not (eq affine_infinity affine_neg_one)) ;
+         let affine_one_again = to_affine one_again in
+         assert (eq affine_one affine_one_again) ;
+         let affine_two_again = to_affine two_again in
+         assert (eq affine_two affine_two_again) ;
+         let affine_two_again_ = to_affine two_again_ in
+         assert (eq affine_two affine_two_again_) ;
+         let affine_rand1 = to_affine rand1 in
+         let affine_rand2 = to_affine rand2 in
+         let copy_using_of_affine_coordinates pt =
+           match pt with
+           | Types.Or_infinity.Infinity ->
+               of_affine Types.Or_infinity.Infinity
+           | Types.Or_infinity.Finite (x, y) ->
+               of_affine_coordinates x y
+         in
+         let rand1_again = copy_using_of_affine_coordinates affine_rand1 in
+         let rand2_again = copy_using_of_affine_coordinates affine_rand2 in
+         let affine_rand1_again = to_affine rand1_again in
+         let affine_rand2_again = to_affine rand2_again in
+         ( match
+             ( eq affine_rand1 affine_rand2
+             , eq affine_rand1_again affine_rand2_again )
+           with
+         | true, true | false, false ->
+             ()
+         | _ ->
+             assert false ) ;
+         assert (eq affine_rand1 affine_rand1_again) ;
+         assert (eq affine_rand2 affine_rand2_again) ;
+         assert (
+           eq
+             (to_affine (negate (sub rand1 rand2)))
+             (to_affine (sub rand2_again rand1_again)) ) ;
+         let endo_base = endo_base () in
+         assert (
+           String.equal
+             (Pasta_fq.to_string endo_base)
+             "2942865608506852014473558576493638302197734138389222805617480874486368177743"
+         ) ;
+         let endo_scalar = endo_scalar () in
+         assert (
+           String.equal
+             (Pasta_fp.to_string endo_scalar)
+             "8503465768106391777493614032514048814691664078728891710322960303815233784505"
+         ) ;
+         let one_copied = affine_deep_copy affine_one in
+         assert (eq affine_one one_copied) ;
+         let infinity_copied = affine_deep_copy affine_infinity in
+         assert (eq affine_infinity infinity_copied) ;
+         assert (eq affine_infinity Infinity) ;
+         let infinity_copied_ = affine_deep_copy Infinity in
+         assert (eq infinity_copied_ Infinity)
+    end)

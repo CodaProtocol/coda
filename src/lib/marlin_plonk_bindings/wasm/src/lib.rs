@@ -25,8 +25,8 @@ pub fn console_log(s: &str) {
     log(s);
 }
 
-pub mod testing_proof;
-
 pub mod bigint_256;
 pub mod pasta_fp;
 pub mod pasta_fq;
+pub mod pasta_pallas;
+pub mod pasta_vesta;

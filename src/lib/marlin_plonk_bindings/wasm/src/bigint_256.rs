@@ -1,5 +1,5 @@
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::convert::{OptionIntoWasmAbi, IntoWasmAbi, FromWasmAbi};
+use wasm_bindgen::convert::{IntoWasmAbi, FromWasmAbi};
 use algebra::biginteger::{BigInteger, BigInteger256};
 use algebra::CanonicalSerialize as _;
 use algebra::CanonicalDeserialize as _;

@@ -13,6 +13,7 @@ use num_bigint::BigUint;
 use rand::rngs::StdRng;
 use std::cmp::Ordering::{Equal, Greater, Less};
 
+#[derive(Clone, Copy)]
 pub struct WasmPastaFp(pub Fp);
 
 impl wasm_bindgen::describe::WasmDescribe for WasmPastaFp {
