@@ -1,23 +1,22 @@
 <a href="https://minaprotocol.com">
-	<img width="200" src="https://minaprotocol.com/static/Mina_Wordmark_Github.png" alt="Mina Logo" />
+  <img src="https://github.com/MinaProtocol/docs/blob/main/public/static/img/svg/mina-wordmark-redviolet.svg?raw=true&sanitize=true" width="350" alt="Mina logo">
 </a>
-<hr/>
 
-Mina is the first cryptocurrency with a lightweight, constant-sized blockchain. This is the main source code repository for the Mina project. It contains code for the OCaml protocol implementation, [website](https://minaprotocol.com), and wallet. Enjoy!
+# Mina
+
+Mina is the first cryptocurrency with a lightweight, constant-sized blockchain. This is the main source code repository for the Mina project. It contains code for the OCaml protocol implementation, [website](https://minaprotocol.com), & wallet. Enjoy!
 
 ## Notes
 
 - Mina is still under active development, and APIs are still evolving. If you do build upon the APIs, be aware that breaking changes may occur.
-- There is a live testnet of the Mina protocol currently running - [sign up here to join the testnet](http://bit.ly/TestnetForm).
 
 ## What is Mina?
 
 ### Mina Walkthrough
 
-- [Overview of Mina](https://minaprotocol.com/docs/)
-- [Getting Started](https://minaprotocol.com/docs/getting-started/)
+- [Docs](https://minaprotocol.com/docs/)
 - [My First Transaction](https://minaprotocol.com/docs/my-first-transaction/)
-- [Become a Node Operator](https://minaprotocol.com/docs/node-operator/)
+- [Become a Node Operator](https://minaprotocol.com/docs/getting-started/)
 
 ### Technical Papers
 
@@ -33,14 +32,13 @@ Read the [Contributing Guide](https://docs.minaprotocol.com/en/developers/contri
 
 ## Developers
 
-The [Developer docs](https://minaprotocol.com/docs/developers/) contain all the information needed to begin contributing code to Mina, and using Mina APIs to build applications.
+The [Developer docs](https://docs.minaprotocol.com/en/developers) contain all the information needed to begin contributing code to Mina, and using Mina APIs to build applications.
 
 #### Quick Links:
 
-- [Developer readme](README-dev.md)
+- [Developer README](README-dev.md)
 - [Running a demo node](docs/demo.md)
-- [Directory structure](frontend/website-redesign/docs/developers/directory-structure.mdx)
-- [Lifecycle of a payment](frontend/website-redesign/docs/architecture/lifecycle-payment.mdx)
+- [Lifecycle of a payment](https://docs.minaprotocol.com/en/architecture/lifecycle-payment)
 
 ## Community
 
@@ -49,6 +47,6 @@ The [Developer docs](https://minaprotocol.com/docs/developers/) contain all the 
 
 ## License
 
-This repository is distributed under the terms of the Apache 2.0 license,
-available in the LICENSE file and online at https://www.apache.org/licenses/LICENSE-2.0. Commits older than 2018-10-03 do
-not have a LICENSE file or this notice, but are distributed under the same terms.
+[Apache 2.0](LICENSE)
+
+Commits older than 2018-10-03 do not have a [LICENSE](LICENSE) file or this notice, but are distributed under the same terms.
