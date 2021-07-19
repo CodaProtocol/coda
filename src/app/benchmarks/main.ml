@@ -7,7 +7,7 @@
 
 open Core_kernel
 
-let available_libraries = ["vrf_lib_tests"; "mina_base"]
+let available_libraries = ["consensus"; "vrf_lib_tests"; "mina_base"]
 
 let run_benchmarks_in_lib libname =
   Core.printf "Running inline tests in library \"%s\"\n%!" libname ;

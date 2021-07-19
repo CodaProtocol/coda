@@ -535,8 +535,57 @@ module Consensus = struct
   *)
 
   let vrf_evaluations : Counter.t =
-    let help = "vrf evaluations performed" in
+    let help = "# of vrf evaluations performed" in
     Counter.v "vrf_evaluations" ~help ~namespace ~subsystem
+
+  let max_vrfs_evaluated_per_slot : Gauge.t =
+    let help = "max vrfs evaluated per slot" in
+    Gauge.v "max_vrfs_evaluated_per_slot" ~help ~namespace ~subsystem
+
+  let full_slot_checks : Counter.t =
+    let help =
+      "# of slot checks performed where the max # of vrfs were evaluated"
+    in
+    Counter.v "full_slot_vrf_checks" ~help ~namespace ~subsystem
+
+  let slot_checks : Counter.t =
+    let help = "# of slot checks performed" in
+    Counter.v "slot_checks" ~help ~namespace ~subsystem
+
+  module Avg_full_slot_check_time_ms =
+    Rolling_average
+      (struct
+        let subsystem = subsystem
+
+        let name = "avg_full_slot_check_time_ms"
+
+        let help =
+          "avg time elapsed performing slot checks where the max # of vrfs \
+           were evaluated"
+      end)
+      ()
+
+  module Avg_slot_check_time_ms =
+    Rolling_average
+      (struct
+        let subsystem = subsystem
+
+        let name = "avg_slot_check_time_ms"
+
+        let help = "avg time elapsed performing slot checks"
+      end)
+      ()
+
+  let record_slot_check ~time_elapsed_ms ~vrfs_evaluated_in_slot
+      ~max_vrfs_to_evaluate_in_slot =
+    Counter.inc vrf_evaluations (Float.of_int vrfs_evaluated_in_slot) ;
+    Gauge.set max_vrfs_evaluated_per_slot
+      (Float.of_int max_vrfs_to_evaluate_in_slot) ;
+    Counter.inc_one slot_checks ;
+    Avg_slot_check_time_ms.update time_elapsed_ms ;
+    if vrfs_evaluated_in_slot = max_vrfs_to_evaluate_in_slot then (
+      Counter.inc_one full_slot_checks ;
+      Avg_full_slot_check_time_ms.update time_elapsed_ms )
 
   let staking_keypairs : Gauge.t =
     let help = "# of actively staking keypairs" in
