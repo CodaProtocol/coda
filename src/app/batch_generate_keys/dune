@@ -1,0 +1,4 @@
+(executable
+ (name batch_generate_keys)
+ (libraries signature_lib core mina_base graphql_lib)
+ (preprocess (pps ppx_version graphql_ppx ppx_let)))
