@@ -9,7 +9,7 @@ Table of Contents
 * `uN`: `N`-bit unsigned integer (where `N in [8, 16, 32, 64, 128, 256]`) in `little-endian` byte order
 * `bool`: `true` or `false`
 * `String` : [`std::string::String`](https://doc.rust-lang.org/std/string/struct.String.html)
-* `[T, N]`: Array of type `T` containing `N` elements
+* `[T; N]`: Array of type `T` containing `N` elements, indexed starting from `0`
 
 ## Composite types
 
