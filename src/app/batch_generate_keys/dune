@@ -1,0 +1,4 @@
+(executable
+ (name batch_generate_keys)
+ (libraries signature_lib core)
+ (preprocess (pps ppx_version ppx_let)))
