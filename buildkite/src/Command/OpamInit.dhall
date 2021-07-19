@@ -8,7 +8,10 @@ let r = Cmd.run
 let file =
   "\"opam-v3-\\\$(sha256sum opam_ci_cache.sig | cut -d\" \" -f1).tar.gz\""
 
-let unpackageScript : Text = "tar xfz ${file} --strip-components=2 -C /home/opam"
+let local =
+  "\"opam-v3-local-\\\$(sha256sum opam_ci_cache.sig | cut -d\" \" -f1).tar.gz\""
+
+let unpackageScript : Text = "tar xfz ${file} --strip-components=2 -C /home/opam && tar xfz ${local} --strip-components=0 -C ."
 
 let commands : List Text -> List Cmd.Type = \(environment : List Text) ->
   [
@@ -23,6 +26,16 @@ let commands : List Text -> List Cmd.Type = \(environment : List Text) ->
       Cmd.CacheSetupCmd::{
         create = r "make setup-opam",
         package = r "tar cfz ${file} /home/opam/.opam"
+      },
+    Cmd.cacheThrough
+      Cmd.Docker::{
+        image = (../Constants/ContainerImages.dhall).minaToolchain,
+        extraEnv = environment
+      }
+      local
+      Cmd.CacheSetupCmd::{
+        create = r "[ -d _opam ] && : || make setup-opam",
+        package = r "tar cfz ${local} _opam"
       }
   ]
 
@@ -46,4 +59,3 @@ in
     , S.exactly "buildkite/scripts/cache-through" "sh"
     ]
 }
-

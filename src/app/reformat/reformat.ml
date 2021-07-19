@@ -7,6 +7,7 @@ let trustlist = []
 let dirs_trustlist =
   [ ".git"
   ; "_build"
+  ; "_opam"
   ; "stationary"
   ; ".un~"
   ; "frontend"

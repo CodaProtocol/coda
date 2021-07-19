@@ -2,6 +2,12 @@
 set -x # echo on
 set -eu
 
+# Make sure this is called from root directory
+if [[ "$(pwd)" != "$(git rev-parse --show-toplevel)" ]]; then
+  echo "this must be called from mina's root folder"
+  exit 1
+fi
+
 # Keep compile dirs to avoid recompiles
 export OPAMKEEPBUILDDIR='true'
 export OPAMREUSEBUILDDIR='true'
@@ -10,71 +16,54 @@ export OPAMYES=1
 # Set term to xterm if not set
 export TERM=${TERM:-xterm}
 
-SWITCH='4.11.2'
-
-if [[ -d ~/.opam ]]; then
-  # ocaml environment
-  eval $(opam config env)
-
-  # check for cache'd opam
-  SWITCH_LIST=$(opam switch list -s)
-
-  # Check to see if we have explicit switch version
-  SWITCH_FOUND=false
-  for val in $SWITCH_LIST; do
-    if [ $val == $SWITCH ]; then
-      SWITCH_FOUND=true
-    fi
-  done
-else
-  # if there is no opam switch initialized, start from scratch
-  SWITCH_FOUND=false
-fi
-
-pushd /home/opam/opam-repository && git pull && popd
-
-if [ "$SWITCH_FOUND" = true ]; then
-  # Add the o1-labs opam repository
-  opam repository add --yes --all --set-default o1-labs https://github.com/o1-labs/opam-repository.git
-  opam switch set $SWITCH
-else
-  # Build opam from scratch
+# initialize opam
+if ! [[ -d ~/.opam ]]; then
   opam init
-  # Add the o1-labs opam repository
-  opam repository add --yes --all --set-default o1-labs https://github.com/o1-labs/opam-repository.git
-  opam update
-  opam switch create $SWITCH || true
-  opam switch $SWITCH
+  eval $(opam config env)
 fi
 
-# All our ocaml packages
 opam update
+
+# needed paths for macOS
 if [[ "$OSTYPE" == "darwin*" ]]; then
-  PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig LIBRARY_PATH=/usr/local/lib opam switch import src/opam.export
-else
-  opam switch import src/opam.export
+  export PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig
+  export  LIBRARY_PATH=/usr/local/lib
 fi
 
+# create local switch
+opam switch create . 4.11.2
+opam switch import src/opam.export --switch .
+sudo chmod -R u+rw _opam
 eval $(opam config env)
+
+# add custom O(1) Labs opam repository to local switch
+O1LABS_REPO='https://github.com/o1-labs/opam-repository.git'
+opam repository add --yes --this-switch o1-labs "$O1LABS_REPO"
 
 # Extlib gets automatically installed, but we want our pin, so we should
 # uninstall here
 opam uninstall extlib
 
-# Our pins
-opam pin add src/external/ocaml-sodium
-opam pin add src/external/rpc_parallel
-opam pin add src/external/ocaml-extlib
+# init submodules
+git submodule sync && git submodule update --init --recursive
 
 # workaround a permissions problem in rpc_parallel .git
-sudo chmod -R u+rw ~/.opam
+sudo chmod -R u+rw _opam
 
-opam pin add src/external/async_kernel
-opam pin add src/external/coda_base58
-opam pin add src/external/graphql_ppx
-opam pin add src/external/ppx_deriving_yojson
+# update and pin packages, used by CI
+opam pin -y -k path add src/external/rpc_parallel
+opam pin -y -k path add src/external/ocaml-sodium
+opam pin -y -k path add src/external/ocaml-extlib
+opam pin -y -k path add src/external/async_kernel
+opam pin -y -k path add src/external/coda_base58
+
+# update ocaml packages
+opam update
 eval $(opam config env)
 
-# show switch list at end
+# print switch and repository information
 echo "opam switch list"
-opam switch list -s
+opam switch list
+
+echo "opam repositories"
+opam repository list

@@ -11,9 +11,10 @@ profile=$1
 path=$2
 
 source ~/.profile
+eval $(opam env)
 
 echo "--- Make build"
-export LIBP2P_NIXLESS=1 PATH=/usr/lib/go/bin:$PATH GO=/usr/lib/go/bin/go 
+export LIBP2P_NIXLESS=1 PATH=/usr/lib/go/bin:$PATH GO=/usr/lib/go/bin/go
 time make build
 
 echo "--- Run unit tests"

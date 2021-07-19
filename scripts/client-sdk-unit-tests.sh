@@ -6,6 +6,7 @@ set -eo pipefail
 
 echo "Building client SDK..."
 source ~/.profile
+eval $(opam env)
 make client_sdk
 echo "Running unit tests in Javascript"
 nodejs src/app/client_sdk/tests/run_unit_tests.js

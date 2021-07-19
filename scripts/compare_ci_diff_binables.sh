@@ -9,10 +9,11 @@ fi
 
 # cleanup if needed
 
-git clean -dfx
+git clean -dfx -e _opam/
 rm -rf base
 
 # build print_binable_functors, then run Python script to compare binable functors in a pull request
 source ~/.profile && \
+    eval $(opam env) && \
     (dune build --profile=dev src/external/ppx_version/tools/print_binable_functors.exe) && \
     ./scripts/compare_pr_diff_binables.py ${BASE_BRANCH_NAME:-develop}
