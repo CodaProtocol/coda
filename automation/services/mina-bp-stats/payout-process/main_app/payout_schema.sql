@@ -18,6 +18,7 @@ CREATE TABLE payout_summary
     payout_amount double precision,
     payout_balance double precision,
     last_delegation_epoch bigint,
+    last_slot_validated bigint,
     CONSTRAINT payout_summary_pkey PRIMARY KEY (provider_pub_key, winner_pub_key)
 );
 
