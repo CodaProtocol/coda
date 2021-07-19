@@ -244,6 +244,9 @@ let load_frontier ~logger ~verifier ~persistent_frontier ~persistent_root
       None
   | Error (`Failure e) ->
       failwith ("failed to initialize transition frontier: " ^ e)
+  | Error `Snarked_ledger_mismatch ->
+      [%log warn] "Persistent database is out of sync with snarked_ledger" ;
+      None
 
 let wait_for_high_connectivity ~logger ~network ~is_seed =
   let connectivity_time_upperbound = 60.0 in

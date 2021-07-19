@@ -47,7 +47,7 @@ val close : t -> unit
 val check :
      t
   -> genesis_state_hash:State_hash.t
-  -> ( unit
+  -> ( Frozen_ledger_hash.t
      , [> `Not_initialized
        | `Invalid_version
        | `Genesis_state_mismatch of State_hash.t
