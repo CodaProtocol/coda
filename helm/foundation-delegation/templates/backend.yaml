@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "foundation-delegation.fullname" . }}-backend
+  labels:
+    app: {{ template "foundation-delegation.fullname" . }}-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "foundation-delegation.fullname" . }}-backend
+  template:
+    metadata:
+      labels:
+        app: {{ template "foundation-delegation.fullname" . }}-backend
+        role: backend
+        version: {{ trunc 8 (split ":" .Values.backend.image)._1 | trimSuffix "-" }}
+    spec:
+      containers:
+      - name: backend
+        image: {{ .Values.backend.image }}
+        imagePullPolicy: Always
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /creds/creds.json
+        ports:
+        - name: backend
+          protocol: TCP
+          containerPort: 8080
+      {{- if .Values.backend.secret }}
+        volumeMounts:
+          - name: backend-creds
+            mountPath: /creds/
+      volumes:
+        - name: backend-creds
+          secret:
+            secretName: {{ .Values.backend.secret }}
+            items:
+            - key: creds
+              path: creds.json
+      {{- end }}

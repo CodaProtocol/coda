@@ -1,0 +1,18 @@
+apiVersion: v2
+name: foundation-delegation
+description: A Helm chart for Mina Foundation's block and snark work collection backend
+type: application
+version: 1.0.0
+appVersion: 1.16.0
+annotations:
+  artifacthub.io/changes: |
+    - initial chart version for load balancer and backend deployment
+icon: https://storage.googleapis.com/coda-charts/Mina_Icon_Secondary_RGB_Black.png
+keywords:
+- postgres
+- mina
+- foundation
+- snark-work
+home: https://minaprotocol.com/
+sources:
+- https://github.com/MinaProtocol/mina/tree/compatible/helm/foundation-delegation

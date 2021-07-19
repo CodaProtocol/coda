@@ -1,0 +1,31 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: "leaderboard-cron"
+spec:
+  schedule: "*/30 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: cron
+              image: {{ .Values.cron.image }}
+              imagePullPolicy: Always
+          {{- if .Values.cron.secret }}
+              volumeMounts:
+                - name: cron-creds
+                  mountPath: /opt/minanet/creds/
+          volumes:
+            - name: cron-creds
+              secret:
+                secretName: {{ .Values.cron.secret }}
+                items:
+                - key: gcs-credential.json
+                  path: gcs-credential.json
+                - key: sheets-credential.json
+                  path: sheets-credential.json
+                - key: config.py
+                  path: config.py
+          {{- end }}

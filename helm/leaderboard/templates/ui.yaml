@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "leaderboard.fullname" . }}-ui
+  labels:
+    app: {{ template "leaderboard.fullname" . }}-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ template "leaderboard.fullname" . }}-ui
+  template:
+    metadata:
+      labels:
+        app: {{ template "leaderboard.fullname" . }}-ui
+        role: leaderboard
+        version: {{ trunc 6 (split ":" .Values.ui.image)._1 | trimSuffix "-" }}
+    spec:
+      containers:
+      - name: ui
+        image: {{ .Values.ui.image }}
+        imagePullPolicy: Always
+        ports:
+        - name: leaderboard-ui
+          protocol: TCP
+          containerPort: {{ .Values.ui.port }}
+      {{- if .Values.ui.secret }}
+        volumeMounts:
+          - name: php-creds
+            mountPath: /var/www/html/creds/
+      volumes:
+        - name: php-creds
+          secret:
+            secretName: {{ .Values.ui.secret }}
+            items:
+            - key: connection.php
+              path: connection.php
+      {{- end }}

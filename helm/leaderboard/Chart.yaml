@@ -1,0 +1,23 @@
+apiVersion: v2
+name: leaderboard
+description: A Helm chart for Mina Foundation's block producer leaderboard
+type: application
+version: 1.0.0
+appVersion: 1.16.0
+annotations:
+  artifacthub.io/changes: |
+    - initial chart version for simple ui, cron, and postgres deploys
+dependencies:
+  - name: postgresql
+    version: "*"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: leaderboard.enablePostgresDB
+icon: https://storage.googleapis.com/coda-charts/Mina_Icon_Secondary_RGB_Black.png
+keywords:
+- postgres
+- mina
+- foundation
+- leaderboard
+home: https://minaprotocol.com/
+sources:
+- https://github.com/MinaProtocol/mina/tree/compatible/helm/leaderboard

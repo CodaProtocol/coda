@@ -1,0 +1,41 @@
+ui:
+  image: gcr.io/mina-mainnet-303900/leaderboard-ui:v2
+  port: 80
+  secret: php-connection
+
+cron:
+  image: gcr.io/mina-mainnet-303900/leaderboard-bot:v2
+  secret: leaderboard-cron-creds
+
+leaderboard:
+  enableLocalDaemon: true
+  enablePostgresDB: true
+
+fullnameOverride: "leaderboard"
+
+postgresql:
+  image:
+    pullPolicy: Always
+    registry: gcr.io
+    repository: mina-mainnet-303900/postgres
+    tag: v2
+  postgresqlPassword: "some_password_here"
+  postgresqlUsername: "leaderboard"
+  postgresqlDatabase: "leaderboard"
+  #postgresqlDataDir: "/data/pgdata"
+  fullnameOverride: "pg"
+  persistence:
+    enabled: true
+   # mountPath: "/data/"
+  securityContext:
+    enabled: true
+    fsGroup: 70
+    runAsUser: 70
+  volumePermissions:
+    securityContext:
+      enabled: true
+      fsGroup: 70
+      runAsUser: 70
+  containerSecurityContext:
+    enabled: true
+    runAsUser: 70
