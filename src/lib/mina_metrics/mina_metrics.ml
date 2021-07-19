@@ -352,6 +352,14 @@ module Network = struct
     let help = "# of messages received" in
     Counter.v "messages_received" ~help ~namespace ~subsystem
 
+  let rpc_requests_received : Counter.t =
+    let help = "# of rpc requests received" in
+    Counter.v "rpc_requests_received" ~help ~namespace ~subsystem
+
+  let rpc_requests_sent : Counter.t =
+    let help = "# of rpc requests sent" in
+    Counter.v "rpc_requests_sent" ~help ~namespace ~subsystem
+
   module Gauge_map = Metric_map (struct
     type t = Gauge.t
 
