@@ -274,6 +274,7 @@ module Make (Rpc_intf : Mina_base.Rpc_intf.Rpc_interface_intf) :
             let%bind _rpc_handler =
               Mina_net2.handle_protocol net2 ~on_handler_error:`Raise
                 ~protocol:rpc_transport_proto (fun stream ->
+                  Mina_metrics.(Counter.inc_one Network.rpc_requests_received) ;
                   let peer = Mina_net2.Stream.remote_peer stream in
                   let transport = prepare_stream_transport stream in
                   let open Deferred.Let_syntax in
