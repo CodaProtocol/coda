@@ -23,7 +23,7 @@ module type Transition_handler_validator_intf = sig
          ( ( External_transition.Initial_validated.t Envelope.Incoming.t
            , State_hash.t )
            Cached.t
-         , Strict_pipe.crash Strict_pipe.buffered
+         , Strict_pipe.drop_head Strict_pipe.buffered
          , unit )
          Strict_pipe.Writer.t
     -> unprocessed_transition_cache:unprocessed_transition_cache

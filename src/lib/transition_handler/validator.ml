@@ -56,7 +56,7 @@ let run ~logger ~consensus_constants ~trust_system ~time_controller ~frontier
        ( ( External_transition.Initial_validated.t Envelope.Incoming.t
          , State_hash.t )
          Cached.t
-       , crash buffered
+       , drop_head buffered
        , unit )
        Writer.t) ~unprocessed_transition_cache =
   let module Lru = Core_extended_cache.Lru in

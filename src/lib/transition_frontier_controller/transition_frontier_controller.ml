@@ -6,17 +6,18 @@ open O1trace
 let run ~logger ~trust_system ~verifier ~network ~time_controller
     ~collected_transitions ~frontier ~network_transition_reader
     ~producer_transition_reader ~clear_reader ~precomputed_values =
-  let valid_transition_pipe_capacity = 30 in
+  let valid_transition_pipe_capacity = 50 in
   let valid_transition_reader, valid_transition_writer =
     Strict_pipe.create ~name:"valid transitions"
-      (Buffered (`Capacity valid_transition_pipe_capacity, `Overflow Crash))
+      (Buffered (`Capacity valid_transition_pipe_capacity, `Overflow Drop_head))
   in
   let primary_transition_pipe_capacity =
     valid_transition_pipe_capacity + List.length collected_transitions
   in
+  (* Ok to drop on overflow- catchup will be triggered if required*)
   let primary_transition_reader, primary_transition_writer =
     Strict_pipe.create ~name:"primary transitions"
-      (Buffered (`Capacity primary_transition_pipe_capacity, `Overflow Crash))
+      (Buffered (`Capacity primary_transition_pipe_capacity, `Overflow Drop_head))
   in
   let processed_transition_reader, processed_transition_writer =
     Strict_pipe.create ~name:"processed transitions"

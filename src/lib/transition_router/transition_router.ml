@@ -14,7 +14,7 @@ type Structured_log_events.t += Starting_bootstrap_controller
   [@@deriving register_event { msg = "Starting bootstrap controller phase" }]
 
 let create_bufferred_pipe ?name () =
-  Strict_pipe.create ?name (Buffered (`Capacity 50, `Overflow Crash))
+  Strict_pipe.create ?name (Buffered (`Capacity 50, `Overflow Drop_head))
 
 let is_transition_for_bootstrap ~logger
     ~(precomputed_values : Precomputed_values.t) frontier new_transition =
