@@ -1361,9 +1361,11 @@ include struct
   let random_peers = lift random_peers
 
   let query_peer ?heartbeat_timeout ?timeout {gossip_net; _} =
+    Mina_metrics.(Counter.inc_one Network.rpc_requests_sent) ;
     query_peer ?heartbeat_timeout ?timeout gossip_net
 
   let query_peer' ?how ?heartbeat_timeout ?timeout {gossip_net; _} =
+    Mina_metrics.(Counter.inc_one Network.rpc_requests_sent) ;
     query_peer' ?how ?heartbeat_timeout ?timeout gossip_net
 
   let restart_helper {gossip_net; _} = restart_helper gossip_net
