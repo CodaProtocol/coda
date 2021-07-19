@@ -4,4 +4,4 @@
  (targets config.mlh)
  (mode promote)
  (deps config/config.mlh)
- (action (copy config/config.mlh config.mlh)))
+ (action (copy generate_config/config.mlh config.mlh)))

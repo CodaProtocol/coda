@@ -1,0 +1,11 @@
+(executable
+ (name generate_config)
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_version)))
+
+(rule
+ (targets config_rule.sexp)
+ (mode promote)
+ (action (run %{exe:generate_config.exe})))
+
+(include config_rule.sexp)
