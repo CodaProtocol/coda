@@ -269,14 +269,15 @@ struct
         Currency.Fee.(fee >= t.account_creation_fee)
         ||
         match best_tip_ledger with
-        | None ->
-            false
-        | Some l ->
+        | Some l
+          when Option.is_none (Deferred.peek (Base_ledger.detached_signal l)) ->
             Option.(
               is_some
                 ( Base_ledger.location_of_account l
                     (Account_id.create prover Token_id.default)
                 >>= Base_ledger.get l ))
+        | None | Some _ ->
+            false
 
       let handle_transition_frontier_diff u t =
         match u with
