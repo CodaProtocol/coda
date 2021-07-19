@@ -207,7 +207,9 @@ let get_status ~flag t =
   let user_commands_sent = !txn_count in
   let snark_worker =
     Option.map
-      (Mina_lib.snark_worker_key t)
+      (Option.merge ~f:Fn.const
+         (Mina_lib.snark_worker_key t)
+         (Mina_lib.snark_coordinator_key t))
       ~f:Public_key.Compressed.to_base58_check
   in
   let snark_work_fee = Currency.Fee.to_int @@ Mina_lib.snark_work_fee t in
