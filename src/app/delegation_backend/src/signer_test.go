@@ -3,6 +3,7 @@ package delegation_backend
 import (
   "encoding/json"
   "testing"
+  "golang.org/x/crypto/blake2b"
 )
 
 func testVerifySig(pkStr string, sigStr string, data []byte, t *testing.T) {
@@ -50,17 +51,18 @@ func testVerifyRequest (name string, t *testing.T) {
   if err != nil {
     t.FailNow()
   }
-  if !verifySig(&req.Submitter, &req.Sig, j, 1) {
+  hash := blake2b.Sum256(j)
+  if !verifySig(&req.Submitter, &req.Sig, hash[:], 1) {
     t.FailNow()
   }
 }
 
 func TestVerifyRequest1 (t *testing.T) {
-  testVerifyRequest("req-with-snark-3", t)
+  testVerifyRequest("req-with-snark", t)
 }
 
 func TestVerifyRequest2 (t *testing.T) {
-  testVerifyRequest("req-with-snark-2", t)
+  testVerifyRequest("req-no-snark", t)
 }
 
 const PK4 = "B62qoJC4KuLXgTEX2uwQGPNZSnqRTvJHzcEzkWTDFTXMsqdXPNKxJLs"

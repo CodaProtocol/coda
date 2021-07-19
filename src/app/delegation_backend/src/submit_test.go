@@ -139,7 +139,7 @@ func TestUnauthorized(t *testing.T){
 }
 
 func TestPkLimitExceeded(t *testing.T){
-  body := readTestFile("req-with-snark-2", t)
+  body := readTestFile("req-with-snark", t)
   var req submitRequest
   if err := json.Unmarshal(body, &req); err != nil {
     t.Log("failed decoding test file")
@@ -157,22 +157,21 @@ func TestPkLimitExceeded(t *testing.T){
     t.Log(rep2)
     t.FailNow()
   }
-  // TODO uncomment after signature verification stops hanging
-  // req.Submitter = otherSubmitter
-  // body2, err := json.Marshal(req)
-  // if err != nil {
-  //   t.Log("failed encoding JSON body")
-  //   t.FailNow()
-  // }
-  // rep3 := sh.testRequest(body2)
-  // if rep3.Code != 401 {
-  //   t.Log(rep3)
-  //   t.FailNow()
-  // }
+  req.Submitter = otherSubmitter
+  body2, err := json.Marshal(req)
+  if err != nil {
+    t.Log("failed encoding JSON body")
+    t.FailNow()
+  }
+  rep3 := sh.testRequest(body2)
+  if rep3.Code != 401 {
+    t.Log(rep3)
+    t.FailNow()
+  }
 }
 
 func TestSuccess(t *testing.T){
-  testNames := []string{"req-with-snark-3", "req-with-snark-2"}
+  testNames := []string{"req-no-snark", "req-with-snark"}
   for _, f := range(testNames) {
     body := readTestFile(f, t)
     var req submitRequest
@@ -202,7 +201,7 @@ func TestSuccess(t *testing.T){
 }
 
 func Test400(t *testing.T){
-  body := readTestFile("req-with-snark-2", t)
+  body := readTestFile("req-with-snark", t)
   var req submitRequest
   if err := json.Unmarshal(body, &req); err != nil {
     t.Log("failed decoding test file")

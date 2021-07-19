@@ -160,7 +160,8 @@ func (h *SubmitH) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     writeErrorResponse(h.app, &w, "Unexpected server error")
     return
   }
-  if !verifySig(&req.Submitter, &req.Sig, payload, NETWORK_ID) {
+  hash := blake2b.Sum256(payload)
+  if !verifySig(&req.Submitter, &req.Sig, hash[:], NETWORK_ID) {
     w.WriteHeader(401)
     writeErrorResponse(h.app, &w, "Invalid signature")
     return
