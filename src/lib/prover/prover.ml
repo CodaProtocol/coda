@@ -58,9 +58,8 @@ module Worker_state = struct
   type init_arg =
     { conf_dir : string
     ; logger : Logger.Stable.Latest.t
-    ; proof_level : Genesis_constants.Proof_level.Stable.Latest.t
-    ; constraint_constants :
-        Genesis_constants.Constraint_constants.Stable.Latest.t
+    ; proof_level : Genesis_constants.Proof_level.t
+    ; constraint_constants : Genesis_constants.Constraint_constants.t
     }
   [@@deriving bin_io_unversioned]
 
