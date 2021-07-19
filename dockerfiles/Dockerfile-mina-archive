@@ -13,16 +13,30 @@ RUN echo "Building image with version $deb_version"
 COPY scripts/archive-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-COPY --chown=${UID} puppeteer-context/* /
-RUN chmod +x /mina_daemon_puppeteer.py /find_puppeteer.sh /start.sh /stop.sh
+# archive container is not being run under puppeteer atm for the integration tests, so these aren't needed
+# COPY --chown=${UID} puppeteer-context/* /
+# RUN chmod +x /mina_daemon_puppeteer.py /find_puppeteer.sh /start.sh /stop.sh
 
 # Workaround terrible postgresql package requirements with man
 RUN mkdir /usr/share/man/man7 /usr/share/man/man1
+
+#these are necessary to install BEFORE attempting to install psql-11
+RUN apt-get -y update \
+    && apt-get -y upgrade \
+    && apt-get -y install \
+      wget \
+      lsb-release \
+      gnupg
+
+RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
+  && RELEASE=$(lsb_release -cs) \
+  && echo "deb http://apt.postgresql.org/pub/repos/apt/ ${RELEASE}"-pgdg main | tee /etc/apt/sources.list.d/pgdg.list
 
 # Dependencies
 RUN apt-get -y update \
     && apt-get -y upgrade \
     && apt-get -y install \
+        procps \
         curl \
         jq \
         dumb-init \
@@ -34,7 +48,7 @@ RUN apt-get -y update \
         ca-certificates \
         dnsutils \
         tzdata \
-        postgresql \
+        postgresql-11 \
         postgresql-contrib \
         apt-utils \
         man \

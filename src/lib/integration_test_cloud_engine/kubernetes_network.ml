@@ -11,7 +11,10 @@ module Node = struct
     ; cluster : string
     ; namespace : string
     ; pod_id : string
-    ; container_id : string (* name of the container inside the pod *)
+          (* ; container_ids : string list *)
+          (* name of the container inside the pod.  most have only 1, archive nodes have 2 *)
+    ; mina_container_id : string
+    ; mina_archive_container_id : string option
     ; graphql_enabled : bool
     ; network_keypair : Network_keypair.t option
     }
@@ -22,60 +25,91 @@ module Node = struct
 
   let base_kube_args t = [ "--cluster"; t.cluster; "--namespace"; t.namespace ]
 
-  let run_in_postgresql_container node ~cmd =
-    let base_args = base_kube_args node in
-    let base_kube_cmd = "kubectl " ^ String.concat ~sep:" " base_args in
-    let kubectl_cmd =
-      Printf.sprintf "%s -c %s exec -i %s-0 -- %s" base_kube_cmd
-        node.container_id node.container_id cmd
+  let get_logs_in_container ?container node =
+    let container_id : string =
+      match container with None -> node.mina_container_id | Some id -> id
     in
-    let%bind cwd = Unix.getcwd () in
-    Util.run_cmd_exn cwd "sh" [ "-c"; kubectl_cmd ]
-
-  let get_logs_in_container node =
     let base_args = base_kube_args node in
     let base_kube_cmd = "kubectl " ^ String.concat ~sep:" " base_args in
     let pod_cmd =
       sprintf "%s get pod -l \"app=%s\" -o name" base_kube_cmd node.pod_id
     in
-    let%bind cwd = Unix.getcwd () in
+    let%bind.Deferred cwd = Unix.getcwd () in
     let%bind pod = Util.run_cmd_exn cwd "sh" [ "-c"; pod_cmd ] in
     let kubectl_cmd =
-      Printf.sprintf "%s logs -c %s -n %s %s" base_kube_cmd node.container_id
+      Printf.sprintf "%s logs -c %s -n %s %s" base_kube_cmd container_id
         node.namespace pod
     in
     Util.run_cmd_exn cwd "sh" [ "-c"; kubectl_cmd ]
 
-  let run_in_container node cmd =
+  let run_in_container node ~container_id ~cmd =
     let base_args = base_kube_args node in
     let base_kube_cmd = "kubectl " ^ String.concat ~sep:" " base_args in
     let kubectl_cmd =
       Printf.sprintf
         "%s -c %s exec -i $( %s get pod -l \"app=%s\" -o name) -- %s"
-        base_kube_cmd node.container_id base_kube_cmd node.pod_id cmd
+        base_kube_cmd container_id base_kube_cmd node.pod_id cmd
     in
     let%bind.Deferred cwd = Unix.getcwd () in
-    Malleable_error.return (Util.run_cmd_exn cwd "sh" [ "-c"; kubectl_cmd ])
+    Util.run_cmd_exn cwd "sh" [ "-c"; kubectl_cmd ]
+
+  (* we dont use this functionality atm but if we need logic that runs commands in all containers a whole pod at a time, here it is *)
+  (* let run_in_pod node ~cmd =
+     (* run the cmd in every single container in a pod *)
+     let call_run container_id =
+       let%map res = run_in_container node ~container_id ~cmd in
+       res
+     in
+     let foldh accum m =
+       let open Deferred.Let_syntax in
+       let%bind acc = accum in
+       Deferred.map m ~f:(function s -> acc ^ s)
+     in
+     let container_list : string list =
+       List.append [ node.mina_container_id ]
+       (Option.to_list node.mina_archive_container_id)
+     in
+     let result_list = List.map container_list ~f:call_run in
+     List.fold result_list ~init:(Deferred.return "") ~f:foldh *)
 
   let start ~fresh_state node : unit Malleable_error.t =
     let open Malleable_error.Let_syntax in
     let%bind _ =
-      Deferred.bind ~f:Malleable_error.return (run_in_container node "ps aux")
+      Malleable_error.return
+        (run_in_container node ~container_id:node.mina_container_id
+           ~cmd:"ps aux")
     in
-    let%bind () =
+    let%bind _ =
       if fresh_state then
-        let%bind _ = run_in_container node "rm -rf .mina-config/*" in
-        Malleable_error.return ()
-      else Malleable_error.return ()
+        Malleable_error.return
+          (run_in_container node ~container_id:node.mina_container_id
+             ~cmd:"rm -rf .mina-config/*")
+      else Malleable_error.return (Deferred.return "")
     in
-    let%bind _ = run_in_container node "/start.sh" in
+    let%bind _ =
+      Malleable_error.return
+        (run_in_container node ~container_id:node.mina_container_id
+           ~cmd:"/start.sh")
+    in
     Malleable_error.return ()
 
   let stop node =
     let open Malleable_error.Let_syntax in
-    let%bind _ = run_in_container node "ps aux" in
-    let%bind _ = run_in_container node "/stop.sh" in
-    let%bind _ = run_in_container node "ps aux" in
+    let%bind _ =
+      Malleable_error.return
+        (run_in_container node ~container_id:node.mina_container_id
+           ~cmd:"ps aux")
+    in
+    let%bind _ =
+      Malleable_error.return
+        (run_in_container node ~container_id:node.mina_container_id
+           ~cmd:"/stop.sh")
+    in
+    let%bind _ =
+      Malleable_error.return
+        (run_in_container node ~container_id:node.mina_container_id
+           ~cmd:"ps aux")
+    in
     return ()
 
   let get_pod_name t : string Malleable_error.t =
@@ -358,24 +392,32 @@ module Node = struct
     |> Deferred.bind ~f:Malleable_error.or_hard_error
 
   let dump_archive_data ~logger (t : t) ~data_file =
+    (* this function won't work if t doesn't happen to be an archive node *)
+    let archive_container_id =
+      if Option.is_none t.mina_archive_container_id then
+        failwith
+          "Trying to dump logs of archive node but there is no archive \
+           container"
+      else Option.value ~default:"" t.mina_archive_container_id
+    in
     let open Malleable_error.Let_syntax in
     [%log info] "Dumping archive data from (node: %s, container: %s)" t.pod_id
-      t.container_id ;
+      archive_container_id ;
     let%map data =
       Deferred.bind ~f:Malleable_error.return
-        (run_in_postgresql_container t
+        (run_in_container t ~container_id:archive_container_id
            ~cmd:
              "pg_dump --create --no-owner \
-              postgres://postgres:foobar@localhost:5432/archive")
+              postgres://postgres:foobar@archive-1-postgresql:5432/archive")
     in
     [%log info] "Dumping archive data to file %s" data_file ;
     Out_channel.with_file data_file ~f:(fun out_ch ->
         Out_channel.output_string out_ch data)
 
-  let dump_container_logs ~logger (t : t) ~log_file =
+  let dump_mina_logs ~logger (t : t) ~log_file =
     let open Malleable_error.Let_syntax in
     [%log info] "Dumping container logs from (node: %s, container: %s)" t.pod_id
-      t.container_id ;
+      t.mina_container_id ;
     let%map logs =
       Deferred.bind ~f:Malleable_error.return (get_logs_in_container t)
     in
@@ -387,7 +429,7 @@ module Node = struct
     let open Malleable_error.Let_syntax in
     [%log info]
       "Dumping precomputed blocks from logs for (node: %s, container: %s)"
-      t.pod_id t.container_id ;
+      t.pod_id t.mina_container_id ;
     let%bind logs =
       Deferred.bind ~f:Malleable_error.return (get_logs_in_container t)
     in
@@ -507,19 +549,18 @@ let initialize ~logger network =
     |> List.map ~f:(fun { pod_id; _ } -> pod_id)
     |> String.Set.of_list
   in
-  let get_pod_statuses () =
-    let%map output =
-      Deferred.bind ~f:Malleable_error.return
-        (Util.run_cmd_exn "/" "kubectl"
-           [ "-n"
-           ; network.namespace
-           ; "get"
-           ; "pods"
-           ; "-ojsonpath={range \
-              .items[*]}{.metadata.labels.app}{':'}{.status.phase}{'\\n'}{end}"
-           ])
-    in
-    output |> String.split_lines
+  let kube_get_pods () =
+    Util.run_cmd_or_error_timeout ~timeout_seconds:60 "/" "kubectl"
+      [ "-n"
+      ; network.namespace
+      ; "get"
+      ; "pods"
+      ; "-ojsonpath={range \
+         .items[*]}{.metadata.labels.app}{':'}{.status.phase}{'\\n'}{end}"
+      ]
+  in
+  let process_pod_statuses result_str =
+    result_str |> String.split_lines
     |> List.map ~f:(fun line ->
            let parts = String.split line ~on:':' in
            assert (List.length parts = 2) ;
@@ -527,58 +568,109 @@ let initialize ~logger network =
     |> List.filter ~f:(fun (pod_name, _) -> String.Set.mem all_pods pod_name)
   in
   let rec poll n =
-    let%bind pod_statuses = get_pod_statuses () in
-    (* TODO: detect "bad statuses" (eg CrashLoopBackoff) and terminate early *)
-    let bad_pod_statuses =
-      List.filter pod_statuses ~f:(fun (_, status) ->
-          not (String.equal status "Running"))
+    [%log debug] "Checking kubernetes pod statuses, n=%d" n ;
+    let%bind run_result =
+      Deferred.bind ~f:Malleable_error.return (kube_get_pods ())
     in
-    if List.is_empty bad_pod_statuses then return ()
-    else if n < max_polls then
-      let%bind () =
-        after poll_interval |> Deferred.bind ~f:Malleable_error.return
-      in
-      poll (n + 1)
-    else
-      let bad_pod_statuses_json =
-        `List
-          (List.map bad_pod_statuses ~f:(fun (pod_name, status) ->
-               `Assoc
-                 [ ("pod_name", `String pod_name); ("status", `String status) ]))
-      in
-      [%log fatal]
-        "Not all pods were assigned to nodes and ready in time: \
-         $bad_pod_statuses"
-        ~metadata:[ ("bad_pod_statuses", bad_pod_statuses_json) ] ;
-      Malleable_error.hard_error_format
-        "Some pods either were not assigned to nodes or did deploy properly \
-         (errors: %s)"
-        (Yojson.Safe.to_string bad_pod_statuses_json)
+    let bad_pod_statuses_opt =
+      match run_result with
+      | Ok str ->
+          let pod_statuses = process_pod_statuses str in
+          (* TODO: detect "bad statuses" (eg CrashLoopBackoff) and terminate early *)
+          let filtered =
+            List.filter pod_statuses ~f:(fun (_, status) ->
+                not (String.equal status "Running"))
+          in
+          Some filtered
+      | Error _ ->
+          None
+    in
+    match bad_pod_statuses_opt with
+    | Some [] ->
+        return ()
+    | _ ->
+        if n < max_polls then
+          let%bind () =
+            after poll_interval |> Deferred.bind ~f:Malleable_error.return
+          in
+          let () =
+            if Option.is_none bad_pod_statuses_opt then
+              [%log debug] "`kubectl get pods` timed out, polling again"
+          in
+          let () =
+            if Option.is_some bad_pod_statuses_opt then (
+              let rec print_tuples = function
+                | [] ->
+                    ()
+                | (a, b) :: rest ->
+                    [%log debug] "(pod: %s, status: %s) " a b ;
+                    print_tuples rest
+              in
+              let statuses = Option.value_exn bad_pod_statuses_opt in
+              [%log debug] "Got bad pod statuses, polling again" ;
+              print_tuples statuses )
+          in
+          poll (n + 1)
+        else if Option.is_some bad_pod_statuses_opt then (
+          let bad_pod_statuses_json =
+            `List
+              (List.map (Option.value_exn bad_pod_statuses_opt)
+                 ~f:(fun (pod_name, status) ->
+                   `Assoc
+                     [ ("pod_name", `String pod_name)
+                     ; ("status", `String status)
+                     ]))
+          in
+          [%log fatal]
+            "Not all pods were assigned to nodes and ready in time: \
+             $bad_pod_statuses"
+            ~metadata:[ ("bad_pod_statuses", bad_pod_statuses_json) ] ;
+          Malleable_error.hard_error_format
+            "Some pods either were not assigned to nodes or did not deploy \
+             properly (errors: %s)"
+            (Yojson.Safe.to_string bad_pod_statuses_json) )
+        else
+          let%bind () = Malleable_error.return () in
+          [%log fatal]
+            "`kubectl get pods` timed out (at least on the latest poll).  This \
+             probably means that not all pods were assigned to nodes and ready \
+             in time" ;
+          Malleable_error.hard_error_string
+            "`kubectl get pods` timed out (at least on the latest poll).  This \
+             probably means that not all pods were assigned to nodes and ready \
+             in time"
   in
   [%log info] "Waiting for pods to be assigned nodes and become ready" ;
-  Deferred.bind (poll 0) ~f:(fun res ->
-      if Malleable_error.is_ok res then
-        let seed_nodes = seeds network in
-        let seed_pod_ids =
-          seed_nodes
-          |> List.map ~f:(fun { Node.pod_id; _ } -> pod_id)
-          |> String.Set.of_list
-        in
-        let non_seed_nodes =
-          network |> all_nodes
-          |> List.filter ~f:(fun { Node.pod_id; _ } ->
-                 not (String.Set.mem seed_pod_ids pod_id))
-        in
-        (* TODO: parallelize (requires accumlative hard errors) *)
-        let%bind () =
-          Malleable_error.List.iter seed_nodes
-            ~f:(Node.start ~fresh_state:false)
-        in
-        (* put a short delay before starting other nodes, to help avoid artifact generation races *)
-        let%bind () =
-          after (Time.Span.of_sec 30.0)
-          |> Deferred.bind ~f:Malleable_error.return
-        in
-        Malleable_error.List.iter non_seed_nodes
-          ~f:(Node.start ~fresh_state:false)
-      else Deferred.return res)
+  let res = poll 0 in
+  match%bind.Deferred res with
+  | Error _ ->
+      [%log error]
+        "Since not all pods were assigned nodes, daemons will not be started" ;
+      res
+  | Ok _ ->
+      [%log info] "Starting the daemons within the pods" ;
+      let seed_nodes = seeds network in
+      let start_print (node : Node.t) =
+        let open Malleable_error.Let_syntax in
+        [%log info] "starting %s ..." node.pod_id ;
+        let%bind res = Node.start ~fresh_state:false node in
+        [%log info] "%s started" node.pod_id ;
+        Malleable_error.return res
+      in
+      let seed_pod_ids =
+        seed_nodes
+        |> List.map ~f:(fun { Node.pod_id; _ } -> pod_id)
+        |> String.Set.of_list
+      in
+      let non_seed_nodes =
+        network |> all_nodes
+        |> List.filter ~f:(fun { Node.pod_id; _ } ->
+               not (String.Set.mem seed_pod_ids pod_id))
+      in
+      (* TODO: parallelize (requires accumlative hard errors) *)
+      let%bind () = Malleable_error.List.iter seed_nodes ~f:start_print in
+      (* put a short delay before starting other nodes, to help avoid artifact generation races *)
+      let%bind () =
+        after (Time.Span.of_sec 30.0) |> Deferred.bind ~f:Malleable_error.return
+      in
+      Malleable_error.List.iter non_seed_nodes ~f:start_print

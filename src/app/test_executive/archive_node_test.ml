@@ -30,7 +30,7 @@ module Make (Inputs : Intf.Test.Inputs_intf) = struct
     }
 
   (* number of minutes to let the network run, after initialization *)
-  let runtime_min = 15.
+  let runtime_min = 5.
 
   let run network t =
     let open Malleable_error.Let_syntax in
@@ -43,6 +43,8 @@ module Make (Inputs : Intf.Test.Inputs_intf) = struct
       Malleable_error.List.iter block_producers ~f:(fun bp ->
           wait_for t (Wait_condition.node_to_initialize bp))
     in
+    [%log info] "archive node test: waiting for archive node to initialize" ;
+    let%bind () = wait_for t (Wait_condition.node_to_initialize archive_node) in
     [%log info] "archive node test: running network for %0.1f minutes"
       runtime_min ;
     let%bind.Async.Deferred () = Async.after (Time.Span.of_min runtime_min) in

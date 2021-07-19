@@ -121,6 +121,8 @@ locals {
       testnetName = var.testnet_name
       coda        = {
         image         = var.mina_image
+        useCustomEntrypoint  = var.use_custom_entrypoint
+        customEntrypoint     = var.custom_entrypoint
         seedPeers     = local.peers
         runtimeConfig = local.coda_vars.runtimeConfig
         seedPeersURL  = var.seed_peers_url

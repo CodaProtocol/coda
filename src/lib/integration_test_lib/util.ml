@@ -1,5 +1,6 @@
 open Core
 open Async
+module Timeout = Timeout_lib.Core_time
 
 (* module util with  *)
 
@@ -10,9 +11,8 @@ let run_cmd dir prog args =
   Process.create_exn ~working_dir:dir ~prog ~args ()
   >>= Process.collect_output_and_wait
 
-let run_cmd_or_error dir prog args =
+let check_cmd_output ~prog ~args output =
   let open Process.Output in
-  let%bind output = run_cmd dir prog args in
   let print_output () =
     let indent str =
       String.split str ~on:'\n'
@@ -42,12 +42,46 @@ let run_cmd_or_error dir prog args =
       Or_error.errorf "command exited prematurely due to signal %d"
         (Signal.to_system_int signal)
 
+let run_cmd_or_error_timeout ~timeout_seconds dir prog args =
+  [%log' spam (Logger.create ())]
+    "Running command (from %s): $command" dir
+    ~metadata:[ ("command", `String (String.concat (prog :: args) ~sep:" ")) ] ;
+  let open Deferred.Let_syntax in
+  let%bind process = Process.create_exn ~working_dir:dir ~prog ~args () in
+  let%bind res =
+    match%map
+      Timeout.await ()
+        ~timeout_duration:(Time.Span.create ~sec:timeout_seconds ())
+        (Process.collect_output_and_wait process)
+    with
+    | `Ok output ->
+        check_cmd_output ~prog ~args output
+    | `Timeout ->
+        Deferred.return (Or_error.error_string "timed out running command")
+  in
+  res
+
+let run_cmd_or_error dir prog args =
+  let%bind output = run_cmd dir prog args in
+  check_cmd_output ~prog ~args output
+
 let run_cmd_exn dir prog args =
   match%map run_cmd_or_error dir prog args with
   | Ok output ->
       output
   | Error error ->
       Error.raise error
+
+let run_cmd_exn_timeout ~timeout_seconds dir prog args =
+  match%map run_cmd_or_error_timeout ~timeout_seconds dir prog args with
+  | Ok output ->
+      output
+  | Error error ->
+      Error.raise error
+
+(* Timeout.await ()
+   ~timeout_duration:(Time.Span.create ~sec:timeout_seconds ())
+   (run_cmd_exn dir prog args) *)
 
 let rec prompt_continue prompt_string =
   print_string prompt_string ;
