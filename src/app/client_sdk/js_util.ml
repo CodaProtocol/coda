@@ -43,15 +43,32 @@ let payload_common_of_js (payload_common_js : payload_common_js) =
   Signed_command_payload.Common.Poly.
     { fee; fee_token; fee_payer_pk; nonce; valid_until; memo }
 
+let payload_common_to_js
+    { Signed_command_payload.Common.Poly.fee
+    ; fee_token = _
+    ; fee_payer_pk
+    ; nonce
+    ; valid_until
+    ; memo
+    } : payload_common_js =
+  object%js
+    val mutable fee = Currency.Fee.to_string fee |> Js.string
+
+    val mutable feePayer =
+      Signature_lib.Public_key.Compressed.to_base58_check fee_payer_pk
+      |> Js.string
+
+    val mutable nonce = Mina_numbers.Account_nonce.to_string nonce |> Js.string
+
+    val mutable validUntil = Global_slot.to_string valid_until |> Js.string
+
+    val mutable memo = Memo.to_string memo |> Js.string
+  end
+
 type payment_payload_js =
   < source : string_js Js.prop
   ; receiver : string_js Js.prop
   ; amount : string_js Js.prop >
-  Js.t
-
-type payment_js =
-  < common : payload_common_js Js.prop
-  ; paymentPayload : payment_payload_js Js.prop >
   Js.t
 
 let payment_body_of_js payment_payload =
@@ -70,10 +87,41 @@ let payment_body_of_js payment_payload =
   Signed_command_payload.Body.Payment
     Payment_payload.Poly.{ source_pk; receiver_pk; token_id; amount }
 
+type payment_js =
+  < common : payload_common_js Js.prop
+  ; paymentPayload : payment_payload_js Js.prop >
+  Js.t
+
 let payload_of_payment_js payment_js : Signed_command_payload.t =
   let common = payload_common_of_js payment_js##.common in
   let body = payment_body_of_js payment_js##.paymentPayload in
   Signed_command_payload.Poly.{ common; body }
+
+let payload_to_payment_js { Signed_command_payload.Poly.common; body } :
+    payment_js =
+  let { Payment_payload.Poly.source_pk; receiver_pk; token_id = _; amount } =
+    body
+  in
+
+  let paymentPayload =
+    object%js
+      val mutable source =
+        Signature_lib.Public_key.Compressed.to_base58_check source_pk
+        |> Js.string
+
+      val mutable receiver =
+        Signature_lib.Public_key.Compressed.to_base58_check receiver_pk
+        |> Js.string
+
+      val mutable amount = Currency.Amount.to_string amount |> Js.string
+    end
+  in
+
+  object%js
+    val mutable common = payload_common_to_js common
+
+    val mutable paymentPayload = paymentPayload
+  end
 
 type stake_delegation_payload_js =
   < delegator : string_js Js.prop ; newDelegate : string_js Js.prop > Js.t
@@ -123,6 +171,18 @@ type signed_payment =
   ; sender : string_js Js.readonly_prop
   ; signature : signature_js Js.readonly_prop >
   Js.t
+
+let signed_payment_to_js { Signed_command.Poly.payload; signer; signature } :
+    signed_payment =
+  object%js
+    val payment = payload_to_payment_js payload
+
+    val sender =
+      Signature_lib.Public_key.compress signer
+      |> Signature_lib.Public_key.Compressed.to_base58_check |> Js.string
+
+    val signature = signature_to_js_object signature
+  end
 
 type signed_stake_delegation =
   < stakeDelegation : stake_delegation_js Js.readonly_prop
