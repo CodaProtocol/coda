@@ -5,49 +5,59 @@ open Async
 let trustlist = []
 
 let dirs_trustlist =
-  [ ".git"
-  ; "_build"
+  [ (* `.git` is NOT 'ignored' by git - it is 'un-addable', and therefore must be excluded explicitly *)
+    ".git"
   ; "stationary"
   ; ".un~"
   ; "frontend"
   ; "external"
   ; "ocamlformat"
-  ; "node_modules"
   ; "tablecloth"
   ; "zexe"
   ; "marlin"
-  ; "snarky"
-  ; "_opam" ]
+  ; "snarky" ]
+
+let git_ignored (filepath : Filename.t) : bool Deferred.t =
+  match%map Sys.command @@ "git check-ignore -q " ^ Sys.quote filepath with
+  | 0 ->
+      true
+  | 1 ->
+      false
+  | _ ->
+      failwith @@ "Unexpected error occurred @ " ^ __LOC__
 
 let rec fold_over_files ~path ~process_path ~init ~f =
   let%bind all = Sys.ls_dir path in
   Deferred.List.fold all ~init ~f:(fun acc x ->
       match%bind Sys.is_directory (path ^/ x) with
-      | `Yes when process_path `Dir (path ^/ x) ->
-          fold_over_files ~path:(path ^/ x) ~process_path ~init:acc ~f
       | `Yes ->
-          return acc
-      | _ when process_path `File (path ^/ x) ->
-          f acc (path ^/ x)
+          if%bind process_path `Dir (path ^/ x) then
+            fold_over_files ~path:(path ^/ x) ~process_path ~init:acc ~f
+          else return acc
       | _ ->
-          return acc )
+          if%bind process_path `File (path ^/ x) then f acc (path ^/ x)
+          else return acc )
+
+(* checks if the provided string ends with any of the provided suffixes. *)
+let exists_suffix suffixes path =
+  List.exists suffixes ~f:(fun s -> String.is_suffix ~suffix:s path)
+
+let is_trusted_filepath : [< `Dir | `File] -> Filename.t -> bool = function
+  | `Dir ->
+      exists_suffix dirs_trustlist
+  | `File ->
+      exists_suffix trustlist
+
+let has_ocaml_file_ext = exists_suffix [".ml"; ".mli"]
+
+let process_path kind path =
+  let%map ignored = git_ignored path in
+  if ignored || is_trusted_filepath kind path then false
+  else match kind with `Dir -> true | `File -> has_ocaml_file_ext path
 
 let main dry_run check path =
   let%bind _all =
-    fold_over_files ~path ~init:()
-      ~process_path:(fun kind path ->
-        match kind with
-        | `Dir ->
-            not
-              (List.exists dirs_trustlist ~f:(fun s ->
-                   String.is_suffix ~suffix:s path ))
-        | `File ->
-            (not
-               (List.exists trustlist ~f:(fun s ->
-                    String.is_suffix ~suffix:s path )))
-            && ( String.is_suffix ~suffix:".ml" path
-               || String.is_suffix ~suffix:".mli" path ) )
-      ~f:(fun () file ->
+    fold_over_files ~path ~init:() ~process_path ~f:(fun () file ->
         let dump prog args =
           printf !"%s %{sexp: string List.t}\n" prog args ;
           return ()
