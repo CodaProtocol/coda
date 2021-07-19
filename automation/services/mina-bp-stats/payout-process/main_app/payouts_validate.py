@@ -37,7 +37,7 @@ def read_delegation_record_table(epoch_no):
         delegation_record_list = cursor.fetchall()
         delegation_record_df = pd.DataFrame(delegation_record_list,
                                             columns=['provider_pub_key', 'winner_pub_key', 'blocks', 'payout_amount',
-                                                     'payout_balance', 'last_delegation_epoch'])
+                                                     'payout_balance', 'last_delegation_epoch', 'last_slot_validated'])
 
     except (Exception, psycopg2.DatabaseError) as error:
         logger.error(ERROR.format(error))
@@ -58,8 +58,10 @@ def read_staking_json(epoch_no):
     storage_client = get_gcs_client()
     # get bucket with name
     bucket = storage_client.get_bucket(BaseConfig.GCS_BUCKET_NAME)
-    # get bucket data as blob')
-    staking_file_prefix = "staking-" + str(epoch_no)
+    if is_genesis_epoch(epoch_no):
+        staking_file_prefix = "staking-1"
+    else:
+        staking_file_prefix = "staking-" + str(epoch_no)
     blobs = storage_client.list_blobs(bucket, prefix=staking_file_prefix)
     # convert to string
     file_dict_for_memory = dict()
@@ -81,7 +83,7 @@ def read_staking_json(epoch_no):
     return modified_staking_df
 
 
-def determine_slot_range_for_validation(epoch_no, last_delegation_epoch):
+def determine_slot_range_for_validation(epoch_no, last_slot_validated):
     # find entry from summary table for matching winner+provider pub key
     # check last_delegation_epoch
     #  - when NULL           : start = epoch_no-1 * 7140, end = ((epoch_no+1)*7140) +3500
@@ -89,14 +91,13 @@ def determine_slot_range_for_validation(epoch_no, last_delegation_epoch):
     #  - when == epoch_no    : start = epoch * 7140, end = ((epoch+1)*7140) +3500
 
     # then fetch the payout transactions for above period for each winner+provider pub key combination
-    start_slot = 0
-    end_slot = (epoch_no * 7140) + 3500 - 1
-    if last_delegation_epoch is None:
-        start_slot = (epoch_no - 1) * 7140
-    elif last_delegation_epoch <= (epoch_no - 1):
-        start_slot = (last_delegation_epoch * 7140) + 3500
+    
+    end_slot = ((epoch_no+1) * 7140) + 3500 - 1
+    
+    if last_slot_validated is not None :
+        start_slot = last_slot_validated +1
     else:
-        start_slot = epoch_no * 7140
+        start_slot = 0
     return start_slot, end_slot
 
 
@@ -199,20 +200,26 @@ def main(epoch_no, do_send_email):
             payout_balance = getattr(row, "payout_balance")
             last_delegation_epoch = getattr(row, 'last_delegation_epoch')
             delegate_pub_key = getattr(row, 'winner_pub_key')
+            last_slot_validated = getattr(row, 'last_slot_validated')
             filter_validation_record_df = validation_record_df.loc[validation_record_df['provider_pub_key'] == pub_key]
 
             if not filter_validation_record_df.empty:
-                start_slot, end_slot = determine_slot_range_for_validation(epoch_no, last_delegation_epoch)
+                start_slot, end_slot = determine_slot_range_for_validation(epoch_no, last_slot_validated)
                 payout_recieved = get_record_for_validation_for_single_acc(pub_key, start_slot, end_slot)
                 total_pay_received = 0
+                balance_this_epoch = 0
                 if not payout_recieved.empty:
-                    total_pay_received = payout_recieved.iloc[0]['total_pay']
+                    total_pay_received = truncate(payout_recieved.iloc[0]['total_pay'],5)
+                    balance_this_epoch = payout_amount - total_pay_received
+                else:
+                    balance_this_epoch = payout_amount
+                balance_this_epoch = truncate(balance_this_epoch, 5)    
                 new_payout_balance = truncate((payout_amount + payout_balance) - total_pay_received)
                 filter_staking_df = staking_df.loc[staking_df['pk'] == pub_key, 'delegate']
                 winner_pub_key = filter_staking_df.iloc[0]
                 email_rows.append([pub_key, winner_pub_key, new_payout_balance])
                 payouts_rows.append(
-                    [pub_key, winner_pub_key, payout_amount, total_pay_received, new_payout_balance, epoch_no])
+                    [pub_key, winner_pub_key, payout_amount, total_pay_received, balance_this_epoch, new_payout_balance, epoch_no, start_slot, end_slot])
                 winner_match = False
                 if delegate_pub_key == winner_pub_key:
                     winner_match = True
@@ -224,12 +231,12 @@ def main(epoch_no, do_send_email):
 
                 # update record in payout summary
                 query = ''' UPDATE payout_summary SET payout_amount = 0, payout_balance = %s,
-                last_delegation_epoch = %s
+                last_delegation_epoch = %s, last_slot_validated = %s
                 WHERE provider_pub_key = %s and winner_pub_key = %s
                 '''
                 try:
                     cursor = connection_payout.cursor()
-                    cursor.execute(query, (new_payout_balance, epoch_no, pub_key, winner_pub_key))
+                    cursor.execute(query, (new_payout_balance, epoch_no, end_slot, pub_key, winner_pub_key))
                 except (Exception, psycopg2.DatabaseError) as error:
                     logger.info("Error: {0} ", format(error))
                     connection_payout.rollback()
@@ -244,10 +251,12 @@ def main(epoch_no, do_send_email):
         result = epoch_no
         if do_send_email:
             email_df = pd.DataFrame(email_rows, columns=["provider_pub_key", "winner_pub_key", "payout_amount"])
-            second_mail(email_df, epoch_no)
+            #second_mail(email_df, epoch_no)
+            pub_key, winner_pub_key, payout_amount, total_pay_received, balance_this_epoch, new_payout_balance, epoch_no, start_slot, end_slot
             payout_summary_df = pd.DataFrame(payouts_rows,
                                              columns=['provider_pub_key', 'winner_pub_key', 'payout_amount',
-                                                      'payout_received', 'payout_balance', 'epoch_no'])
+                                                      'payout_received', 'balance_this_epoch', 'payout_balance', 'epoch_no', 'start_slot', 'end_slot']) 
+            payout_summary_df = payout_summary_df.rename(columns={'payout_amount': 'payout_obligation', 'payout_balance': 'balance_cumulative'})
             payout_summary_mail(payout_summary_df, epoch_no)
     else:
         logger.warning("Staking ledger not found for epoch number {0}".format(epoch_no))
@@ -275,6 +284,12 @@ def get_last_processed_epoch_from_audit(job_type):
         cursor.close()
     return last_epoch
 
+# for epoch 0 & epoch 1 
+#   - have to use same staking ledger 'staking-1'
+#   - blocks produced would be for epoch 0 & epoch 1
+#   - payment recieved would be for epoch 0 & epoch 1
+def is_genesis_epoch(epoch_id):
+    return True if epoch_id<2 else False
 
 # this will check audit log table, and will determine last processed epoch
 # if no entries found, default to first epoch

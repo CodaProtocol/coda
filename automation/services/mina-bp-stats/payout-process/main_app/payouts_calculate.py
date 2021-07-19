@@ -77,19 +77,29 @@ def get_last_processed_epoch_from_audit():
 def initialize():
     result = 0
     last_epoch = get_last_processed_epoch_from_audit()
-    if last_epoch > 0:
+    if last_epoch > 1:
         result = main(last_epoch + 1, True)
-    else:
+    elif is_genesis_epoch():
         staking_ledger_available = read_staking_json_list()
         for ledger in staking_ledger_available:
             result = main(ledger.split('-')[1], False)
     return result
 
 
+# for epoch 0 & epoch 1 
+#   - have to use same staking ledger 'staking-1'
+#   - blocks produced would be for epoch 0 & epoch 1
+#   - payment recieved would be for epoch 0 & epoch 1
+def is_genesis_epoch(epoch_id):
+    return True if epoch_id<2 else False
+
 def read_staking_json_for_epoch(epoch_id):
     storage_client = get_gcs_client()
     bucket = storage_client.get_bucket(BaseConfig.GCS_BUCKET_NAME)
-    staking_file_prefix = "staking-" + str(epoch_id)
+    if is_genesis_epoch(epoch_id):
+        staking_file_prefix = "staking-1"
+    else:
+        staking_file_prefix = "staking-" + str(epoch_id)
     blobs = storage_client.list_blobs(bucket, prefix=staking_file_prefix)
     # convert to string
     ledger_name = ''
@@ -127,14 +137,12 @@ def insert_data(df, page_size=100):
     try:
         cursor = connection_payout.cursor()
         extras.execute_batch(cursor, query, tuples, page_size)
-        connection_payout.commit()
     except (Exception, psycopg2.DatabaseError) as error:
         logger.error(ERROR.format(error))
         connection_payout.rollback()
         cursor.close()
         result = -1
     finally:
-        connection_payout.commit()
         cursor.close()
     return result
 
@@ -180,11 +188,9 @@ def calculate_payout(delegation_record_list, modified_staking_df, foundation_bpk
     and epoch = %s
     GROUP BY pk.value;
     '''
-    # epoch_number starts with 0 in archive db
-    archive_epoch = int(epoch_id)-1
     cursor = connection_archive.cursor()
     try:
-        cursor.execute(query, (delegate_bpk, str(archive_epoch )))
+        cursor.execute(query, (delegate_bpk, epoch_id))
         blocks_produced_list = cursor.fetchall()
     except (Exception, psycopg2.DatabaseError) as error:
         logger.error(ERROR.format(error))
@@ -197,7 +203,7 @@ def calculate_payout(delegation_record_list, modified_staking_df, foundation_bpk
 
     # calculate total payout
     total_payout = payout * blocks_produced
-    total_payout = round(total_payout, 5)
+    total_payout = truncate(total_payout, 5)
     delegation_record_dict['payout_amount'] = total_payout
     delegation_record_dict['payout_balance'] = 0
     delegation_record_list.append(delegation_record_dict)
@@ -249,7 +255,7 @@ def main(epoch_no, do_send_email):
         # sending emails after payouts calculation completed
         result = epoch_no
         if do_send_email:
-            send_mail(epoch_no, delegate_record_df)
+            #send_mail(epoch_no, delegate_record_df)
             # send email to provider with list of 0 block producers
             zero_block_producers = delegate_record_df[delegate_record_df['blocks'] == 0]
             zero_block_producers = zero_block_producers[['winner_pub_key']]

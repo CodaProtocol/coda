@@ -7,7 +7,6 @@ import pandas as pd
 from logger_util import logger
 
 
-logger.info('mail to foundation account')
 BLOCKS_CSV = 'blocks_won.csv'
 
 def mail_to_foundation_accounts(zero_block_producers, epoch_no):

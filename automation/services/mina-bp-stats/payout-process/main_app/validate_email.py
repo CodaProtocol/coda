@@ -15,9 +15,6 @@ connection_leaderboard = psycopg2.connect(
     password=BaseConfig.POSTGRES_LEADERBOARD_PASSWORD
 )
 
-logger.info('validate email send to accounts ')
-
-
 def get_block_producer_mail(winner_bpk, conn=connection_leaderboard):
     mail_id_sql = """select block_producer_email from node_record_table where block_producer_key = %s"""
     cursor = conn.cursor()
