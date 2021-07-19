@@ -22,7 +22,7 @@ let codaCommand = (~port, ~extraArgs) => {
   // NOTE: This is a workaround for keys that's very specific to unix based systems
   let keysPath = "/usr/local/var/coda/keys";
   Js.Dict.set(env, "PATH", path ++ del ++ installPath);
-  Js.Dict.set(env, "CODA_LIBP2P_HELPER_PATH", installPath ++ del ++ "libp2p-helper");
+  Js.Dict.set(env, "MINA_LIBP2P_HELPER_PATH", installPath ++ del ++ "libp2p-helper");
   {
     Command.executable: "coda",
     args:
