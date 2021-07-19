@@ -1248,22 +1248,23 @@ let set_staking_graphql =
   let pk_flag =
     flag "--public-key" ~aliases:[ "public-key" ]
       ~doc:"PUBLICKEY Public key of account with which to produce blocks"
-      (required public_key_compressed)
+      (listed public_key_compressed)
   in
   Command.async ~summary:"Start producing blocks"
     (Cli_lib.Background_daemon.graphql_init pk_flag
-       ~f:(fun graphql_endpoint public_key ->
+       ~f:(fun graphql_endpoint pks ->
          let print_message msg arr =
            if not (Array.is_empty arr) then
              printf "%s: %s\n" msg
                (String.concat_array ~sep:", "
                   (Array.map ~f:Public_key.Compressed.to_base58_check arr))
          in
+         let public_keys =
+           Array.of_list @@ List.map ~f:Encoders.public_key pks
+         in
          let%map result =
            Graphql_client.query_exn
-             (Graphql_queries.Set_staking.make
-                ~public_key:(Encoders.public_key public_key)
-                ())
+             (Graphql_queries.Set_staking.make ~public_keys ())
              graphql_endpoint
          in
          print_message "Stopped staking with" result#setStaking#lastStaking ;

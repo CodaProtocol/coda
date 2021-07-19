@@ -119,8 +119,8 @@ query pendingSnarkWork {
 module Set_staking =
 [%graphql
 {|
-mutation ($public_key: PublicKey) {
-  setStaking(input : {publicKeys: [$public_key]}) {
+mutation ($public_keys: [PublicKey!]) {
+  setStaking(input : {publicKeys: $public_keys}) {
     lastStaking @bsDecoder(fn: "Decoders.public_key_array")
     lockedPublicKeys @bsDecoder(fn: "Decoders.public_key_array")
     currentStakingKeys @bsDecoder(fn: "Decoders.public_key_array")
