@@ -43,7 +43,10 @@ import (
 	mplex "github.com/libp2p/go-mplex"
 )
 
-const NodeStatusTimeout = 10 * time.Second
+const (
+	NodeStatusTimeout = 10 * time.Second
+	cachePeersInterval = time.Minute
+)
 
 func parseCIDR(cidr string) gonet.IPNet {
 	_, ipnet, err := gonet.ParseCIDR(cidr)
@@ -243,6 +246,7 @@ type Helper struct {
 	Seeds             []peer.AddrInfo
 	NodeStatus        string
 	pxDiscoveries     chan peer.AddrInfo
+	cachedPeers []peer.ID
 }
 
 type MessageStats struct {
@@ -476,7 +480,7 @@ func (gs *CodaGatingState) InterceptUpgraded(network.Conn) (allow bool, reason c
 }
 
 func (h *Helper) getRandomPeers(num int, from peer.ID) []peer.AddrInfo {
-	peers := h.Host.Peerstore().Peers()
+	peers := h.cachedPeers
 	if len(peers)-2 < num {
 		num = len(peers) - 2 // -2 because excluding ourself and the peer we are sending this to
 	}
@@ -502,6 +506,19 @@ func (h *Helper) getRandomPeers(num int, from peer.ID) []peer.AddrInfo {
 
 	logger.Debugf("node=%s sending random peers", h.Host.ID(), ret)
 	return ret
+}
+
+func (h *Helper) cachePeers() {
+	ticker := time.NewTicker(cachePeersInterval)
+
+	for {
+		select {
+		case <-h.Ctx.Done():
+			return
+		case <-ticker.C:
+			h.cachedPeers = h.Host.Peerstore().Peers()
+		}
+	}
 }
 
 type customValidator struct {
@@ -716,5 +733,6 @@ func MakeHelper(ctx context.Context, listenOn []ma.Multiaddr, externalAddr ma.Mu
 	connManager.host = host
 	h.Host.SetStreamHandler(pxProtocolID, h.handlePxStreams)
 	h.Host.SetStreamHandler(NodeStatusProtocolID, h.handleNodeStatusStreams)
+	go h.cachePeers()
 	return h, nil
 }
