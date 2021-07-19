@@ -1,0 +1,69 @@
+# kubectl apply -f helm/cron_jobs/devnet-txn-burst-cronjob.yaml
+# the above command, with this accompanying file, needs only be run once.  it does not get run in CI.  this file is provided here for future reference
+# make sure you're in devnet2
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: devnet-txn-burst-cronjob
+spec:
+  concurrencyPolicy: Replace
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - command:
+            - /bin/bash
+            - -c
+            - "
+mina client send-payment --amount 1 --receiver B62qqYQx6NUFq4q9mBrH3G5dsW5MtjKe7f7nxeRRn9q82BNP1dkoyaP --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qqtor6kpz82UWU1WYrTqCzx7VPndvtMSonFaB6WCEwyU3ejEjnJa --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qr2X9bQ4Zv7d32Se9FKrbCpUaSYiHp1EMyKErfbMjCP4bofvVDj9 --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qnvynv36E5MV3bnvi2oysKHEunDYmusp5erVjtH3VU5ojWB3q3Up --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qpKciQJ9gKrYUZQQPYpdSAqKWJ8AzCBQddP4fyQfyJZfxx3TWj4b --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qpvK66YYenvqDE7UFaDvd17UtS3p5vjdUTsjJk8p18zQvXXjpAbd --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qjT41bqPtLHBuj2B7JKRxvURepeAETpiK8dRvFFHmrQPtCWRgNPc --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qojJC5Z3GBuJ8cEsx75a3sheQvWNeJ9w7ZnqDb39AG7SnYzPtTG8 --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qo7fmkYW6exy9ubNy2tW8zxzAZz2FGxgD26PnQGBLB3Yj3wMk4F5 --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+mina client send-payment --amount 1 --receiver B62qkL7EXY7gpyHpQ71gMVW4tZbBzUSsTNqo4rNFennhaCjprYUkEfp --sender B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qqYQx6NUFq4q9mBrH3G5dsW5MtjKe7f7nxeRRn9q82BNP1dkoyaP\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"7194017705846061350873929093894877428870165855336917447209393727231839180972\",\"scalar\":\"2608437547155932210923803388388872639119495195009126543942816776082819154957\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qqtor6kpz82UWU1WYrTqCzx7VPndvtMSonFaB6WCEwyU3ejEjnJa\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"16079541561947108400774256786139281338556015073765905590302870898849894071957\",\"scalar\":\"12866054240416243220554886352978026801531763369949346309583160832560306463933\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qr2X9bQ4Zv7d32Se9FKrbCpUaSYiHp1EMyKErfbMjCP4bofvVDj9\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"550830249657698702280083261149963473197938509897106967957216831061986641806\",\"scalar\":\"23860228869359347819476759148032562267878949210861406002539542766765179620316\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qnvynv36E5MV3bnvi2oysKHEunDYmusp5erVjtH3VU5ojWB3q3Up\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"8053962108023344014515898922903314425399188204053462351526266361323803063505\",\"scalar\":\"23531176483786428064939288624017057037000811853965896697834377625189384270486\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qpKciQJ9gKrYUZQQPYpdSAqKWJ8AzCBQddP4fyQfyJZfxx3TWj4b\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"18537919549435335304623066006749599394451246369444004137792301748205462549396\",\"scalar\":\"19769120771716039708152809624998995271030509851902663037880242556175294222798\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qpvK66YYenvqDE7UFaDvd17UtS3p5vjdUTsjJk8p18zQvXXjpAbd\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"13311977534117519021256007072092816691978583783609452266126442293833866050730\",\"scalar\":\"24259555323147887881006036002160641738919531592561659726772333130399776317133\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qjT41bqPtLHBuj2B7JKRxvURepeAETpiK8dRvFFHmrQPtCWRgNPc\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"23507096753563969622403303839661934343776871619132979071109010531593817725888\",\"scalar\":\"7523761090967766309496669149287012694385141718054522400273086408547887842408\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qojJC5Z3GBuJ8cEsx75a3sheQvWNeJ9w7ZnqDb39AG7SnYzPtTG8\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"17279432427007607872790026494622214111556089270827110659466586356280833442578\",\"scalar\":\"2579772523562862256255347232741673946514127335188405031088717511362264987191\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qo7fmkYW6exy9ubNy2tW8zxzAZz2FGxgD26PnQGBLB3Yj3wMk4F5\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"6192932782008293400510526379836060923670364868516829716360590641196273238494\",\"scalar\":\"371993129432612816973898548597339988916928994557134849662114734277044298870\"}}'
+curl 'http://127.0.0.1:3085/graphql' -X POST -H 'content-type: application/json' --data '{\"query\":\"mutation ($sender: PublicKey!, $receiver: PublicKey!, $amount: UInt64!, $token: UInt64, $fee: UInt64!, $nonce: UInt32, $memo: String, $field: String, $scalar: String)  {\nsendPayment(input: {from: $sender, to: $receiver, amount: $amount, token: $token, fee: $fee, nonce: $nonce, memo: $memo}, signature: {field: $field, scalar: $scalar})  {\npayment  {\n__typename\nid  \n}\n\n}\n\n}\n\",\"variables\":{\"sender\":\"B62qkL7EXY7gpyHpQ71gMVW4tZbBzUSsTNqo4rNFennhaCjprYUkEfp\",\"receiver\":\"B62qmnkbvNpNvxJ9FkSkBy5W6VkquHbgN2MDHh1P8mRVX3FQ1eWtcxV\",\"amount\":\"1000000000\",\"token\":null,\"fee\":\"2000000000\",\"nonce\":null,\"memo\":null,\"field\":\"12361863739253166321095660168876066887034712584208321368707425762535883004793\",\"scalar\":\"11048774802443617111743243942614857745173252193814418947581226959978483534378\"}}'
+"
+            
+            env:
+            - name: GCLOUD_KEYFILE
+              value: /gcloud/keyfile.json
+            image: minaprotocol/mina-daemon-baked:1.1.5-a42bdee
+            imagePullPolicy: IfNotPresent
+            name: devnet-txn-burst-cronjob
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+            volumeMounts:
+            - mountPath: /gcloud/
+              name: gcloud-keyfile
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - name: gcloud-keyfile
+            secret:
+              defaultMode: 256
+              items:
+              - key: keyfile
+                path: keyfile.json
+              secretName: gcloud-keyfile
+  schedule: 0 0 * * *
+  successfulJobsHistoryLimit: 3
+  suspend: false
