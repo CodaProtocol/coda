@@ -51,7 +51,7 @@ Refer to [/dev](/dev).
 Mina has a variety of opam and system dependencies.
 
 You can see [`Dockerfile-toolchain`](/dockerfiles/Dockerfile-toolchain) for how we
-install them all in the container. To get all the opam dependencies
+install them all in the container. Sometimes, for a dependency, a static library is required. If running on a distro other than Ubuntu you may run into an issue where only the dynamic library is installed via your package manager. To get all the opam dependencies
 you need, you run `opam switch import src/opam.export`.
 
 Some of our dependencies aren't taken from `opam`, and aren't integrated
