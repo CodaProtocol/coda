@@ -1187,8 +1187,8 @@ let create ?wallets (config : Config.t) =
                     Vrf_evaluator.create ~constraint_constants
                       ~pids:config.pids ~logger:config.logger
                       ~conf_dir:config.conf_dir ~consensus_constants
-                      ~keypairs:(Agent.get block_production_keypairs |> fst) )
-                )
+                      ~keypairs:(Agent.get block_production_keypairs |> fst)
+                      ~now:(Block_time.now config.time_controller) ) )
             >>| Result.ok_exn
           in
           let snark_worker =

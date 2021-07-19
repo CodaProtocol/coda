@@ -462,17 +462,34 @@ module Vrf_evaluation_state = struct
 
   type t =
     { queue: Consensus.Data.Slot_won.t Queue.t
-    ; mutable vrf_evaluator_status: status }
+    ; mutable vrf_evaluator_status: status
+    ; mutable last_scheduled: Mina_numbers.Global_slot.t option
+    ; mutable current_slot: Mina_numbers.Global_slot.t
+    ; mutable current_epoch: Mina_numbers.Length.t }
 
-  let poll_vrf_evaluator ~logger vrf_evaluator =
+  let poll_vrf_evaluator ~logger ~time_controller vrf_evaluator =
     let f () =
       measure "asking vrf evaluator for any slots won" (fun () ->
-          Vrf_evaluator.slots_won_so_far vrf_evaluator )
+          Vrf_evaluator.slots_won_so_far vrf_evaluator
+            ~now:(Block_time.now time_controller) )
     in
     retry ~logger ~error_message:"Error fetching slots from the VRF evaluator"
       f
 
-  let create () = {queue= Core.Queue.create (); vrf_evaluator_status= Start}
+  let create () =
+    { queue= Core.Queue.create ()
+    ; vrf_evaluator_status= Start
+    ; last_scheduled= None
+    ; current_slot= Mina_numbers.Global_slot.zero
+    ; current_epoch= Mina_numbers.Length.zero }
+
+  let next_slot t =
+    match Queue.dequeue t.queue with
+    | None ->
+        None
+    | Some s ->
+        t.last_scheduled <- Some s.global_slot ;
+        Some s
 
   let finished t =
     match t.vrf_evaluator_status with Completed -> true | _ -> false
@@ -484,29 +501,67 @@ module Vrf_evaluation_state = struct
     | Completed ->
         t.vrf_evaluator_status <- Completed
 
-  let poll ~vrf_evaluator ~logger t =
+  let poll ~vrf_evaluator ~logger ~time_controller t =
     [%log info] "Polling VRF evaluator process" ;
-    let%bind vrf_result = poll_vrf_evaluator vrf_evaluator ~logger in
+    let%bind vrf_result =
+      poll_vrf_evaluator vrf_evaluator ~logger ~time_controller
+    in
     let%map vrf_result =
       match (vrf_result.evaluator_status, vrf_result.slots_won) with
       | At _, [] ->
-          (*try again after 5 seconds*)
-          let%bind () = Async.after (Core.Time.Span.of_ms 5000.) in
-          poll_vrf_evaluator vrf_evaluator ~logger
+          (*try again*)
+          let%bind () =
+            Async.after
+              (Core.Time.Span.of_ms
+                 (Mina_compile_config.vrf_poll_interval_ms |> Int.to_float))
+          in
+          poll_vrf_evaluator vrf_evaluator ~logger ~time_controller
       | _ ->
           return vrf_result
     in
-    Queue.enqueue_all t.queue vrf_result.slots_won ;
+    let new_slots_won =
+      match (t.last_scheduled, Queue.last t.queue) with
+      | _, Some {global_slot; _} | Some global_slot, None ->
+          List.filter vrf_result.slots_won ~f:(fun s ->
+              Mina_numbers.Global_slot.(s.global_slot > global_slot) )
+      | None, None ->
+          vrf_result.slots_won
+    in
+    Queue.enqueue_all t.queue new_slots_won ;
     update_status t vrf_result.evaluator_status ;
     [%log info]
       !"New global slots won: $slots"
       ~metadata:
         [ ( "slots"
           , `List
-              (List.map vrf_result.slots_won ~f:(fun s ->
+              (List.map new_slots_won ~f:(fun s ->
                    Mina_numbers.Global_slot.to_yojson s.global_slot )) ) ]
 
-  let update_epoch_data ~vrf_evaluator ~logger ~epoch_data_for_vrf t =
+  let clear t =
+    t.vrf_evaluator_status <- Start ;
+    t.last_scheduled <- None ;
+    Queue.clear t.queue
+
+  let update_block_producer_keys
+      ~(epoch_data_for_vrf : Consensus.Data.Epoch_data_for_vrf.t) ~logger
+      ~vrf_evaluator ~time_controller ~keypairs t =
+    [%log info] "Updating block producer keys in VRF evaluator" ;
+    let now = Block_time.now time_controller in
+    let update_keys () =
+      let f () =
+        measure "Updating block producer keys in VRF evaluator" (fun () ->
+            Vrf_evaluator.update_block_producer_keys vrf_evaluator ~keypairs
+              ~delegatee_table:epoch_data_for_vrf.delegatee_table ~now )
+      in
+      retry ~logger
+        ~error_message:"Error updating block producer keys in VRF evaluator" f
+    in
+    clear t ;
+    let%bind () = update_keys () in
+    poll ~vrf_evaluator ~logger ~time_controller t
+
+  let update_epoch_data ~vrf_evaluator ~logger ~epoch_data_for_vrf
+      ~time_controller t =
     let set_epoch_data () =
       let f () =
         measure "Setting epoch data of the VRF evaluator" (fun () ->
@@ -519,9 +574,9 @@ module Vrf_evaluation_state = struct
     [%log info] "Sending data for VRF evaluations for epoch $epoch"
       ~metadata:
         [("epoch", Mina_numbers.Length.to_yojson epoch_data_for_vrf.epoch)] ;
-    t.vrf_evaluator_status <- Start ;
+    clear t ;
     let%bind () = set_epoch_data () in
-    poll ~logger ~vrf_evaluator t
+    poll ~logger ~vrf_evaluator ~time_controller t
 end
 
 let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
@@ -837,10 +892,11 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
       let production_supervisor = Singleton_supervisor.create ~task:produce in
       let scheduler = Singleton_scheduler.create time_controller in
       let vrf_evaluation_state = Vrf_evaluation_state.create () in
-      let rec check_next_block_timing slot i () =
+      let update_keys = ref false in
+      let rec check_next_block_timing () =
         trace_recurring "check next block timing" (fun () ->
             (* See if we want to change keypairs *)
-            let _keypairs =
+            let keypairs =
               match Agent.get keypairs with
               | keypairs, `Different ->
                   (* Perform block production key swap since we have new
@@ -850,7 +906,7 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                     ( Keypair.And_compressed_pk.Set.to_list keypairs
                     |> List.map ~f:snd |> Public_key.Compressed.Set.of_list )
                     (Time.now time_controller) ;
-                  (*TODO: propagate updated delegatee table to the VRF evaluator*)
+                  update_keys := true ;
                   keypairs
               | keypairs, `Same ->
                   keypairs
@@ -864,7 +920,7 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                      Broadcast_pipe.Reader.iter_until frontier_reader
                        ~f:(Fn.compose Deferred.return Option.is_some)
                    in
-                   check_next_block_timing slot i ())
+                   check_next_block_timing ())
             | Some transition_frontier ->
                 let consensus_state =
                   Transition_frontier.best_tip transition_frontier
@@ -878,7 +934,9 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                         consensus_state ~local_state:consensus_local_state
                         ~logger )
                 in
-                let i' = Mina_numbers.Length.succ epoch_data_for_vrf.epoch in
+                let next_epoch =
+                  Mina_numbers.Length.succ epoch_data_for_vrf.epoch
+                in
                 let new_global_slot = epoch_data_for_vrf.global_slot in
                 let generate_genesis_proof_if_needed () =
                   match Broadcast_pipe.Reader.peek frontier_reader with
@@ -904,23 +962,40 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                    = None ) ; *)
                 don't_wait_for
                   (let%bind () =
-                     if Mina_numbers.Length.(i' > i) then
+                     if !update_keys then (
+                       update_keys := false ;
+                       Vrf_evaluation_state.update_block_producer_keys
+                         ~vrf_evaluator ~keypairs ~epoch_data_for_vrf ~logger
+                         ~time_controller vrf_evaluation_state )
+                     else Deferred.unit
+                   in
+                   let%bind () =
+                     if
+                       Mina_numbers.Length.(
+                         next_epoch > vrf_evaluation_state.current_epoch)
+                     then (
+                       vrf_evaluation_state.current_epoch <- next_epoch ;
                        Vrf_evaluation_state.update_epoch_data ~vrf_evaluator
-                         ~epoch_data_for_vrf ~logger vrf_evaluation_state
+                         ~epoch_data_for_vrf ~logger ~time_controller
+                         vrf_evaluation_state )
                      else Deferred.unit
                    in
                    let%bind () =
                      (*Poll once every slot if the evaluation for the epoch is not completed or the evaluation is completed*)
                      if
-                       Mina_numbers.Global_slot.(new_global_slot > slot)
+                       Mina_numbers.Global_slot.(
+                         new_global_slot > vrf_evaluation_state.current_slot)
                        && not
                             (Vrf_evaluation_state.finished vrf_evaluation_state)
                      then
                        Vrf_evaluation_state.poll ~vrf_evaluator ~logger
-                         vrf_evaluation_state
+                         ~time_controller vrf_evaluation_state
                      else Deferred.unit
                    in
-                   match Core.Queue.dequeue vrf_evaluation_state.queue with
+                   vrf_evaluation_state.current_slot <- new_global_slot ;
+                   match
+                     Vrf_evaluation_state.next_slot vrf_evaluation_state
+                   with
                    | None ->
                        (*Keep trying until we get some slots*)
                        if
@@ -928,15 +1003,18 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                            (Vrf_evaluation_state.finished vrf_evaluation_state)
                        then
                          let%bind () =
-                           Async.after (Core.Time.Span.of_ms 5000.)
+                           Async.after
+                             (Core.Time.Span.of_ms
+                                ( Mina_compile_config.vrf_poll_interval_ms
+                                |> Int.to_float ))
                          in
                          let%map () =
                            Vrf_evaluation_state.poll ~vrf_evaluator ~logger
-                             vrf_evaluation_state
+                             ~time_controller vrf_evaluation_state
                          in
                          Singleton_scheduler.schedule scheduler
                            (Time.now time_controller)
-                           ~f:(check_next_block_timing new_global_slot i')
+                           ~f:check_next_block_timing
                        else
                          let epoch_end_time =
                            Consensus.Hooks.epoch_end_time
@@ -948,8 +1026,7 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                          [%log info] "No more slots won in this epoch" ;
                          return
                            (Singleton_scheduler.schedule scheduler
-                              epoch_end_time
-                              ~f:(check_next_block_timing new_global_slot i'))
+                              epoch_end_time ~f:check_next_block_timing)
                    | Some slot_won -> (
                        let winning_global_slot = slot_won.global_slot in
                        let slot, epoch =
@@ -991,7 +1068,7 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                          Interruptible.finally
                            (Singleton_supervisor.dispatch production_supervisor
                               (now, data, winner_pk))
-                           ~f:(check_next_block_timing new_global_slot i')
+                           ~f:check_next_block_timing
                          |> ignore )
                        else
                          match
@@ -999,9 +1076,10 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                              curr_global_slot
                          with
                          | None ->
-                             [%log debug]
-                               "Skipping global slot $slot_won because it has \
-                                passed. Current global slot is $curr_slot"
+                             [%log warn]
+                               "Skipping block production for global slot \
+                                $slot_won because it has passed. Current \
+                                global slot is $curr_slot"
                                ~metadata:
                                  [ ( "slot_won"
                                    , Mina_numbers.Global_slot.to_yojson
@@ -1009,8 +1087,7 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                                  ; ( "curr_slot"
                                    , Mina_numbers.Global_slot.to_yojson
                                        curr_global_slot ) ] ;
-                             return
-                               (check_next_block_timing new_global_slot i' ())
+                             return (check_next_block_timing ())
                          | Some slot_diff ->
                              [%log info] "Producing a block in $slots slots"
                                ~metadata:
@@ -1062,9 +1139,7 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
                                       (Singleton_supervisor.dispatch
                                          production_supervisor
                                          (scheduled_time, data, winner_pk))
-                                      ~f:
-                                        (check_next_block_timing
-                                           new_global_slot i')) ) ;
+                                      ~f:check_next_block_timing) ) ;
                              Deferred.return () )) )
       in
       let start () =
@@ -1078,11 +1153,8 @@ let run ~logger ~vrf_evaluator ~prover ~verifier ~trust_system
          * *)
         Agent.on_update keypairs ~f:(fun _new_keypairs ->
             Singleton_scheduler.schedule scheduler (Time.now time_controller)
-              ~f:
-                (check_next_block_timing Mina_numbers.Global_slot.zero
-                   Mina_numbers.Length.zero) ) ;
-        check_next_block_timing Mina_numbers.Global_slot.zero
-          Mina_numbers.Length.zero ()
+              ~f:check_next_block_timing ) ;
+        check_next_block_timing ()
       in
       let genesis_state_timestamp =
         consensus_constants.genesis_state_timestamp

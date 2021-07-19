@@ -377,12 +377,13 @@ module type S = sig
                            -> Mina_base.Account.t
                               Mina_base.Account.Index.Table.t
                               option)
-        -> ( [> `Vrf_output of Consensus_vrf.Output_hash.t]
-           * [> `Delegator of
-                Signature_lib.Public_key.Compressed.t
-                * Mina_base.Account.Index.t ] )
-           option
-           Deferred.t
+        -> ( ( [> `Vrf_output of Consensus_vrf.Output_hash.t]
+             * [> `Delegator of
+                  Signature_lib.Public_key.Compressed.t
+                  * Mina_base.Account.Index.t ] )
+             option
+           , unit )
+           Interruptible.t
     end
 
     module Prover_state : sig

@@ -31,3 +31,4 @@
 [%%import "/src/config/fork.mlh"]
 [%%import "/src/config/features/dev.mlh"]
 [%%undef compaction_interval]
+[%%define vrf_poll_interval 0]
