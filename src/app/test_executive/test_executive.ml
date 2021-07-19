@@ -37,7 +37,9 @@ let validate_inputs { mina_image; _ } =
     failwith "Mina image cannot be an empty string"
 
 let engines : engine list =
-  [ ("cloud", (module Integration_test_cloud_engine : Intf.Engine.S)) ]
+  [ ("cloud", (module Integration_test_cloud_engine : Intf.Engine.S))
+  ; ("local", (module Integration_test_local_engine : Intf.Engine.S))
+  ]
 
 let tests : test list =
   [ ("reliability", (module Reliability_test.Make : Intf.Test.Functor_intf))
