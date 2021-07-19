@@ -1,8 +1,7 @@
-% This document can be rendered with a texlive-full installation by executing:
-
-\documentclass[
-   border=1pt
-]{standalone}
+\documentclass[convert={outext=.tex.png}]{standalone}
+%\documentclass[
+%   border=1pt
+%]{standalone}
 
 \usepackage{units}
 \usepackage{tikz}
@@ -59,9 +58,9 @@
               [,circle,draw]]
             [,circle,draw]]]
     ]]]]]]]
-    \measurexdistance[$k=2160$]
+    \measurexdistance[$k=290$]
  {(locked.north)}{(best.north)}{(.north)+(0,6mm)}{above}
-    \measurexdistance[$k=2160$]
+    \measurexdistance[$2k=580$]
  {(oldest.north)}{(locked.south)}{(.south)+(0,-4mm)}{below}
 \end{forest}
 

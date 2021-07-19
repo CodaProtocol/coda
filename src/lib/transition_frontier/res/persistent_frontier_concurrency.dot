@@ -1,0 +1,9 @@
+digraph G {
+  node [shape=box];
+
+  Breadcrumb -> Frontier_diffs [label="Full_frontier.calculate_diffs"];
+  Frontier_diffs -> Full_frontier [label="Full_frontier.apply_diffs"];
+  Frontier_diffs -> Persistent_frontier [label="Persistent_frontier.notify_sync"];
+  Persistent_frontier -> "Persistent_frontier.Diff_buffer" [label="Persistent_frontier.Diff_buffer.write"];
+  "Persistent_frontier.Diff_buffer" -> "Persistent_frontier.Database" [label="Persistent_frontier.Diff_buffer.flush",style=dashed]; 
+}

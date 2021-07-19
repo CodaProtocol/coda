@@ -383,8 +383,10 @@ endif
 %.conv.tex.png: %.conv.tex
 	cd $(dir $@) && pdflatex -halt-on-error -shell-escape $(notdir $<)
 
+# TODO: this, but smarter so we don't have to add every library
 doc_diagram_sources=$(addprefix docs/res/,*.dot *.tex *.conv.tex)
 doc_diagram_sources+=$(addprefix rfcs/res/,*.dot *.tex *.conv.tex)
+doc_diagram_sources+=$(addprefix src/lib/transition_frontier/res/,*.dot *.tex *.conv.tex)
 doc_diagrams: $(addsuffix .png,$(wildcard $(doc_diagram_sources)))
 
 ########################################
