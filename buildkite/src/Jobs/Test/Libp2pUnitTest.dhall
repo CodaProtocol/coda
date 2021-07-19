@@ -40,7 +40,7 @@ Pipeline.build
       Command.build
         Command.Config::{
           commands = [
-            Cmd.runInDocker Cmd.Docker::{image = ContainerImages.minaToolchain} "cd src/app/libp2p_helper/src && /usr/lib/go/bin/go mod download && /usr/lib/go/bin/go test . ./libp2p_helper"
+            Cmd.runInDocker Cmd.Docker::{image = ContainerImages.minaToolchainBuster} "cd src/app/libp2p_helper/src && /usr/lib/go/bin/go mod download && /usr/lib/go/bin/go test . ./libp2p_helper"
           ],
           label = "libp2p unit-tests",
           key = "libp2p-unit-tests",

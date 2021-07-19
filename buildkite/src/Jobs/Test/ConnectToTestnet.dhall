@@ -5,8 +5,8 @@ let Pipeline = ../../Pipeline/Dsl.dhall
 
 let ConnectToTestnet = ../../Command/ConnectToTestnet.dhall
 
-let dependsOn = [
-    { name = "MinaArtifact", key = "mainnet-docker-image" }
+let dependsOnStretch = [
+  { name = "MinaArtifactStretch", key = "daemon-mainnet-stretch-docker-image" }
 ]
 
 in Pipeline.build Pipeline.Config::{
@@ -14,12 +14,12 @@ in Pipeline.build Pipeline.Config::{
     JobSpec::{
     dirtyWhen = [
       S.strictlyStart (S.contains "src"),
-      S.exactly "buildkite/scripts/connect-to-testnet-on-develop" "sh"
+      S.exactly "buildkite/scripts/connect-to-mainnet-on-compatible" "sh"
     ],
     path = "Test",
     name = "ConnectToTestnet"
   },
   steps = [
-    ConnectToTestnet.step dependsOn
+    ConnectToTestnet.step dependsOnStretch
   ]
 }

@@ -11,7 +11,7 @@ let commands : List Cmd.Type =
     Cmd.run "chmod -R 777 src/app/libp2p_helper",
     Cmd.runInDocker
       Cmd.Docker::{
-        image = (../Constants/ContainerImages.dhall).minaToolchain,
+        image = (../Constants/ContainerImages.dhall).minaToolchainBuster,
         extraEnv = [ "GO=/usr/lib/go/bin/go" ]
       }
       "make libp2p_helper",

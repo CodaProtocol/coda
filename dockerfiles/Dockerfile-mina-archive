@@ -8,7 +8,7 @@ ARG deb_release=alpha
 ARG network=mainnet
 
 ENV DEBIAN_FRONTEND noninteractive
-RUN echo "Building image with version $deb_version"
+RUN echo "Building image with version $deb_codename $deb_release $deb_version"
 
 COPY scripts/archive-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
@@ -19,6 +19,14 @@ RUN chmod +x /mina_daemon_puppeteer.py /find_puppeteer.sh /start.sh /stop.sh
 # Workaround terrible postgresql package requirements with man
 RUN mkdir /usr/share/man/man7 /usr/share/man/man1
 
+# We do not install the below platform-specific dependencies,
+# and instead assume that apt will install the proper deps based on the package definition.
+# The packages are noted here just for clarity/documentation.
+# Buster-only Deps:
+#    libjemalloc2 \
+# Stretch-only Deps:
+#    libjemalloc1 \
+
 # Dependencies
 RUN apt-get -y update \
     && apt-get -y upgrade \
@@ -28,7 +36,6 @@ RUN apt-get -y update \
         dumb-init \
         libssl1.1 \
         libgomp1 \
-        libjemalloc1 \
         libpq-dev \
         apt-transport-https \
         ca-certificates \
@@ -38,6 +45,7 @@ RUN apt-get -y update \
         postgresql-contrib \
         apt-utils \
         man \
+        procps \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /healthcheck && curl https://raw.githubusercontent.com/MinaProtocol/mina/develop/dockerfiles/scripts/healthcheck-utilities.sh -o /healthcheck/utilities.sh
@@ -45,6 +53,6 @@ RUN mkdir /healthcheck && curl https://raw.githubusercontent.com/MinaProtocol/mi
 # archive-node package
 RUN echo "deb [trusted=yes] http://packages.o1test.net $deb_codename $deb_release" > /etc/apt/sources.list.d/o1.list \
   && apt-get -y update \
-  && apt-get install -y "mina-archive-$network=$deb_version"
+  && apt-get install -y "mina-archive=$deb_version"
 
 ENTRYPOINT ["/usr/bin/dumb-init", "/entrypoint.sh"]

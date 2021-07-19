@@ -8,7 +8,7 @@ let Cmd = ../../Lib/Cmds.dhall
 
 let Pipeline = ../../Pipeline/Dsl.dhall
 
-let OpamInit = ../../Command/OpamInit.dhall
+let RunInToolchain = ../../Command/RunInToolchain.dhall
 
 let Command = ../../Command/Base.dhall
 
@@ -36,7 +36,7 @@ in  Pipeline.build
         [ Command.build
             Command.Config::{
             , commands =
-                OpamInit.andThenRunInDocker
+                RunInToolchain.runInToolchainBuster
                   ([] : List Text)
                   (     "./buildkite/scripts/lint-check-format.sh && "
                     ++  "./scripts/require-ppxs.py"

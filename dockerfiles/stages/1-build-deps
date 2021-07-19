@@ -1,0 +1,121 @@
+#################################################################################################
+# The "build-deps" stage
+# - Installs all compilers/interpreters, tools, and OS packages on debian ${deb_codename}-slim
+#################################################################################################
+ARG deb_codename=stretch
+FROM debian:${deb_codename}-slim AS build-deps
+
+# Ocaml Version
+ARG OCAML_VERSION=4.11
+ARG OCAML_REVISION=.2
+ARG OCAML_VARIANT=
+ARG OCAML_PACKAGE=
+ARG OPAM_VERSION=2.0.7
+
+# Golang version number used to detemine tarball name
+ARG GO_VERSION=1.16.5
+
+# Rust Version passed into rustup-init, can also be "stable", "nightly" or similar
+ARG RUST_VERSION=1.52.1
+
+# Rocksdb commit tag/branch to clone
+ARG ROCKSDB_VERSION=v5.17.2
+
+# OS package dependencies
+# First add support for https and pkg-config for apt, then install everything else
+# TODO: make sure this is the minimum compile-time deps
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+  && apt-get install --yes \
+    build-essential \
+    libboost-dev \
+    libboost-program-options-dev \
+    libffi-dev \
+    libgmp-dev \
+    libgmp3-dev \
+    libjemalloc-dev \
+    libpq-dev \
+    libprocps-dev \
+    libsodium-dev \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libcap-dev \
+    pkg-config \
+    cmake \
+    m4 \
+    git \
+    curl \
+    sudo \
+    rsync \
+    unzip \
+    file
+
+# Create opam user (for later) and give sudo to make opam happy
+RUN adduser --uid 1000 --disabled-password --gecos '' opam \
+  && passwd -l opam \
+  && chown -R opam:opam /home/opam \
+  && echo 'opam ALL=(ALL:ALL) NOPASSWD:ALL' > /etc/sudoers.d/opam \
+  && chmod 440 /etc/sudoers.d/opam \
+  && chown root:root /etc/sudoers.d/opam \
+  && chmod 777 /tmp
+
+# Opam install of a given OPAM_VERSION from github release
+RUN curl -sL \
+  "https://github.com/ocaml/opam/releases/download/${OPAM_VERSION}/opam-${OPAM_VERSION}-x86_64-linux" \
+  -o /usr/bin/opam \
+  && chmod +x /usr/bin/opam
+
+# Golang install of a given GO_VERSION (add -v for spam output of each file from the go dist)
+RUN curl -s "https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz" | tar -xz -C /usr/lib/
+
+# Rust install via rustup-init to a given RUST_VERSION
+USER opam
+RUN curl --proto '=https' --tlsv1.2 -sSf -o /tmp/rustup-init \
+  https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init \
+  && chmod +x /tmp/rustup-init \
+  && /tmp/rustup-init -y --default-toolchain "${RUST_VERSION}" --profile minimal \
+  && rm /tmp/rustup-init
+# For more about rustup-init see: https://github.com/rust-lang/rustup/blob/master/README.md
+# As opposed to introducing another shell script here (that mostly just determines the platform)
+# we just download the binary for the only platform we care about in this docker environment
+
+USER root
+# This builds and installs just the rocksdb static lib for us, and cleans up after itself
+RUN git clone https://github.com/facebook/rocksdb \
+  --depth 1 --shallow-submodules \
+  -b "${ROCKSDB_VERSION}" /rocksdb \
+  && make -C /rocksdb static_lib PORTABLE=1 -j$(nproc) \
+  && cp /rocksdb/librocksdb.a /usr/local/lib/librocksdb_coda.a \
+  && rm -rf /rocksdb \
+  && strip -S /usr/local/lib/librocksdb_coda.a
+
+###########################################################################################
+# Initialize opam in a minimal fashion
+###########################################################################################
+
+# Set up environment for running as opam user
+WORKDIR /home/opam
+USER opam
+ENV HOME /home/opam
+
+# Create the following user directory configs as the Opam user:
+## Add go + rust to the path, unlimit the opam user,
+## unlimit stack for future shells that might use spacetime,
+## disable ipv6
+## disable sandboxing to allow unprivledged builds
+RUN mkdir --mode=700 ~/.gnupg \
+  && echo 'export PATH="$PATH:/usr/lib/go/bin:$HOME/.cargo/bin"' >> ~/.bashrc \
+  && echo 'ulimit -s unlimited' >> ~/.bashrc \
+  && echo "disable-ipv6" >> ~/.gnupg/dirmngr.conf
+
+# Ocaml install of a given OCAML_VERSION via opam switch
+# additionally initializes opam with sandboxing disabled, as we did not install bubblewrap above.
+RUN git clone \
+  git://github.com/ocaml/opam-repository \
+  --depth 1 \
+  /home/opam/opam-repository \
+  && opam init --disable-sandboxing -k git -a ~/opam-repository --bare \
+  && opam repository add --yes --all --set-default o1-labs https://github.com/o1-labs/opam-repository.git \
+  && opam switch create "${OCAML_VERSION}${OCAML_REVISION}" "${OCAML_PACKAGE}${OCAML_VERSION}${OCAML_REVISION}${OCAML_VARIANT}" \
+  && opam switch "${OCAML_VERSION}${OCAML_REVISION}"

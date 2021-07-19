@@ -6,7 +6,7 @@ let Pipeline = ../../Pipeline/Dsl.dhall
 let CheckGraphQLSchema = ../../Command/CheckGraphQLSchema.dhall
 
 let dependsOn = [
-    { name = "MinaArtifact", key = "build-deb-pkg" }
+    { name = "MinaArtifactStretch", key = "build-deb-pkg" }
 ]
 
 in Pipeline.build Pipeline.Config::{

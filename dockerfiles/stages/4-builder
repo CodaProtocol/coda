@@ -1,0 +1,66 @@
+#################################################################################################
+# The "builder" Stage
+# - builds mina and any other binaries required to run rosetta
+# - should not include any data related to joining a specific network, only the node software itself
+#################################################################################################
+FROM opam-deps AS builder
+
+# Use --build-arg "DUNE_PROFILE=dev" to build a dev image or for CI
+ARG DUNE_PROFILE=mainnet
+
+# branch to checkout on first clone (this will be the only availible branch in the container)
+# can also be a tagged release
+ARG MINA_BRANCH=compatible
+
+# repo to checkout the branch from
+ARG MINA_REPO=https://github.com/MinaProtocol/mina
+
+# location of repo used for pins and external package commits
+ARG MINA_DIR=mina
+
+ENV PATH "$PATH:/usr/lib/go/bin:$HOME/.cargo/bin"
+
+# git will clone into an empty dir, but this also helps us set the workdir in advance
+RUN cd $HOME && rm -rf $HOME/${MINA_DIR} \
+  && git clone \
+  -b "${MINA_BRANCH}" \
+  --depth 1 \
+  --shallow-submodules \
+  --recurse-submodules \
+  ${MINA_REPO} ${HOME}/${MINA_DIR}
+
+WORKDIR $HOME/${MINA_DIR}
+
+# Build libp2p_helper and clear go module caches
+# Could maybe also delete go during this step / build it as part of the deps stage?
+RUN git pull \
+   && cd src/app/libp2p_helper/src \
+   && go mod download \
+   && cd generate_methodidx \
+   && go build -o ${HOME}/app/generate_methodidx \
+   && cd ../libp2p_helper \
+   && go build -o ${HOME}/app/libp2p_helper \
+   && go clean --cache --modcache --testcache -r
+
+# HACK: build without special cpu features to allow more people to run mina-rosetta
+RUN ./scripts/zexe-standardize.sh
+
+# Make rosetta-crucial components and the generate_keypair tool
+RUN eval $(opam config env) \
+  && dune build --profile=${DUNE_PROFILE} \
+    src/app/generate_keypair/generate_keypair.exe \
+    src/app/cli/src/mina.exe \
+    src/app/archive/archive.exe \
+    src/app/rosetta/rosetta.exe \
+    src/app/runtime_genesis_ledger/runtime_genesis_ledger.exe \
+    src/app/generate_keypair/generate_keypair.exe \
+    src/app/rosetta/ocaml-signer/signer.exe \
+  && mv _build/default/src/app $HOME/app \
+  && rm -rf _build
+
+# TODO: Make rosetta test-agent work properly again
+#    src/app/rosetta/test-agent/agent.exe \
+
+# TODO: consider making a mina-rosetta package with the minimum mina binaries/configs for rosetta.
+# Right now make deb is overkill
+#RUN eval $(opam config env) && make deb

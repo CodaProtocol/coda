@@ -8,14 +8,14 @@ let Pipeline = ../../Pipeline/Dsl.dhall
 let JobSpec = ../../Pipeline/JobSpec.dhall
 
 let Command = ../../Command/Base.dhall
-let OpamInit = ../../Command/OpamInit.dhall
+let RunInToolchain = ../../Command/RunInToolchain.dhall
 let Docker = ../../Command/Docker/Type.dhall
 let Size = ../../Command/Size.dhall
 
 let buildTestCmd : Text -> Text -> Size -> Command.Type = \(profile : Text) -> \(path : Text) -> \(cmd_target : Size) ->
   Command.build
     Command.Config::{
-      commands = OpamInit.andThenRunInDocker ([] : List Text) "buildkite/scripts/unit-test.sh ${profile} ${path}",
+      commands = RunInToolchain.runInToolchainStretch ([] : List Text) "buildkite/scripts/unit-test.sh ${profile} ${path}",
       label = "${profile} unit-tests",
       key = "unit-test-${profile}",
       target = cmd_target,

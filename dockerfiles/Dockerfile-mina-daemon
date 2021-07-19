@@ -2,11 +2,23 @@ ARG deb_codename=stretch
 FROM debian:${deb_codename}-slim
 # Run with `docker build --build-arg deb_version=<version>`
 ARG deb_version
-ARG deb_release=alpha
+ARG deb_release=unstable
 ARG deb_codename=stretch
 ARG network=mainnet
 
 ENV DEBIAN_FRONTEND noninteractive
+
+# We do not install the below platform-specific dependencies,
+# and instead assume that apt will install the proper deps based on the package definition.
+# The packages are noted here just for clarity/documentation.
+# Buster-only Deps:
+#    libffi7 \
+#    libprocps7 \
+#    libjemalloc2 \
+# Stretch-only Deps:
+#    libffi6 \
+#    libprocps6 \
+#    libjemalloc1 \
 
 # Dependencies
 RUN apt-get -y update && \
@@ -20,13 +32,10 @@ RUN apt-get -y update && \
     gettext \
     gnupg2 \
     jq \
-    libffi6 \
     libgmp10 \
     libgomp1 \
     libssl1.1 \
     libpq-dev \
-    libprocps6 \
-    libjemalloc1 \
     procps \
     tzdata && \
   rm -rf /var/lib/apt/lists/*

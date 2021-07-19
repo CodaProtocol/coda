@@ -14,15 +14,13 @@ export DEBIAN_FRONTEND=noninteractive
 /bin/echo -e "12\n10" | apt-get install -y tzdata
 apt-get install -y git postgresql apt-transport-https ca-certificates curl
 
-export DUNE_PROFILE=devnet
-
 source buildkite/scripts/export-git-env-vars.sh
 
 echo "deb [trusted=yes] http://packages.o1test.net $MINA_DEB_CODENAME $MINA_DEB_RELEASE" | tee /etc/apt/sources.list.d/mina.list
 apt-get update
 
-echo "Installing archive node package: mina-archive-devnet=${MINA_DEB_VERSION}"
-apt-get install --allow-downgrades -y mina-archive-devnet=${MINA_DEB_VERSION}
+echo "Installing archive node package: mina-archive=${MINA_DEB_VERSION}"
+apt-get install --allow-downgrades -y mina-archive=${MINA_DEB_VERSION}
 
 echo "Generating locale for Postgresql"
 locale-gen en_US.UTF-8

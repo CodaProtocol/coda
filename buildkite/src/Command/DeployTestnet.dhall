@@ -18,7 +18,7 @@ let DeploySpec = {
   },
   default = {
     testnetLabel = "ci-net",
-    deployEnvFile = "DOCKER_DEPLOY_ENV",
+    deployEnvFile = "export-git-env-vars.sh",
     workspace = "\\\${BUILDKITE_BRANCH//[_\\/]/-}",
     artifactPath = "/tmp/artifacts",
     postDeploy = "echo 'Deployment successfull!'",
@@ -45,7 +45,7 @@ in
           Cmd.run "source ${spec.deployEnvFile}",
           Cmd.run (
             "terraform apply -auto-approve" ++
-              " -var mina_image=gcr.io/o1labs-192920/mina-daemon:\\\$MINA_VERSION-\\\$MINA_GIT_HASH" ++
+              " -var mina_image=gcr.io/o1labs-192920/mina-daemon:\\\$MINA_DOCKER_TAG" ++
               " -var ci_artifact_path=${spec.artifactPath}" ++
               " || (terraform destroy -auto-approve && exit 1)"
           ),

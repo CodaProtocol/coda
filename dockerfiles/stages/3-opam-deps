@@ -1,0 +1,48 @@
+#################################################################################################
+# The "opam-deps" Stage
+# - Continues from the build-deps image
+# - Installs all opam dependencies and pins from mina's github
+# - Includes the entire mina codebase and submodules in "${MINA_DIR}" (must be writable by opam user)
+# - Largely mirrors/replaces ./scripts/setup-opam.sh
+#################################################################################################
+FROM toolchain AS opam-deps
+
+# location of repo used for pins and external package commits
+ARG MINA_DIR=mina
+# branch to checkout for opam dependencies
+ARG OPAM_BRANCH=lk86/pipeline-refactor
+
+# location of external packages
+ARG EXTERNAL_PKG_DIR=$MINA_DIR/src/external
+
+# don't keep sources, to force reinstall of pinned packages from Mina sources
+# and to keep Docker image reasonable size
+ENV OPAMKEEPBUILDDIR false
+ENV OPAMREUSEBUILDDIR false
+
+# git will clone into an empty dir, but this also helps us set the workdir in advance
+RUN git clone \
+  -b "${OPAM_BRANCH}" \
+  --depth 1 \
+  --shallow-submodules \
+  --recurse-submodules \
+  https://github.com/MinaProtocol/mina ${HOME}/${MINA_DIR}
+
+WORKDIR $HOME/$MINA_DIR
+
+ENV OPAMYES 1
+
+# TODO: handle this opam work without cloning the full repository (directly pull src/opam.export)
+RUN opam switch import src/opam.export
+
+# TODO: Get pins from a script that can be easily updated if more pins are needed
+# Would be really nice to pull this script, the git submodules, and src/opam.export exclusively in this stage
+RUN eval $(opam config env) \
+  && opam pin add src/external/ocaml-extlib \
+  && opam pin add src/external/ocaml-sodium \
+  && opam pin add src/external/rpc_parallel \
+  && opam pin add src/external/async_kernel \
+  && opam pin add src/external/coda_base58 \
+  && opam pin add src/external/graphql_ppx \
+  && opam pin add src/external/ppx_deriving_yojson \
+  && opam clean --logs -cs

@@ -37,18 +37,3 @@ ${DEBS3} --component "${MINA_DEB_RELEASE}" --codename "${MINA_DEB_CODENAME}" "${
 || (  scripts/clear-deb-s3-lockfile.sh \
    && ${DEBS3} --component "${MINA_DEB_RELEASE}" --codename "${MINA_DEB_CODENAME}" "${DEBS}")
 set +x
-
-# Export variables for use with downstream steps
-echo "export MINA_SERVICE=mina-daemon" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_VERSION=${DOCKER_TAG}" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_DEB_VERSION=${VERSION}" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_PROJECT=${PROJECT}" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_GIT_HASH=${GITHASH}" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_GIT_BRANCH=${BUILDKITE_BRANCH}" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_GIT_TAG=${GITTAG}" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_DEB_CODENAME=${MINA_DEB_CODENAME}" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_DEB_RELEASE=${MINA_DEB_RELEASE}" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_WAS_PUBLISHED=true" >> ./DOCKER_DEPLOY_ENV
-echo "export MINA_BUILD_ROSETTA=${BUILD_ROSETTA}" >> ./DOCKER_DEPLOY_ENV
-set +x
-

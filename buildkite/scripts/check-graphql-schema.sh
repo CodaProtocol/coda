@@ -9,7 +9,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y git python3 apt-transport-https ca-certificates make curl
 
-# Source the environment script to get the proper ${VERSION}. Must be executed after installing git but before installing mina.
+# Source the environment script to get the proper ${MINA_DEB_VERSION}. Must be executed after installing git but before installing mina.
 source buildkite/scripts/export-git-env-vars.sh
 
 echo "Installing mina daemon package: mina-devnet=${MINA_DEB_VERSION}"

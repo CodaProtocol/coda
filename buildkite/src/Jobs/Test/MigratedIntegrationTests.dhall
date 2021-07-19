@@ -2,7 +2,7 @@ let S = ../../Lib/SelectFiles.dhall
 let Pipeline = ../../Pipeline/Dsl.dhall
 let JobSpec = ../../Pipeline/JobSpec.dhall
 let Command = ../../Command/Base.dhall
-let OpamInit = ../../Command/OpamInit.dhall
+let RunInToolchain = ../../Command/RunInToolchain.dhall
 let Docker = ../../Command/Docker/Type.dhall
 let Size = ../../Command/Size.dhall
 in
@@ -15,7 +15,7 @@ in
 let one = \(label : Text) -> \(key : Text) -> \(script : Text) ->
   Command.build
     Command.Config::
-      { commands = OpamInit.andThenRunInDocker ([] : List Text) script
+      { commands = RunInToolchain.runInToolchainBuster ([] : List Text) script
       , label = label
       , key = key
       , target = Size.Large

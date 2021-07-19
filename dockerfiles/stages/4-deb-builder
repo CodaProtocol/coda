@@ -1,0 +1,62 @@
+#################################################################################################
+# The "deb-builder" Stage
+# - builds mina and any other binaries required to run `make deb`
+#################################################################################################
+FROM opam-deps AS deb-builder
+
+# Use --build-arg "DUNE_PROFILE=dev" to build a dev image or for CI
+ARG DUNE_PROFILE=devnet
+
+# branch to checkout on first clone (this will be the only availible branch in the container)
+# can also be a tagged release
+ARG MINA_BRANCH=compatible
+
+ARG MINA_COMMIT
+
+# repo to checkout the branch from
+ARG MINA_REPO=https://github.com/MinaProtocol/mina
+
+# location of repo used for pins and external package commits
+ARG MINA_DIR=mina
+
+ENV MINA_COMMIT_SHA1=${MINA_COMMIT}
+
+ENV PATH "$PATH:/usr/lib/go/bin:$HOME/.cargo/bin"
+
+# HACK: build without special cpu features to allow more people to run mina
+RUN ./scripts/zexe-standardize.sh
+
+# --- Build all major tagets required for packaging
+RUN echo "--- Build all major tagets required for packaging" \
+   && echo "Building from Commit SHA: ${MINA_COMMIT_SHA1}" \
+   && eval $(opam config env) \
+   && dune build --profile=${DUNE_PROFILE} \
+    src/app/logproc/logproc.exe \
+    src/app/runtime_genesis_ledger/runtime_genesis_ledger.exe \
+    src/app/generate_keypair/generate_keypair.exe \
+    src/app/validate_keypair/validate_keypair.exe \
+    src/app/cli/src/mina.exe \
+    src/app/cli/src/mina_testnet_signatures.exe \
+    src/app/cli/src/mina_mainnet_signatures.exe \
+    src/app/archive/archive.exe \
+    src/app/archive/archive_testnet_signatures.exe \
+    src/app/archive/archive_mainnet_signatures.exe \
+    src/app/rosetta/rosetta.exe \
+    src/app/rosetta/rosetta_mainnet_signatures.exe \
+    src/app/rosetta/rosetta_testnet_signatures.exe \
+    src/app/rosetta/test-agent/agent.exe \
+    src/app/rosetta/ocaml-signer/signer.exe
+
+# --- MAKE DEB
+RUN eval $(opam config env) \
+   && echo "Building from Commit SHA: ${MINA_COMMIT_SHA1}" \
+   && ./scripts/rebuild-deb.sh
+
+# Rosetta-demo artifacts / build dir removal:
+# Make rosetta-crucial components and the generate_keypair tool
+#  && dune build --profile=${DUNE_PROFILE} \
+#  && _build/default/src/app/runtime_genesis_ledger/runtime_genesis_ledger.exe \
+#    --config-file src/app/rosetta/demo-config.json \
+#    --genesis-dir ${HOME}/demo-genesis \
+#  && mv _build/default/src/app $HOME/app \
+#  && rm -rf _build

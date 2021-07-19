@@ -1,7 +1,9 @@
-FROM gcr.io/o1labs-192920/mina-rosetta-build-deps@sha256:eb4d3ad2c15127e00c68b7b2c07dd8f887ed20c499d1302e963cbf02740b9eaa
+#################################################################################################
+# The "toolchain" Stage
+# - installs optional tools that are required in our CI/CD but are not required to build mina
+#################################################################################################
+FROM build-deps AS toolchain
 
-# if updated, also change in Dockerfile
-ARG OCAML_VERSION=4.11.2
 ARG DOCKER_VERSION=19.03.4
 ARG TERRAFORM_VERSION=0.12.29
 
@@ -13,22 +15,17 @@ ARG EXTERNAL_PKG_DIR=$MINA_DIR/src/external
 
 # don't keep sources, to force reinstall of pinned packages from Mina sources
 # and to keep Docker image reasonable size
-ARG OPAMKEEPBUILDDIR=false
-ARG OPAMREUSEBUILDDIR=false
+ENV OPAMKEEPBUILDDIR=false
+ENV OPAMREUSEBUILDDIR=false
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# buster-only packages
-    # python3-sexpdata \
-    # python-sexpdata \
-    # libjemalloc2 \
-    # libprocps8 \
-    # libffi7 \
-    # libgmp10 \
-    # libgomp1 \
 
-# Workaround terrible postgresql package requirements with man
-RUN sudo mkdir -p /usr/share/man/man7 /usr/share/man/man1
+# Pass in deb_codename and workaround postgres man pages only on debian stretch
+ARG deb_codename=stretch
+RUN if test "$deb_codename" = "stretch" ; then \
+      sudo mkdir -p /usr/share/man/man7 /usr/share/man/man1 \
+    else ; exit 0 ; fi
 
 # OS package dependencies
 RUN sudo apt-get update -y \
@@ -44,6 +41,8 @@ RUN sudo apt-get update -y \
     libffi-dev \
     libgmp-dev \
     libgmp3-dev \
+    libgmp10 \
+    libgomp1 \
     libjemalloc-dev \
     libpq-dev \
     libprocps-dev \
@@ -69,8 +68,14 @@ RUN sudo apt-get update -y \
     zlib1g-dev
 
 # -- python dependencies (largely installed above from apt)
-RUN sudo pip install readchar sexpdata \
-    && sudo pip3 install readchar sexpdata
+RUN if test "$deb_codename" = "buster" ; then \
+      sudo apt-get update -y \
+      && sudo apt-get install -y \
+        python3-sexpdata \
+        python-sexpdata \
+    else ; \
+      sudo pip install readchar sexpdata \
+      && sudo pip3 install readchar sexpdata ; fi
 
 # --- deb-s3 tool (deprecated! replace somehow!)
 RUN sudo gem install deb-s3
@@ -99,45 +104,9 @@ RUN curl https://baltocdn.com/helm/signing.asc | sudo apt-key add - \
     && sudo apt-get update -y \
     && sudo apt-get install -y helm
 
-# --- Rust Compiler + tools (already included in mina-rosetta:build-deps)
-# RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rust_install.sh
-# RUN chmod +x /tmp/rust_install.sh
-# RUN /tmp/rust_install.sh -y
-# RUN export PATH="$PATH:$HOME/.cargo/bin"
-# RUN echo 'export PATH="$PATH:$HOME/.cargo/bin"' >> /home/opam/.bashrc
-# RUN bash -c "source $HOME/.cargo/env && rustup toolchain install 1.52.1 && rustup default 1.52.1"
-
 # Get yarn + nodejs
 RUN curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash - \
     && curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add - \
     && echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list \
     && sudo apt update \
     && sudo apt install -y nodejs yarn
-
-# --- Rocksdb (already included in mina-rosetta:build-deps)
-# Source copy of rocksdb
-# RUN sudo git clone https://github.com/facebook/rocksdb -b v5.17.2 /rocksdb
-# This builds and installs just the static lib for us
-# RUN cd /rocksdb && sudo make static_lib PORTABLE=1 -j$(nproc) && sudo cp librocksdb.a /usr/local/lib/librocksdb_coda.a && sudo rm -rf /rocksdb && sudo strip -S /usr/local/lib/librocksdb_coda.a
-
-# --- OPAM dependencies and configuration (already included in mina-rosetta:build-deps)
-# RUN git -C /home/opam/opam-repository pull
-# RUN opam update -y && opam upgrade -y
-# RUN mkdir --mode=700 /home/opam/.gnupg
-# RUN echo "disable-ipv6" >> /home/opam/.gnupg/dirmngr.conf
-
-# we used to delete the repo here
-# we now leave it intact, in case updating OPAM in CI requires pinned package sources
-
-# --- Install go (already included in mina-rosetta:build-deps)
-# RUN sudo apt-get install --yes wget
-# RUN cd /usr/lib && sudo wget https://dl.google.com/go/go1.15.8.linux-amd64.tar.gz && sudo tar -xvf go1.15.8.linux-amd64.tar.gz && sudo rm go1.15.8.linux-amd64.tar.gz
-# RUN echo 'export PATH="$PATH:/usr/lib/go/bin"' >> /home/opam/.bashrc
-
-# -- Change timezone to UTC (mina-rosetta:build-deps never changed this in the first place)
-# The Ocaml images are set to London time for reason. UTC makes reading the logs
-# easier.
-# RUN sudo ln -sf /usr/share/zoneinfo/UTC /etc/localtime
-
-# Unlimit stack for future shells that might use spacetime
-RUN echo ulimit -s unlimited >> ~/.bashrc

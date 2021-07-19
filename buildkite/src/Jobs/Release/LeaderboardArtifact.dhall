@@ -11,14 +11,11 @@ let Command = ../../Command/Base.dhall
 let Size = ../../Command/Size.dhall
 let DockerImage = ../../Command/DockerImage.dhall
 
-let dependsOn = [ { name = "LeaderboardArtifact", key = "setup-deploy-env" } ]
+let dependsOn = [ { name = "GitEnvUpload", key = "upload-git-env" } ]
 
 let spec = DockerImage.ReleaseSpec::{
     deps=dependsOn,
     service="leaderboard",
-    commit="\\\${BUILDKITE_COMMIT}",
-    deploy_env_file="LEADERBOARD_DEPLOY_ENV",
-    extra_args="",
     step_key="leaderboard-docker-image"
 }
 
@@ -39,7 +36,7 @@ Pipeline.build
       Command.build
         Command.Config::{
           commands = [
-              Cmd.run "echo export MINA_VERSION=$(cat frontend/leaderboard/package.json | jq '.version') > LEADERBOARD_DEPLOY_ENV && buildkite/scripts/buildkite-artifact-helper.sh LEADERBOARD_DEPLOY_ENV"
+              Cmd.run "echo export MINA_VERSION=$(cat frontend/leaderboard/package.json | jq '.version') > LEADERBOARD_DEPLOY_ENV"
           ],
           label = "Setup Leaderboard docker image deploy environment",
           key = "setup-deploy-env",

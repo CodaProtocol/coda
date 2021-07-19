@@ -14,7 +14,7 @@ let Command = ../../Command/Base.dhall
 
 let Docker = ../../Command/Docker/Type.dhall
 
-let OpamInit = ../../Command/OpamInit.dhall
+let RunInToolchain = ../../Command/RunInToolchain.dhall
 
 let Size = ../../Command/Size.dhall
 
@@ -47,7 +47,7 @@ in  Pipeline.build
         , Command.build
             Command.Config::{
             , commands =
-                OpamInit.andThenRunInDocker
+                RunInToolchain.runInToolchainBuster
                   [ "CI=true"
                   , "BASE_BRANCH_NAME=\$BUILDKITE_PULL_REQUEST_BASE_BRANCH"
                   ]
@@ -60,7 +60,7 @@ in  Pipeline.build
         , Command.build
             Command.Config::{
             , commands =
-                OpamInit.andThenRunInDocker
+                RunInToolchain.runInToolchainBuster
                   [ "CI=true"
                   , "BASE_BRANCH_NAME=\$BUILDKITE_PULL_REQUEST_BASE_BRANCH"
                   ]

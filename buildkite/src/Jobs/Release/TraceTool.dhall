@@ -8,7 +8,6 @@ let JobSpec = ../../Pipeline/JobSpec.dhall
 
 let Command = ../../Command/Base.dhall
 let Docker = ../../Command/Docker/Type.dhall
-let OpamInit = ../../Command/OpamInit.dhall
 let Size = ../../Command/Size.dhall
 
 let jobDocker = Cmd.Docker::{image = (../../Constants/ContainerImages.dhall).rustToolchain}

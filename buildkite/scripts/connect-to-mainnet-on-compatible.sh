@@ -27,9 +27,8 @@ rm ~/.mina-config/.mina-lock ||:
 
 # Restart in the background
 mina daemon \
-  --peer-list-url https://storage.googleapis.com/mina-seed-lists/mainnet_seeds.txt \
-  --config-file ./automation/terraform/testnets/$TESTNET_NAME/genesis_ledger.json \
-  & # -background
+  --peer-list-url "https://storage.googleapis.com/seed-lists/${TESTNET_NAME}_seeds.txt" \
+& # -background
 
 # Attempt to connect to the GraphQL client every 10s for up to 4 minutes
 num_status_retries=24

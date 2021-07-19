@@ -1,0 +1,96 @@
+#################################################################################################
+# The "production" Stage
+# - sets up the final container with built binaries and a running postgresql archive node setup
+#################################################################################################
+ARG deb_codename=stretch
+FROM debian:${deb_codename}-slim AS production
+
+ARG POSTGRES_DATA_DIR=/data/postgresql
+ARG MINA_DAEMON_PORT=10101
+ARG MINA_CONFIG_DIR=/root/.mina-config
+# Sample public key for use in dev profile / demo mode genesis block
+ARG PK=B62qiZfzW27eavtPrnF6DeDSAKEjXuGFdkouC3T5STRa6rrYLiDUP2p
+
+ENV DEBIAN_FRONTEND noninteractive
+
+# Workaround terrible postgresql package requirements with man
+RUN mkdir /usr/share/man/man7 /usr/share/man/man1
+
+# Dependencies
+# TODO: make sure this is the minimum runtime deps
+RUN apt-get -y update \
+  && apt -y install \
+    apt-utils \
+    curl \
+    ca-certificates \
+    dnsutils \
+    dumb-init \
+    gettext \
+    libffi6 \
+    libgmp10 \
+    libgomp1 \
+    libssl1.1 \
+    postgresql \
+    postgresql-contrib \
+    man \
+    tzdata
+
+RUN if test "$deb_codename" = "buster" ; then \
+     sudo apt-get update -y \
+     && sudo apt-get install -y \
+         libjemalloc2 \
+         libprocps8 \
+      else ; exit 0 ; fi
+
+RUN if test "$deb_codename" = "stretch" ; then \
+     sudo apt-get update -y \
+     && sudo apt-get install -y \
+         libjemalloc1 \
+         libprocps6 \
+      else ; exit 0 ; fi
+
+# Make all directories for configuration and empty s3 cache dirs
+RUN mkdir -p /tmp/s3_cache_dir \
+    && mkdir -p /tmp/mina_cache_dir \
+    && mkdir -p ${POSTGRES_DATA_DIR} \
+    && chown postgres ${POSTGRES_DATA_DIR}
+
+RUN mkdir -p --mode=700 ${MINA_CONFIG_DIR}/wallets/store/ \
+  && echo "$PK" >  ${MINA_CONFIG_DIR}/wallets/store/$PK.pub \
+  && echo '{"box_primitive":"xsalsa20poly1305","pw_primitive":"argon2i","nonce":"6pcvpWSLkMi393dT5VSLR6ft56AWKkCYRqJoYia","pwsalt":"ASoBkV3NsY7ZRuxztyPJdmJCiz3R","pwdiff":[134217728,6],"ciphertext":"Dmq1Qd8uNbZRT1NT7zVbn3eubpn9Myx9Je9ZQGTKDxUv4BoPNmZAGox18qVfbbEUSuhT4ZGDt"}' \
+  > ${MINA_CONFIG_DIR}/wallets/store/${PK} \
+  && chmod go-rwx ${MINA_CONFIG_DIR}/wallets/store/${PK}
+
+# Copy the demo daemon.json.template
+COPY --from=builder /home/opam/mina/src/app/rosetta/demo-config.json ${MINA_CONFIG_DIR}/daemon.json.template
+
+COPY --from=builder /home/opam/app/* /mina-bin/
+COPY --from=builder /home/opam/mina/src/app /app
+COPY --from=builder /home/opam/mina/src/app/rosetta/config.json /data/config.json
+
+USER postgres
+
+# TODO: derive this value from the installed package version
+ARG POSTGRES_VERSION=11
+
+# TODO: use POSTGRES_DATA_DIR variable more consistently and ensure proper escaping
+# TODO: move this to a more useful and easy to maintain script in the rosetta directory for this purpose
+RUN pg_dropcluster --stop ${POSTGRES_VERSION} main \
+    && pg_createcluster --start ${POSTGRES_VERSION} -d ${POSTGRES_DATA_DIR} main \
+    && echo "data_directory = '/data/postgresql'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf \
+    && echo "listen_addresses='*'" >> /etc/postgresql/${POSTGRES_VERSION}/main/postgresql.conf \
+    && echo "host all  all    0.0.0.0/0  md5" >> /etc/postgresql/${POSTGRES_VERSION}/main/pg_hba.conf \
+    && /etc/init.d/postgresql start \
+    && psql --command "CREATE USER pguser WITH SUPERUSER PASSWORD 'pguser';" \
+    && createdb -O pguser archiver \
+    && psql postgresql://pguser:pguser@localhost:5432/archiver -f /app/archive/create_schema.sql
+
+ENV USER pguser
+USER root
+
+WORKDIR /app/rosetta
+
+EXPOSE 3087
+EXPOSE $MINA_DAEMON_PORT
+
+ENTRYPOINT ["bash", "./docker-start.sh"]

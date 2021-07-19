@@ -3,7 +3,6 @@ let S = ../../Lib/SelectFiles.dhall
 let Cmd =  ../../Lib/Cmds.dhall
 let Pipeline = ../../Pipeline/Dsl.dhall
 let Command = ../../Command/Base.dhall
-let OpamInit = ../../Command/OpamInit.dhall
 let WithCargo = ../../Command/WithCargo.dhall
 let Docker = ../../Command/Docker/Type.dhall
 let Size = ../../Command/Size.dhall

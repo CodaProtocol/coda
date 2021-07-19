@@ -7,7 +7,7 @@ let Pipeline = ../../Pipeline/Dsl.dhall
 let JobSpec = ../../Pipeline/JobSpec.dhall
 
 let Command = ../../Command/Base.dhall
-let OpamInit = ../../Command/OpamInit.dhall
+let RunInToolchain = ../../Command/RunInToolchain.dhall
 let Docker = ../../Command/Docker/Type.dhall
 let Size = ../../Command/Size.dhall
 
@@ -17,7 +17,7 @@ Pipeline.build
   Pipeline.Config::{
     spec = 
       JobSpec::{
-        dirtyWhen = OpamInit.dirtyWhen # [
+        dirtyWhen = [
           S.strictlyStart (S.contains "buildkite/src/Jobs/Test/ClientSdk"),
           S.strictlyStart (S.contains "src")
         ],
@@ -30,7 +30,7 @@ Pipeline.build
           commands = [
             Cmd.run "chmod -R 777 frontend/client_sdk",
             Cmd.runInDocker
-              Cmd.Docker::{image = (../../Constants/ContainerImages.dhall).minaToolchain}
+              Cmd.Docker::{image = (../../Constants/ContainerImages.dhall).minaToolchainBuster}
               "cd frontend/client_sdk && yarn install"
           ]
           , label = "Install Yarn dependencies"
@@ -40,7 +40,7 @@ Pipeline.build
         },
       Command.build
         Command.Config::{
-          commands = OpamInit.andThenRunInDocker ([] : List Text) "./scripts/client-sdk-unit-tests.sh"
+          commands = RunInToolchain.runInToolchainBuster ([] : List Text) "./scripts/client-sdk-unit-tests.sh"
           , label = "Build client SDK and run unit tests"
           , key = "client-sdk-build-unittests"
           , target = Size.Medium
@@ -48,7 +48,7 @@ Pipeline.build
         },
       Command.build
         Command.Config::{
-          commands = OpamInit.andThenRunInDocker ([] : List Text) "./buildkite/scripts/client-sdk-tool.sh 'prepublishOnly'"
+          commands = RunInToolchain.runInToolchainBuster ([] : List Text) "./buildkite/scripts/client-sdk-tool.sh 'prepublishOnly'"
           , label = "Prepublish client SDK packages"
           , key = "prepublish-client-sdk"
           , target = Size.Medium

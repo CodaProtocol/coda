@@ -4,7 +4,7 @@ let S = ../../Lib/SelectFiles.dhall
 let Pipeline = ../../Pipeline/Dsl.dhall
 let JobSpec = ../../Pipeline/JobSpec.dhall
 let Command = ../../Command/Base.dhall
-let OpamInit = ../../Command/OpamInit.dhall
+let RunInToolchain = ../../Command/RunInToolchain.dhall
 let WithCargo = ../../Command/WithCargo.dhall
 let Docker = ../../Command/Docker/Type.dhall
 let Size = ../../Command/Size.dhall
@@ -34,7 +34,7 @@ Pipeline.build
       [ Command.build
           Command.Config::
             { commands =
-              OpamInit.andThenRunInDocker
+              RunInToolchain.runInToolchainBuster
                 [ "POSTGRES_PASSWORD=${password}"
                 , "POSTGRES_USER=${user}"
                 , "POSTGRES_DB=${db}"

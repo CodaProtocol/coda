@@ -11,7 +11,7 @@ mkdir -p "${BUILDDIR}/DEBIAN"
 
 cat << EOF > "${BUILDDIR}/DEBIAN/control"
 Package: mina-bp-stats-sidecar
-Version: ${VERSION}
+Version: ${MINA_DEB_VERSION}
 License: Apache-2.0
 Vendor: none
 Architecture: all
@@ -34,6 +34,6 @@ cp "${CURRENT_DIR}/sidecar.py" "${BUILDDIR}/usr/local/bin/mina-bp-stats-sidecar"
 cp "${CURRENT_DIR}/mina-sidecar-example.json" "${BUILDDIR}/etc/mina-sidecar.json"
 cp "${CURRENT_DIR}/mina-bp-stats-sidecar.service" "${BUILDDIR}/etc/systemd/system/mina-bp-stats-sidecar.service"
 
-fakeroot dpkg-deb --build "${BUILDDIR}" "mina-sidecar_${VERSION}.deb"
+fakeroot dpkg-deb --build "${BUILDDIR}" "mina-sidecar_${MINA_DEB_VERSION}.deb"
 
 rm -rf "${BUILDDIR}"

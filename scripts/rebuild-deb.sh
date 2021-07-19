@@ -8,36 +8,35 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 cd "${SCRIPTPATH}/../_build"
 
 GITHASH=$(git rev-parse --short=7 HEAD)
-GITBRANCH=$(git rev-parse --symbolic-full-name --abbrev-ref HEAD |  sed 's!/!-!; s!_!-!g' )
-GITTAG=$(git describe --always --abbrev=0)
 GITHASH_CONFIG=$(git rev-parse --short=8 --verify HEAD)
 
-# Identify All Artifacts by Branch and Git Hash
 set +u
-
-
-# TODO: be smarter about this when we introduce a devnet package
-#if [[ "$GITBRANCH" == "master" ]] ; then
-DUNE_PROFILE="mainnet"
-#fi
-
 BUILD_NUM=${BUILDKITE_BUILD_NUM}
 BUILD_URL=${BUILDKITE_BUILD_URL}
+set -u
 
 # Load in env vars for githash/branch/etc.
 source "${SCRIPTPATH}/../buildkite/scripts/export-git-env-vars.sh"
 
-VERSION="${MINA_DEB_VERSION}"
-
 cd "${SCRIPTPATH}/../_build"
 
-if [[ "$1" == "optimized" ]] ; then
-    echo "Optimized deb"
-    VERSION=${VERSION}_optimized
-else
-    echo "Standard deb"
-    VERSION=${VERSION}
-fi
+# Set dependencies based on debian release
+SHARED_DEPS="libssl1.1, libgmp10, libgomp1, libffi6"
+case "${MINA_DEB_CODENAME}" in
+  buster)
+    DAEMON_DEPS=", libjemalloc2, libpq-dev, libprocps7"
+    # buster deps that should only affect the toolchain container:
+    # python3-sexpdata \
+    # python-sexpdata \
+    ;;
+  stretch)
+    DAEMON_DEPS=", libjemalloc1, libpq-dev, libprocps6"
+    ;;
+  *)
+    echo "Unknown Debian codename provided: ${MINA_DEB_CODENAME}"; exit 1
+    ;;
+esac
+
 
 BUILDDIR="deb_build"
 
@@ -47,13 +46,13 @@ mkdir -p "${BUILDDIR}/DEBIAN"
 cat << EOF > "${BUILDDIR}/DEBIAN/control"
 
 Package: mina-generate-keypair
-Version: ${GENERATE_KEYPAIR_VERSION}
+Version: ${MINA_DEB_VERSION}
 License: Apache-2.0
 Vendor: none
 Architecture: amd64
 Maintainer: o(1)Labs <build@o1labs.org>
 Installed-Size:
-Depends: libffi6, libssl1.1, libgmp10, libgomp1
+Depends: ${SHARED_DEPS}
 Section: base
 Priority: optional
 Homepage: https://minaprotocol.com/
@@ -78,7 +77,7 @@ find "${BUILDDIR}"
 
 # Build the package
 echo "------------------------------------------------------------"
-fakeroot dpkg-deb --build "${BUILDDIR}" mina-generate-keypair_${GENERATE_KEYPAIR_VERSION}.deb
+fakeroot dpkg-deb --build "${BUILDDIR}" mina-generate-keypair_${MINA_DEB_VERSION}.deb
 ls -lh mina*.deb
 
 ##################################### END GENERATE KEYPAIR PACKAGE #######################################
@@ -91,11 +90,11 @@ rm -rf "${BUILDDIR}"
 mkdir -p "${BUILDDIR}/DEBIAN"
 cat << EOF > "${BUILDDIR}/DEBIAN/control"
 Package: mina-mainnet
-Version: ${VERSION}
+Version: ${MINA_DEB_VERSION}
 Section: base
 Priority: optional
 Architecture: amd64
-Depends: libffi6, libjemalloc1, libssl1.1, libgmp10, libgomp1, libpq-dev
+Depends: ${SHARED_DEPS}${DAEMON_DEPS}
 Suggests: postgresql
 Conflicts: mina-devnet
 License: Apache-2.0
@@ -132,7 +131,7 @@ cp ../scripts/mina.service "${BUILDDIR}/usr/lib/systemd/user/"
 
 # Build Config
 mkdir -p "${BUILDDIR}/etc/coda/build_config"
-cp ../src/config/"$DUNE_PROFILE".mlh "${BUILDDIR}/etc/coda/build_config/BUILD.mlh"
+cp ../src/config/mainnet.mlh "${BUILDDIR}/etc/coda/build_config/BUILD.mlh"
 rsync -Huav ../src/config/* "${BUILDDIR}/etc/coda/build_config/."
 
 # Copy the genesis ledgers and proofs as these are fairly small and very valueable to have l
@@ -165,7 +164,7 @@ find "${BUILDDIR}"
 
 # Build the package
 echo "------------------------------------------------------------"
-fakeroot dpkg-deb --build "${BUILDDIR}" mina-mainnet_${VERSION}.deb
+fakeroot dpkg-deb --build "${BUILDDIR}" mina-mainnet_${MINA_DEB_VERSION}.deb
 ls -lh mina*.deb
 
 ###### deb with testnet signatures
@@ -174,11 +173,11 @@ echo "Building testnet signatures deb without keys:"
 
 cat << EOF > "${BUILDDIR}/DEBIAN/control"
 Package: mina-devnet
-Version: ${VERSION}
+Version: ${MINA_DEB_VERSION}
 Section: base
 Priority: optional
 Architecture: amd64
-Depends: libffi6, libjemalloc1, libssl1.1, libgmp10, libgomp1, libpq-dev
+Depends: ${SHARED_DEPS}${DAEMON_DEPS}
 Suggests: postgresql
 Conflicts: mina-mainnet
 License: Apache-2.0
@@ -209,7 +208,7 @@ find "${BUILDDIR}"
 
 # Build the package
 echo "------------------------------------------------------------"
-fakeroot dpkg-deb --build "${BUILDDIR}" mina-devnet_${VERSION}.deb
+fakeroot dpkg-deb --build "${BUILDDIR}" mina-devnet_${MINA_DEB_VERSION}.deb
 ls -lh mina*.deb
 
 # TODO: Find a way to package keys properly without blocking/locking in CI
@@ -259,5 +258,5 @@ done
 rm -rf "${BUILDDIR}"
 
 # Build mina block producer sidecar 
-source ../automation/services/mina-bp-stats/sidecar/build.sh
+../automation/services/mina-bp-stats/sidecar/build.sh
 ls -lh mina*.deb

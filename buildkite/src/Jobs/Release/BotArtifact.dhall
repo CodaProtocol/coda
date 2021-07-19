@@ -11,14 +11,11 @@ let Command = ../../Command/Base.dhall
 let Size = ../../Command/Size.dhall
 let DockerImage = ../../Command/DockerImage.dhall
 
-let dependsOn = [ { name = "BotArtifact", key = "setup-deploy-env" } ]
+let dependsOn = [ { name = "GitEnvUpload", key = "upload-git-env" } ]
 
 let spec = DockerImage.ReleaseSpec::{
     deps=dependsOn,
     service="bot",
-    commit="\\\${BUILDKITE_COMMIT}",
-    deploy_env_file="BOT_DEPLOY_ENV",
-    extra_args="",
     step_key="bot-docker-image"
 }
 
@@ -39,7 +36,7 @@ Pipeline.build
       Command.build
         Command.Config::{
           commands = [
-              Cmd.run "echo export MINA_VERSION=$(cat frontend/bot/package.json | jq '.version') > BOT_DEPLOY_ENV && buildkite/scripts/buildkite-artifact-helper.sh BOT_DEPLOY_ENV"
+              Cmd.run "echo export MINA_VERSION=$(cat frontend/bot/package.json | jq '.version') > BOT_DEPLOY_ENV"
           ],
           label = "Setup o1bot docker image deploy environment",
           key = "setup-deploy-env",
