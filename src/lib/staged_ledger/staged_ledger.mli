@@ -19,6 +19,11 @@ module Scan_state : sig
     type t [@@deriving sexp, to_yojson]
   end
 
+  (** Space available and number of jobs required to enqueue transactions in the scan state.
+
+  first = space on the latest tree and number of proofs required
+
+  second = If the space on the latest tree is less than max size (defined at compile time) then remaining number of slots for a new tree and the corresponding number of proofs required *)
   module Space_partition : sig
     type t = { first : int * int; second : (int * int) option }
     [@@deriving sexp]
@@ -29,8 +34,10 @@ module Scan_state : sig
   val empty :
     constraint_constants:Genesis_constants.Constraint_constants.t -> unit -> t
 
+  (** Statements of the required snark work *)
   val snark_job_list_json : t -> string
 
+  (** All the transactions that are yet to be proven, in the order they were applied *)
   val staged_transactions : t -> Transaction.t With_status.t list
 
   val staged_transactions_with_protocol_states :
@@ -39,6 +46,7 @@ module Scan_state : sig
     -> (Transaction.t With_status.t * Mina_state.Protocol_state.value) list
        Or_error.t
 
+  (** Statements of all the pending work. Fails if there are any invalid statements in the scan state [t] *)
   val all_work_statements_exn : t -> Transaction_snark_work.Statement.t list
 
   (** Hashes of the protocol states required for proving pending transactions*)
@@ -108,6 +116,7 @@ val of_scan_state_and_ledger_unchecked :
 
 val replace_ledger_exn : t -> Ledger.t -> t
 
+(** Transactions corresponding to the most recent ledger proof in t *)
 val proof_txns_with_state_hashes :
   t -> (Transaction.t With_status.t * State_hash.t) Non_empty_list.t option
 
@@ -153,6 +162,7 @@ val apply_diff_unchecked :
      , Staged_ledger_error.t )
      Deferred.Result.t
 
+(** Most recent ledger proof in t *)
 val current_ledger_proof : t -> Ledger_proof.t option
 
 (* This should memoize the snark verifications *)
@@ -173,12 +183,14 @@ val create_diff :
      , Pre_diff_info.Error.t )
      Result.t
 
+(** A block producer is eligible if the account won the slot [winner] has no unlocked tokens at slot [global_slot] in the staking ledger [epoch_ledger] *)
 val can_apply_supercharged_coinbase_exn :
      winner:Public_key.Compressed.t
   -> epoch_ledger:Mina_base.Sparse_ledger.t
   -> global_slot:Mina_numbers.Global_slot.t
   -> bool
 
+(** Statement corresponding to the last transaction added to the scan state in t. Merkle root of the ledger in [t] = target state of the returned statement *)
 val statement_exn :
      constraint_constants:Genesis_constants.Constraint_constants.t
   -> t
@@ -195,6 +207,7 @@ val of_scan_state_pending_coinbases_and_snarked_ledger :
   -> get_state:(State_hash.t -> Mina_state.Protocol_state.value Or_error.t)
   -> t Or_error.t Deferred.t
 
+(** All the pending work in t and the data required to generate proofs. *)
 val all_work_pairs :
      t
   -> get_state:(State_hash.t -> Mina_state.Protocol_state.value Or_error.t)
@@ -206,6 +219,7 @@ val all_work_pairs :
      list
      Or_error.t
 
+(** Statements of all the pending work in t*)
 val all_work_statements_exn : t -> Transaction_snark_work.Statement.t list
 
 val check_commands :
