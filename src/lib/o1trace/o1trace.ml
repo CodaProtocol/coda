@@ -126,9 +126,13 @@ let[@inline] measure _ f = f ()
 
 let[@inline] trace_event _ = ()
 
-let[@inline] trace_recurring_task _ f = f ()
+let[@inline] trace _ f = f ()
 
-let[@inline] trace_task _ f = f ()
+let[@inline] trace_recurring _ f = f ()
+
+let[@inline] trace_recurring_task _ f = Async.don't_wait_for (f ())
+
+let[@inline] trace_task _ f = Async.don't_wait_for (f ())
 
 let[@inline] start_tracing _ = ()
 
