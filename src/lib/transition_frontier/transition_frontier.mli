@@ -48,7 +48,8 @@ val load :
   -> ( t
      , [> `Failure of string
        | `Bootstrap_required
-       | `Persistent_frontier_malformed ] )
+       | `Persistent_frontier_malformed
+       | `Snarked_ledger_mismatch ] )
      Deferred.Result.t
 
 val close : loc:string -> t -> unit Deferred.t
@@ -87,7 +88,8 @@ module For_tests : sig
     -> ( t
        , [> `Failure of string
          | `Bootstrap_required
-         | `Persistent_frontier_malformed ] )
+         | `Persistent_frontier_malformed
+         | `Snarked_ledger_mismatch ] )
        Deferred.Result.t
 
   val gen_genesis_breadcrumb :

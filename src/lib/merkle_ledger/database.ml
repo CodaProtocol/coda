@@ -100,6 +100,9 @@ module Make (Inputs : Inputs_intf) :
     ; detached_parent_signal = Async.Ivar.create ()
     }
 
+  let make_checkpoint t ~directory_name =
+    Kvdb.make_checkpoint t.kvdb directory_name
+
   let close { kvdb; uuid = _; depth = _; directory = _; detached_parent_signal }
       =
     Kvdb.close kvdb ;

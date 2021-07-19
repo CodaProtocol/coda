@@ -129,6 +129,8 @@ struct
         Bigstring_frozen.Table.remove t.table key)
 
   let remove t ~key = Bigstring_frozen.Table.remove t.table key
+
+  let make_checkpoint _ _ = ()
 end
 
 module Storage_locations : Intf.Storage_locations = struct

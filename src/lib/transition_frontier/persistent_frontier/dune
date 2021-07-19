@@ -1,6 +1,6 @@
 (library
  (name persistent_frontier)
  (public_name transition_frontier_persistent_frontier)
- (libraries transition_frontier_base block_time transition_frontier_full_frontier transition_frontier_extensions file_system mina_base core async rocksdb mina_intf signature_lib consensus storage yojson rpc_parallel otp_lib)
+ (libraries transition_frontier_base transition_frontier_persistent_root block_time transition_frontier_full_frontier transition_frontier_extensions file_system mina_base core async rocksdb mina_intf signature_lib consensus storage yojson rpc_parallel otp_lib)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_coda ppx_version ppx_jane ppx_compare ppx_bin_prot ppx_deriving_yojson)))

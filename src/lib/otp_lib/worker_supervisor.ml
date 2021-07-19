@@ -28,8 +28,6 @@ end
 module type Worker_intf = sig
   include Base_intf
 
-  val make_immediate_progress : t -> input -> [ `Unprocessed of input ]
-
   val perform : t -> input -> output Deferred.t
 end
 
@@ -38,8 +36,6 @@ module type S = sig
   include Base_intf
 
   val is_working : t -> bool
-
-  val make_immediate_progress : t -> input -> [ `Unprocessed of input ]
 
   val dispatch : t -> input -> output Deferred.t
 end
@@ -60,8 +56,6 @@ module Make (Worker : Worker_intf) :
 
   let assert_not_working t =
     if is_working t then failwith "cannot dispatch to busy worker"
-
-  let make_immediate_progress t = Worker.make_immediate_progress t.worker
 
   let dispatch t work =
     assert_not_working t ;

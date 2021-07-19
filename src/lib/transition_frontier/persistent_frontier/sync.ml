@@ -7,8 +7,9 @@ let buffer t = DynArray.to_list t.buffer.diff_array
 
 (* NB: the persistent frontier must remain open as
  * long as the synchronization is using it *)
-let create ~constraint_constants ~logger ~time_controller ~db =
-  let worker = Worker.create {db; logger} in
+let create ~constraint_constants ~logger ~time_controller ~db
+    ~persistent_root_instance =
+  let worker = Worker.create {db; logger; persistent_root_instance} in
   let buffer =
     Diff_buffer.create ~constraint_constants ~time_controller ~worker
   in

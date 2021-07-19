@@ -1,6 +1,6 @@
 (library
  (name transition_frontier_tests)
- (libraries transition_frontier)
+ (libraries transition_frontier transition_frontier_persistent_root)
  (inline_tests)
  (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_jane ppx_version)))

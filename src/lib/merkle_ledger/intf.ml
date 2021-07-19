@@ -125,6 +125,8 @@ module type Key_value_database = sig
 
   val create_checkpoint : t -> string -> t
 
+  val make_checkpoint : t -> string -> unit
+
   val get_uuid : t -> Uuid.t
 
   val set_batch :

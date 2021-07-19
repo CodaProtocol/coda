@@ -368,7 +368,7 @@ let run ~logger ~trust_system ~verifier ~network ~consensus_local_state
               , Some staged_ledger_construction_time
               , result ) )
     in
-    Transition_frontier.Persistent_root.Instance.destroy
+    Transition_frontier.Persistent_root.Instance.close
       temp_persistent_root_instance ;
     match staged_ledger_aux_result with
     | Error e ->
@@ -512,6 +512,10 @@ let run ~logger ~trust_system ~verifier ~network ~consensus_local_state
                     "bootstrap still required (indicates logical error in code)"
               | Error `Persistent_frontier_malformed ->
                   fail "persistent frontier was malformed"
+              | Error `Snarked_ledger_mismatch ->
+                  fail
+                    "this should not happen, because we just reset the \
+                     snarked_ledger"
             in
             [%str_log info] Bootstrap_complete ;
             let collected_transitions =
