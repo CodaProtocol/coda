@@ -213,13 +213,14 @@ groups:
       runbook: "https://www.notion.so/minaprotocol/NoNewSnarks-f86d27c81af54954b2fb61378bff9d4d"
 
   - alert: NoNewTransactions
-    expr: min by (testnet) ((time() - 1609459200) - Coda_Transaction_pool_useful_transactions_received_time_sec ${rule_filter}) >= 2 * 180
+    expr: min by (testnet) ((time() - 1609459200) - Coda_Transaction_pool_useful_transactions_received_time_sec ${rule_filter}) >= 10 * 180
+    for: ${alert_evaluation_duration}
     labels:
       testnet: "{{ $labels.testnet }}"
       severity: critical
     annotations:
-      summary: "{{ $labels.testnet }}: no new transactions seen for 2 slots."
-      description: "No node has received transactions in their transaction pool in the last 2 slots (6 minutes) on network {{ $labels.testnet }}."
+      summary: "{{ $labels.testnet }}: no new transactions seen for 10 slots."
+      description: "No node has received transactions in their transaction pool in the last 10 slots (30 minutes) on network {{ $labels.testnet }}."
       runbook: "https://www.notion.so/minaprotocol/NoNewTransactions-27dbeafab8ea4d659ee6f748acb2fd6c"
 
   - alert: HighUnparentedBlockCount
@@ -286,6 +287,17 @@ groups:
       summary: "{{ $labels.testnet }} has at least 1 block without transactions at the tip"
       description: "{{ $value }} Blocks without transactions on tip of network {{ $labels.testnet }}."
       runbook: "https://www.notion.so/minaprotocol/NoTransactionsInAtLeastOneBlock-049250ff7ae84de990233c7b6d35f763"
+
+  - alert: NoNewTransactionsLast15Mins
+    expr: min by (testnet) ((time() - 1609459200) - Coda_Transaction_pool_useful_transactions_received_time_sec ${rule_filter}) >= 5 * 180
+    for: ${alert_evaluation_duration}
+    labels:
+      testnet: "{{ $labels.testnet }}"
+      severity: warning
+    annotations:
+      summary: "{{ $labels.testnet }}: no new transactions seen for 5 slots."
+      description: "No node has received transactions in their transaction pool in the last 5 slots (15 minutes) on network {{ $labels.testnet }}."
+      runbook: "https://www.notion.so/minaprotocol/NoNewTransactions-27dbeafab8ea4d659ee6f748acb2fd6c"
 
   - alert: LowMinWindowDensity
     expr: min by (testnet) (Coda_Transition_frontier_min_window_density ${rule_filter}) <= 35
