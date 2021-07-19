@@ -69,6 +69,7 @@ module Constraint_constants = struct
         ; supercharged_coinbase_factor : int
         ; account_creation_fee : Currency.Fee.Stable.V1.t
         ; fork : Fork_constants.Stable.V1.t option
+        ; network_id : int
         }
       [@@deriving sexp, equal, compare, yojson]
 
@@ -198,6 +199,16 @@ module Constraint_constants = struct
 
       [%%endif]
 
+      [%%ifdef network_id]
+
+      [%%inject "network_id", network_id]
+
+      [%%else]
+
+      let network_id = 0
+
+      [%%endif]
+
       let compiled =
         { sub_windows_per_window
         ; ledger_depth
@@ -211,6 +222,7 @@ module Constraint_constants = struct
         ; account_creation_fee =
             Currency.Fee.of_formatted_string account_creation_fee_string
         ; fork
+        ; network_id
         }
     end :
       sig

@@ -1058,18 +1058,20 @@ let%test_module _ =
 
     let test_keys = Array.init 10 ~f:(fun _ -> Signature_lib.Keypair.create ())
 
-    let gen_cmd ?sign_type ?nonce ?fee_token ?payment_token () =
-      User_command.Valid.Gen.payment_with_random_participants ~keys:test_keys
-        ~max_amount:1000 ~fee_range:10 ?sign_type ?nonce ?fee_token
-        ?payment_token ()
-      |> Quickcheck.Generator.map
-           ~f:Transaction_hash.User_command_with_valid_signature.create
-
     let precomputed_values = Lazy.force Precomputed_values.for_unit_tests
 
     let constraint_constants = precomputed_values.constraint_constants
 
     let consensus_constants = precomputed_values.consensus_constants
+
+    let network_id = constraint_constants.network_id
+
+    let gen_cmd ?sign_type ?nonce ?fee_token ?payment_token () =
+      User_command.Valid.Gen.payment_with_random_participants ~network_id
+        ~keys:test_keys ~max_amount:1000 ~fee_range:10 ?sign_type ?nonce
+        ?fee_token ?payment_token ()
+      |> Quickcheck.Generator.map
+           ~f:Transaction_hash.User_command_with_valid_signature.create
 
     let logger = Logger.null ()
 
@@ -1123,7 +1125,9 @@ let%test_module _ =
           Quickcheck.Generator.t =
         let open Quickcheck.Generator.Let_syntax in
         let%bind ledger_init = Ledger.gen_initial_ledger_state in
-        let%map cmds = User_command.Valid.Gen.sequence ledger_init in
+        let%map cmds =
+          User_command.Valid.Gen.sequence ~network_id ledger_init
+        in
         ( ledger_init
         , List.map ~f:Transaction_hash.User_command_with_valid_signature.create
             cmds )
@@ -1263,7 +1267,7 @@ let%test_module _ =
                 Quickcheck.Generator.tuple2 (return sender)
                   (Quickcheck_lib.of_array test_keys)
               in
-              User_command.Gen.payment ~sign_type:`Fake ~key_gen
+              User_command.Gen.payment ~network_id ~sign_type:`Fake ~key_gen
                 ~nonce:current_nonce ~max_amount:1 ~fee_range:0 ()
             in
             let cmd_currency = amounts.(n - 1) in
@@ -1301,7 +1305,7 @@ let%test_module _ =
             Quickcheck.Generator.tuple2 (return sender)
               (Quickcheck_lib.of_array test_keys)
           in
-          User_command.Gen.payment ~sign_type:`Fake ~key_gen
+          User_command.Gen.payment ~network_id ~sign_type:`Fake ~key_gen
             ~nonce:(Account_nonce.of_int replaced_nonce)
             ~max_amount:(Currency.Amount.to_int init_balance)
             ~fee_range:0 ()

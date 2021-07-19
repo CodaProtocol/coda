@@ -23,10 +23,12 @@ module State = struct
 end
 
 (* TODO: this is extremely expensive as implemented and needs to be replaced with an extension *)
-let get_status ~frontier_broadcast_pipe ~transaction_pool cmd =
+let get_status ~(network_id : int) ~frontier_broadcast_pipe ~transaction_pool
+    cmd =
   let open Or_error.Let_syntax in
   let%map check_cmd =
-    Result.of_option (Signed_command.check cmd)
+    Result.of_option
+      (Signed_command.check ~network_id cmd)
       ~error:(Error.of_string "Invalid signature")
     |> Result.map ~f:(fun x ->
            Transaction_hash.User_command_with_valid_signature.create
@@ -79,6 +81,8 @@ let%test_module "transaction_status" =
 
     let constraint_constants = precomputed_values.constraint_constants
 
+    let network_id = constraint_constants.network_id
+
     module Genesis_ledger = (val precomputed_values.genesis_ledger)
 
     let trust_system = Trust_system.null ()
@@ -105,8 +109,8 @@ let%test_module "transaction_status" =
         ~trust_system ~max_length ~size:frontier_size ()
 
     let gen_user_command =
-      Signed_command.Gen.payment ~sign_type:`Real ~max_amount:100 ~fee_range:10
-        ~key_gen ~nonce:(Account_nonce.of_int 1) ()
+      Signed_command.Gen.payment ~network_id ~sign_type:`Real ~max_amount:100
+        ~fee_range:10 ~key_gen ~nonce:(Account_nonce.of_int 1) ()
 
     let create_pool ~frontier_broadcast_pipe =
       let pool_reader, _ =
@@ -160,8 +164,8 @@ let%test_module "transaction_status" =
               [%log info] "Checking status" ;
               [%test_eq: State.t] ~equal:State.equal State.Unknown
                 ( Or_error.ok_exn
-                @@ get_status ~frontier_broadcast_pipe ~transaction_pool
-                     user_command )))
+                @@ get_status ~network_id ~frontier_broadcast_pipe
+                     ~transaction_pool user_command )))
 
     let%test_unit "A pending transaction is either in the transition frontier \
                    or transaction pool, but not in the best path of the \
@@ -183,8 +187,8 @@ let%test_module "transaction_status" =
               let%map () = Async.Scheduler.yield_until_no_jobs_remain () in
               let status =
                 Or_error.ok_exn
-                @@ get_status ~frontier_broadcast_pipe ~transaction_pool
-                     user_command
+                @@ get_status ~network_id ~frontier_broadcast_pipe
+                     ~transaction_pool user_command
               in
               [%log info] "Computing status" ;
               [%test_eq: State.t] ~equal:State.equal State.Pending status))
@@ -223,6 +227,6 @@ let%test_module "transaction_status" =
               [%log info] "Computing status" ;
               [%test_eq: State.t] ~equal:State.equal State.Unknown
                 ( Or_error.ok_exn
-                @@ get_status ~frontier_broadcast_pipe ~transaction_pool
-                     unknown_user_command )))
+                @@ get_status ~network_id ~frontier_broadcast_pipe
+                     ~transaction_pool unknown_user_command )))
   end )

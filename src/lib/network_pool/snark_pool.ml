@@ -278,7 +278,7 @@ struct
                     (Account_id.create prover Token_id.default)
                 >>= Base_ledger.get l ))
 
-      let handle_transition_frontier_diff u t =
+      let handle_transition_frontier_diff ~network_id:_ u t =
         match u with
         | `New_best_tip l ->
             Statement_table.filteri_inplace t.snark_tables.all
@@ -686,6 +686,8 @@ let%test_module "random set test" =
         account_creation_fee = Currency.Fee.zero
       }
 
+    let network_id = constraint_constants.network_id
+
     let consensus_constants = precomputed_values.consensus_constants
 
     let proof_level = precomputed_values.proof_level
@@ -716,8 +718,8 @@ let%test_module "random set test" =
         Mock_snark_pool.Resource_pool.Diff.verify resource_pool enveloped_diff
       with
       | Ok _ ->
-          Mock_snark_pool.Resource_pool.Diff.unsafe_apply resource_pool
-            enveloped_diff
+          Mock_snark_pool.Resource_pool.Diff.unsafe_apply ~network_id
+            resource_pool enveloped_diff
       | Error _ ->
           Deferred.return (Error (`Other (Error.of_string "Invalid diff")))
 
@@ -969,7 +971,7 @@ let%test_module "random set test" =
                  | None ->
                      failwith "There should have been a proof here" ) ;
                  Deferred.unit) ;
-          Mock_snark_pool.apply_and_broadcast network_pool
+          Mock_snark_pool.apply_and_broadcast ~network_id network_pool
             (Envelope.Incoming.local command)
             (Mock_snark_pool.Broadcast_callback.Local (Fn.const ())))
 

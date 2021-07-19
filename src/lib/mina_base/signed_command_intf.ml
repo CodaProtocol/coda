@@ -29,7 +29,8 @@ module type Gen_intf = sig
     * and an amount $\in [1,max_amount]$
     *)
     val payment :
-         ?sign_type:[ `Fake | `Real ]
+         network_id:int
+      -> ?sign_type:[ `Fake | `Real ]
       -> key_gen:
            (Signature_keypair.t * Signature_keypair.t) Quickcheck.Generator.t
       -> ?nonce:Account_nonce.t
@@ -47,7 +48,8 @@ module type Gen_intf = sig
     * and an amount $\in [1,max_amount]$
     *)
     val payment_with_random_participants :
-         ?sign_type:[ `Fake | `Real ]
+         network_id:int
+      -> ?sign_type:[ `Fake | `Real ]
       -> keys:Signature_keypair.t array
       -> ?nonce:Account_nonce.t
       -> max_amount:int
@@ -80,6 +82,7 @@ module type Gen_intf = sig
     val sequence :
          ?length:int
       -> ?sign_type:[ `Fake | `Real ]
+      -> network_id:int
       -> ( Signature_lib.Keypair.t
          * Currency.Amount.t
          * Mina_numbers.Account_nonce.t
@@ -169,15 +172,22 @@ module type S = sig
   end
 
   val sign_payload :
-    Signature_lib.Private_key.t -> Signed_command_payload.t -> Signature.t
+       network_id:int
+    -> Signature_lib.Private_key.t
+    -> Signed_command_payload.t
+    -> Signature.t
 
   val sign :
-    Signature_keypair.t -> Signed_command_payload.t -> With_valid_signature.t
+       network_id:int
+    -> Signature_keypair.t
+    -> Signed_command_payload.t
+    -> With_valid_signature.t
 
-  val check_signature : t -> bool
+  val check_signature : network_id:int -> t -> bool
 
   val create_with_signature_checked :
-       Signature.t
+       network_id:int
+    -> Signature.t
     -> Public_key.Compressed.t
     -> Signed_command_payload.t
     -> With_valid_signature.t option
@@ -187,7 +197,7 @@ module type S = sig
       Signature_keypair.t -> Signed_command_payload.t -> With_valid_signature.t
   end
 
-  val check : t -> With_valid_signature.t option
+  val check : network_id:int -> t -> With_valid_signature.t option
 
   val to_valid_unsafe :
        t

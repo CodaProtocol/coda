@@ -409,15 +409,16 @@ struct
                   ~initial_minimum_balance))
           |> Option.value ~default:Currency.Balance.zero
 
-    let check_command (t : User_command.t) : User_command.Valid.t option =
+    let check_command ~(network_id : int) (t : User_command.t) :
+        User_command.Valid.t option =
       match t with
       | Snapp_command _ ->
           None
       | Signed_command t ->
-          Option.map (Signed_command.check t) ~f:(fun x ->
+          Option.map (Signed_command.check ~network_id t) ~f:(fun x ->
               User_command.Signed_command x)
 
-    let handle_transition_frontier_diff
+    let handle_transition_frontier_diff ~(network_id : int)
         ( ({ new_commands; removed_commands; reorg_best_tip = _ } :
             Transition_frontier.best_tip_diff)
         , best_tip_ledger ) t =
@@ -645,7 +646,8 @@ struct
               | Some acct -> (
                   match
                     Indexed_pool.add_from_gossip_exn t.pool (`Checked cmd)
-                      acct.nonce ~verify:check_command
+                      acct.nonce
+                      ~verify:(check_command ~network_id)
                       ( balance_of_account ~global_slot acct
                       |> Currency.Balance.to_amount )
                   with
@@ -987,7 +989,7 @@ struct
               in
               (Time.now (), `Batch batch_num))
 
-      let apply t (env : verified Envelope.Incoming.t) =
+      let apply ~(network_id : int) t (env : verified Envelope.Incoming.t) =
         let txs = Envelope.Incoming.data env in
         let sender = Envelope.Incoming.sender env in
         let is_sender_local = Envelope.Sender.(equal sender Local) in
@@ -1018,7 +1020,7 @@ struct
                       [%log' info t.logger]
                         "Rebroadcasting $cmd already present in the pool"
                         ~metadata:[ ("cmd", User_command.to_yojson tx) ] ;
-                      Option.iter (check_command tx) ~f:(fun cmd ->
+                      Option.iter (check_command ~network_id tx) ~f:(fun cmd ->
                           (* Re-register to reset the rebroadcast
                              timer.
                           *)
@@ -1062,7 +1064,7 @@ struct
                           let add_res =
                             Indexed_pool.add_from_gossip_exn pool
                               (`Unchecked tx') sender_account.nonce
-                              ~verify:check_command
+                              ~verify:(check_command ~network_id)
                             @@ Currency.Balance.to_amount
                             @@ balance_of_account ~global_slot sender_account
                           in
@@ -1326,8 +1328,8 @@ struct
             | Error err ->
                 Error err )
 
-      let unsafe_apply t diff =
-        match%map apply t diff with
+      let unsafe_apply ~(network_id : int) t diff =
+        match%map apply ~network_id t diff with
         | Ok ((accepted, _) as e) ->
             ( if not (List.is_empty accepted) then
               Mina_metrics.(
@@ -1449,6 +1451,8 @@ let%test_module _ =
     let constraint_constants = precomputed_values.constraint_constants
 
     let consensus_constants = precomputed_values.consensus_constants
+
+    let network_id = constraint_constants.network_id
 
     let proof_level = precomputed_values.proof_level
 
@@ -1576,7 +1580,7 @@ let%test_module _ =
         if n < Array.length test_keys then
           let%bind cmd =
             let sender = test_keys.(n) in
-            User_command.Valid.Gen.payment ~sign_type:`Real
+            User_command.Valid.Gen.payment ~network_id ~sign_type:`Real
               ~key_gen:
                 (Quickcheck.Generator.tuple2 (return sender)
                    (Quickcheck_lib.of_array test_keys))
@@ -1629,7 +1633,7 @@ let%test_module _ =
           in
           assert_pool_txs [] ;
           let%bind apply_res =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply pool ~network_id
               (Envelope.Incoming.local independent_signed_cmds')
           in
           [%test_eq: pool_apply]
@@ -1693,7 +1697,7 @@ let%test_module _ =
           in
           assert_pool_txs [] ;
           let%bind apply_res =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply ~network_id pool
               ( Envelope.Incoming.local
               @@ List.hd_exn independent_signed_cmds'
                  :: List.drop independent_signed_cmds' 2 )
@@ -1734,7 +1738,7 @@ let%test_module _ =
               }
           in
           let%bind apply_res =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply ~network_id pool
             @@ Envelope.Incoming.local independent_signed_cmds'
           in
           [%test_eq: pool_apply]
@@ -1745,7 +1749,7 @@ let%test_module _ =
 
     let mk_payment' ?valid_until sender_idx fee nonce receiver_idx amount =
       let get_pk idx = Public_key.compress test_keys.(idx).public_key in
-      Signed_command.sign test_keys.(sender_idx)
+      Signed_command.sign ~network_id test_keys.(sender_idx)
         (Signed_command_payload.create ~fee:(Currency.Fee.of_int fee)
            ~fee_token:Token_id.default ~fee_payer_pk:(get_pk sender_idx)
            ~valid_until
@@ -1790,7 +1794,7 @@ let%test_module _ =
           let cmd1 =
             let sender = test_keys.(0) in
             Quickcheck.random_value
-              (User_command.Valid.Gen.payment ~sign_type:`Real
+              (User_command.Valid.Gen.payment ~network_id ~sign_type:`Real
                  ~key_gen:
                    Quickcheck.Generator.(
                      tuple2 (return sender) (Quickcheck_lib.of_array test_keys))
@@ -1798,7 +1802,7 @@ let%test_module _ =
                  ~fee_range:10_000_000_000 ())
           in
           let%bind apply_res =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply ~network_id pool
             @@ Envelope.Incoming.local
                  [ ( match cmd1 with
                    | Signed_command x ->
@@ -1864,7 +1868,7 @@ let%test_module _ =
           in
           let all_valid_commands = independent_cmds @ [ valid_command ] in
           let%bind apply_res =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply ~network_id pool
             @@ Envelope.Incoming.local
                  (extract_signed_commands
                     (all_valid_commands @ expired_commands))
@@ -1905,7 +1909,7 @@ let%test_module _ =
           in
           let valid_commands = few_now @ [ expires_later1; expires_later2 ] in
           let%bind apply_res =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply ~network_id pool
             @@ Envelope.Incoming.local (extract_signed_commands valid_commands)
           in
           let cmds_wo_check =
@@ -2033,7 +2037,7 @@ let%test_module _ =
             Broadcast_pipe.Writer.write frontier_pipe_w (Some frontier1)
           in
           let%bind _ =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply ~network_id pool
               (Envelope.Incoming.local
                  (extract_signed_commands independent_cmds))
           in
@@ -2085,7 +2089,8 @@ let%test_module _ =
             } ->
               { common = { common with fee_payer_pk = sender_pk }; body }
         in
-        User_command.Signed_command (Signed_command.sign sender_kp payload)
+        User_command.Signed_command
+          (Signed_command.sign ~network_id sender_kp payload)
       in
       let txs0 =
         [ mk_payment' 0 1_000_000_000 0 9 20_000_000_000
@@ -2102,7 +2107,7 @@ let%test_module _ =
         @ txs1 @ txs2 @ txs3
       in
       let%bind apply_res =
-        Test.Resource_pool.Diff.unsafe_apply pool
+        Test.Resource_pool.Diff.unsafe_apply ~network_id pool
           (Envelope.Incoming.local (extract_signed_commands txs_all))
       in
       let txs_all = List.map txs_all ~f:User_command.forget_check in
@@ -2138,7 +2143,7 @@ let%test_module _ =
         ]
       in
       let%bind apply_res_2 =
-        Test.Resource_pool.Diff.unsafe_apply pool
+        Test.Resource_pool.Diff.unsafe_apply ~network_id pool
           (Envelope.Incoming.local (extract_signed_commands replace_txs))
       in
       let replace_txs = List.map replace_txs ~f:User_command.forget_check in
@@ -2162,7 +2167,7 @@ let%test_module _ =
       in
       let committed_tx = mk_payment 0 5_000_000_000 0 2 25_000_000_000 in
       let%bind apply_res =
-        Test.Resource_pool.Diff.unsafe_apply pool
+        Test.Resource_pool.Diff.unsafe_apply ~network_id pool
         @@ Envelope.Incoming.local (extract_signed_commands txs)
       in
       let txs = txs |> List.map ~f:User_command.forget_check in
@@ -2186,8 +2191,8 @@ let%test_module _ =
         let%bind init_ledger_state = Ledger.gen_initial_ledger_state in
         let%bind cmds_count = Int.gen_incl pool_max_size (pool_max_size * 2) in
         let%bind cmds =
-          User_command.Valid.Gen.sequence ~sign_type:`Real ~length:cmds_count
-            init_ledger_state
+          User_command.Valid.Gen.sequence ~network_id ~sign_type:`Real
+            ~length:cmds_count init_ledger_state
         in
         return (init_ledger_state, cmds))
         ~f:(fun (init_ledger_state, cmds) ->
@@ -2224,13 +2229,13 @@ let%test_module _ =
               in
               let cmds1, cmds2 = List.split_n cmds pool_max_size in
               let%bind apply_res1 =
-                Test.Resource_pool.Diff.unsafe_apply pool
+                Test.Resource_pool.Diff.unsafe_apply ~network_id pool
                   (Envelope.Incoming.local (extract_signed_commands cmds1))
               in
               assert (Result.is_ok apply_res1) ;
               [%test_eq: int] pool_max_size (Indexed_pool.size pool.pool) ;
               let%map _apply_res2 =
-                Test.Resource_pool.Diff.unsafe_apply pool
+                Test.Resource_pool.Diff.unsafe_apply ~network_id pool
                   (Envelope.Incoming.local (extract_signed_commands cmds2))
               in
               (* N.B. Adding a transaction when the pool is full may drop > 1
@@ -2273,7 +2278,7 @@ let%test_module _ =
           in
           (* Locally generated transactions are rebroadcastable *)
           let%bind apply_res_1 =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply ~network_id pool
               (Envelope.Incoming.local (extract_signed_commands local_cmds))
           in
           [%test_eq: pool_apply]
@@ -2284,7 +2289,7 @@ let%test_module _ =
           (* Adding non-locally-generated transactions doesn't affect
              rebroadcastable pool *)
           let%bind apply_res_2 =
-            Test.Resource_pool.Diff.unsafe_apply pool
+            Test.Resource_pool.Diff.unsafe_apply ~network_id pool
               (Envelope.Incoming.map
                  (Envelope.Incoming.wrap ~data:remote_cmds ~sender:mock_sender)
                  ~f:extract_signed_commands)

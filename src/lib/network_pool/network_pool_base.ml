@@ -79,7 +79,7 @@ end)
       ~capacity:
         (Resource_pool.Diff.max_per_15_seconds, `Per (Time.Span.of_sec 15.0))
 
-  let apply_and_broadcast t
+  let apply_and_broadcast ~(network_id : int) t
       (diff : Resource_pool.Diff.verified Envelope.Incoming.t) cb =
     let rebroadcast (diff', rejected) =
       let open Broadcast_callback in
@@ -97,7 +97,9 @@ end)
           (Resource_pool.Diff.summary diff') ;
         forward t.write_broadcasts diff' rejected cb )
     in
-    match%bind Resource_pool.Diff.unsafe_apply t.resource_pool diff with
+    match%bind
+      Resource_pool.Diff.unsafe_apply ~network_id t.resource_pool diff
+    with
     | Ok res ->
         rebroadcast res
     | Error (`Locally_generated res) ->
@@ -207,6 +209,7 @@ end)
       ; constraint_constants
       }
     in
+    let network_id = constraint_constants.network_id in
     (*proiority: Transition frontier diffs > local diffs > incomming diffs*)
     Strict_pipe.Reader.Merge.iter
       [ Strict_pipe.Reader.map tf_diffs ~f:(fun diff ->
@@ -224,11 +227,12 @@ end)
       ~f:(fun diff_source ->
         match diff_source with
         | `Incoming (verified_diff, cb) ->
-            apply_and_broadcast network_pool verified_diff cb
+            apply_and_broadcast ~network_id network_pool verified_diff cb
         | `Local (verified_diff, cb) ->
-            apply_and_broadcast network_pool verified_diff cb
+            apply_and_broadcast ~network_id network_pool verified_diff cb
         | `Transition_frontier_extension diff ->
-            Resource_pool.handle_transition_frontier_diff diff resource_pool)
+            Resource_pool.handle_transition_frontier_diff ~network_id diff
+              resource_pool)
     |> Deferred.don't_wait_for ;
     network_pool
 

@@ -28,6 +28,7 @@ module Inputs = struct
       { m : (module S) option
       ; cache : Cache.t
       ; proof_level : Genesis_constants.Proof_level.t
+      ; network_id : int
       }
 
     let create ~constraint_constants ~proof_level () =
@@ -43,7 +44,8 @@ module Inputs = struct
         | Check | None ->
             None
       in
-      Deferred.return { m; cache = Cache.create (); proof_level }
+      let network_id = constraint_constants.network_id in
+      Deferred.return { m; cache = Cache.create (); proof_level; network_id }
 
     let worker_wait_time = 5.
   end
@@ -55,7 +57,8 @@ module Inputs = struct
     Snark_work_lib.Work.Single.Spec.t
   [@@deriving sexp]
 
-  let perform_single ({ m; cache; proof_level } : Worker_state.t) ~message =
+  let perform_single ({ m; cache; proof_level; network_id } : Worker_state.t)
+      ~message =
     let open Deferred.Or_error.Let_syntax in
     let open Snark_work_lib in
     let sok_digest = Mina_base.Sok_message.digest message in
@@ -98,7 +101,7 @@ module Inputs = struct
                         (* Validate the received transaction *)
                         match t with
                         | Command (Signed_command cmd) -> (
-                            match Signed_command.check cmd with
+                            match Signed_command.check ~network_id cmd with
                             | Some cmd ->
                                 ( Ok (Command (Signed_command cmd))
                                   : Transaction.Valid.t Or_error.t )

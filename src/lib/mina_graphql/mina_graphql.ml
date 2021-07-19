@@ -3568,9 +3568,13 @@ module Queries = struct
         let%bind payment = deserialize_payment serialized_payment in
         let frontier_broadcast_pipe = Mina_lib.transition_frontier coda in
         let transaction_pool = Mina_lib.transaction_pool coda in
+        let constraint_constants =
+          (Mina_lib.config coda).precomputed_values.constraint_constants
+        in
+        let network_id = constraint_constants.network_id in
         Result.map_error
-          (Transaction_inclusion_status.get_status ~frontier_broadcast_pipe
-             ~transaction_pool payment.data)
+          (Transaction_inclusion_status.get_status ~network_id
+             ~frontier_broadcast_pipe ~transaction_pool payment.data)
           ~f:Error.to_string_hum)
 
   let current_snark_worker =
@@ -3868,6 +3872,10 @@ module Queries = struct
             }
         in
         let fee_token = Token_id.default in
+        let constraint_constants =
+          (Mina_lib.config mina).precomputed_values.constraint_constants
+        in
+        let network_id = constraint_constants.network_id in
         let%bind signature =
           match signature with
           | Some signature ->
@@ -3889,7 +3897,7 @@ module Queries = struct
             user_command_input
           |> Deferred.Result.map_error ~f:Error.to_string_hum
         in
-        Signed_command.check_signature user_command)
+        Signed_command.check_signature ~network_id user_command)
 
   let runtime_config =
     field "runtimeConfig"

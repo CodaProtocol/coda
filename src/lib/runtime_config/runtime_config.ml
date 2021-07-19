@@ -288,6 +288,7 @@ module Json_layout = struct
       ; supercharged_coinbase_factor : int option [@default None]
       ; account_creation_fee : Currency.Fee.t option [@default None]
       ; fork : Fork_config.t option [@default None]
+      ; network_id : int option [@default None]
       }
     [@@deriving yojson, dhall_type]
 
@@ -301,6 +302,7 @@ module Json_layout = struct
        ; "coinbase_amount"
        ; "supercharged_coinbase_factor"
        ; "account_creation_fee"
+       ; "network_id"
       |]
 
     let of_yojson json = of_yojson_generic ~fields of_yojson json
@@ -390,7 +392,8 @@ end
       , "transaction_capacity": {"txns_per_second_x10": 2}
       , "coinbase_amount": "200"
       , "supercharged_coinbase_factor": 2
-      , "account_creation_fee": "0.001" }
+      , "account_creation_fee": "0.001"
+      , "network_id": 1}
   , "ledger":
       { "name": "release"
       , "accounts":
@@ -656,6 +659,7 @@ module Proof_keys = struct
     ; supercharged_coinbase_factor : int option
     ; account_creation_fee : Currency.Fee.Stable.Latest.t option
     ; fork : Fork_config.t option
+    ; network_id : int option
     }
   [@@deriving bin_io_unversioned]
 
@@ -670,6 +674,7 @@ module Proof_keys = struct
       ; supercharged_coinbase_factor
       ; account_creation_fee
       ; fork
+      ; network_id
       } =
     { Json_layout.Proof_keys.level = Option.map ~f:Level.to_json_layout level
     ; sub_windows_per_window
@@ -682,6 +687,7 @@ module Proof_keys = struct
     ; supercharged_coinbase_factor
     ; account_creation_fee
     ; fork
+    ; network_id
     }
 
   let of_json_layout
@@ -695,6 +701,7 @@ module Proof_keys = struct
       ; supercharged_coinbase_factor
       ; account_creation_fee
       ; fork
+      ; network_id
       } =
     let open Result.Let_syntax in
     let%map level = result_opt ~f:Level.of_json_layout level
@@ -711,6 +718,7 @@ module Proof_keys = struct
     ; supercharged_coinbase_factor
     ; account_creation_fee
     ; fork
+    ; network_id
     }
 
   let to_yojson x = Json_layout.Proof_keys.to_yojson (to_json_layout x)
@@ -738,6 +746,7 @@ module Proof_keys = struct
     ; account_creation_fee =
         opt_fallthrough ~default:t1.account_creation_fee t2.account_creation_fee
     ; fork = opt_fallthrough ~default:t1.fork t2.fork
+    ; network_id = opt_fallthrough ~default:t1.network_id t2.network_id
     }
 end
 

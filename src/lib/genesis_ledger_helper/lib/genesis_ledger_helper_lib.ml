@@ -436,6 +436,7 @@ let make_constraint_constants
             ; previous_global_slot =
                 Mina_numbers.Global_slot.of_int previous_global_slot
             } )
+  ; network_id = Option.value ~default:default.network_id config.network_id
   }
 
 let runtime_config_of_constraint_constants
@@ -471,6 +472,7 @@ let runtime_config_of_constraint_constants
           ; previous_global_slot =
               Mina_numbers.Global_slot.to_int previous_global_slot
           })
+  ; network_id = None
   }
 
 let make_genesis_constants ~logger ~(default : Genesis_constants.t)

@@ -64,12 +64,17 @@ let coinbase_merkle_tree =
 
 let vrf_message = salt vrf_message
 
-let signature =
-  match Mina_signature_kind.t with
-  | Mainnet ->
-      salt signature_mainnet
-  | Testnet ->
-      salt signature_testnet
+let signature_salt ~(network_id : int) : Hash_prefixes.t =
+  match network_id with
+  | 1 ->
+      signature_mainnet
+  | 0 ->
+      signature_testnet
+  | _ ->
+      let network_id_hex = Printf.sprintf "%#x" network_id in
+      Hash_prefixes.create @@ "MinaSignature" ^ network_id_hex ^ "net"
+
+let signature ~(network_id : int) = salt @@ signature_salt ~network_id
 
 let vrf_output = salt vrf_output
 

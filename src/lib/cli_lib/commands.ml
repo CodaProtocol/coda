@@ -61,12 +61,12 @@ let validate_keypair =
     let validate_transaction keypair =
       let dummy_payload = Mina_base.Signed_command_payload.dummy in
       let signature =
-        Mina_base.Signed_command.sign_payload keypair.Keypair.private_key
-          dummy_payload
+        Mina_base.Signed_command.sign_payload ~network_id:0
+          keypair.Keypair.private_key dummy_payload
       in
       let message = Mina_base.Signed_command.to_input dummy_payload in
       let verified =
-        Schnorr.verify signature
+        Schnorr.verify ~network_id:0 signature
           (Snark_params.Tick.Inner_curve.of_affine keypair.public_key)
           message
       in
@@ -110,8 +110,12 @@ let validate_transaction =
                   Rosetta_lib.Transaction.to_mina_signed transaction_json
                 with
                 | Ok cmd ->
-                    if Mina_base.Signed_command.check_signature cmd then
-                      Format.eprintf "Transaction was valid@."
+                    let constraint_constants =
+                      Genesis_constants.Constraint_constants.compiled
+                    in
+                    let network_id = constraint_constants.network_id in
+                    if Mina_base.Signed_command.check_signature ~network_id cmd
+                    then Format.eprintf "Transaction was valid@."
                     else (
                       incr num_fails ;
                       Format.eprintf "Transaction was invalid@." )

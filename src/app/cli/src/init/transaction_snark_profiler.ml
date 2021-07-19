@@ -14,6 +14,7 @@ end
 let create_ledger_and_transactions num_transitions =
   let num_accounts = 4 in
   let constraint_constants = Genesis_constants.Constraint_constants.compiled in
+  let network_id = constraint_constants.network_id in
   let ledger = Ledger.create ~depth:constraint_constants.ledger_depth () in
   let keys =
     Array.init num_accounts ~f:(fun _ -> Signature_lib.Keypair.create ())
@@ -38,7 +39,7 @@ let create_ledger_and_transactions num_transitions =
              ; token_id= Token_id.default
              ; amount })
     in
-    Signed_command.sign from_kp payload
+    Signed_command.sign ~network_id from_kp payload
   in
   let nonces =
     Public_key.Compressed.Table.of_alist_exn

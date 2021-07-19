@@ -1953,6 +1953,8 @@ let%test_module "test" =
     let constraint_constants =
       Genesis_constants.Constraint_constants.for_unit_tests
 
+    let network_id = constraint_constants.network_id
+
     let logger = Logger.null ()
 
     let verifier =
@@ -2367,8 +2369,8 @@ let%test_module "test" =
       let%bind iters = Int.gen_incl 1 (max_blocks_for_coverage 0) in
       let total_cmds = transaction_capacity * iters in
       let%bind cmds =
-        User_command.Valid.Gen.sequence ~length:total_cmds ~sign_type:`Real
-          ledger_init_state
+        User_command.Valid.Gen.sequence ~network_id ~length:total_cmds
+          ~sign_type:`Real ledger_init_state
       in
       assert (List.length cmds = total_cmds) ;
       return (ledger_init_state, cmds, List.init iters ~f:(Fn.const None))
@@ -2383,8 +2385,8 @@ let%test_module "test" =
       let iters = max_blocks_for_coverage extra_block_count in
       let total_cmds = transaction_capacity * iters in
       let%bind cmds =
-        User_command.Valid.Gen.sequence ~length:total_cmds ~sign_type:`Real
-          ledger_init_state
+        User_command.Valid.Gen.sequence ~network_id ~length:total_cmds
+          ~sign_type:`Real ledger_init_state
       in
       assert (List.length cmds = total_cmds) ;
       return (ledger_init_state, cmds, List.init iters ~f:(Fn.const None))
@@ -2408,8 +2410,8 @@ let%test_module "test" =
       in
       let total_cmds = List.sum (module Int) ~f:Fn.id cmds_per_iter in
       let%bind cmds =
-        User_command.Valid.Gen.sequence ~length:total_cmds ~sign_type:`Real
-          ledger_init_state
+        User_command.Valid.Gen.sequence ~network_id ~length:total_cmds
+          ~sign_type:`Real ledger_init_state
       in
       assert (List.length cmds = total_cmds) ;
       return (ledger_init_state, cmds, List.map ~f:Option.some cmds_per_iter)

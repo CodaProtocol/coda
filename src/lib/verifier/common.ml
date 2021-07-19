@@ -1,13 +1,13 @@
 open Core_kernel
 open Mina_base
 
-let check :
+let check ~(network_id : int) :
        User_command.Verifiable.t
     -> [ `Valid of User_command.Valid.t
        | `Invalid
        | `Valid_assuming of User_command.Valid.t * _ list ] = function
   | User_command.Signed_command c -> (
-      match Signed_command.check c with
+      match Signed_command.check ~network_id c with
       | None ->
           `Invalid
       | Some c ->
@@ -22,7 +22,7 @@ let check :
           let check_signature s pk =
             if
               not
-                (Signature_lib.Schnorr.verify s
+                (Signature_lib.Schnorr.verify ~network_id s
                    (Backend.Tick.Inner_curve.of_affine
                       (Signature_lib.Public_key.decompress_exn pk))
                    (Random_oracle_input.field (Lazy.force payload)))

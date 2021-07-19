@@ -23,7 +23,7 @@ module type Resource_pool_base_intf = sig
 
   (** Diff from a transition frontier extension that would update the resource pool*)
   val handle_transition_frontier_diff :
-    transition_frontier_diff -> t -> unit Deferred.t
+    network_id:int -> transition_frontier_diff -> t -> unit Deferred.t
 
   val create :
        constraint_constants:Genesis_constants.Constraint_constants.t
@@ -84,7 +84,8 @@ module type Resource_pool_diff_intf = sig
       conincides with applying locally generated diffs or diffs from the network
       or diffs from transition frontier extensions.*)
   val unsafe_apply :
-       pool
+       network_id:int
+    -> pool
     -> verified Envelope.Incoming.t
     -> ( t * rejected
        , [ `Locally_generated of t * rejected | `Other of Error.t ] )
@@ -184,7 +185,8 @@ module type Network_pool_base_intf = sig
   val create_rate_limiter : unit -> Rate_limiter.t
 
   val apply_and_broadcast :
-       t
+       network_id:int
+    -> t
     -> resource_pool_diff_verified Envelope.Incoming.t
     -> Broadcast_callback.t
     -> unit Deferred.t

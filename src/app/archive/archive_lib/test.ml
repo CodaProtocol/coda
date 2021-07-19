@@ -46,8 +46,10 @@ let%test_module "Archive node unit tests" =
 
     let keys = Array.init 5 ~f:(fun _ -> Keypair.create ())
 
+    let network_id = constraint_constants.network_id
+
     let user_command_gen =
-      User_command.Gen.payment_with_random_participants ~keys ~max_amount:1000
+      User_command.Gen.payment_with_random_participants ~network_id ~keys ~max_amount:1000
         ~fee_range:10 ()
 
     let fee_transfer_gen =

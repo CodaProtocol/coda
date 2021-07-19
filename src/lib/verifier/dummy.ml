@@ -2,20 +2,22 @@ open Core_kernel
 open Async_kernel
 open Mina_base
 
-type t = unit
+type t = { network_id : int }
 
 type ledger_proof = Ledger_proof.t
 
-let create ~logger:_ ~proof_level ~constraint_constants:_ ~pids:_ ~conf_dir:_ =
+let create ~logger:_ ~proof_level
+    ~(constraint_constants : Genesis_constants.Constraint_constants.t) ~pids:_
+    ~conf_dir:_ =
   match proof_level with
   | Genesis_constants.Proof_level.Full ->
       failwith "Unable to handle proof-level=Full"
   | Check | None ->
-      Deferred.return ()
+      Deferred.return { network_id = constraint_constants.network_id }
 
 let verify_blockchain_snarks _ _ = Deferred.Or_error.return true
 
-let verify_commands _ (cs : User_command.Verifiable.t list) :
+let verify_commands t (cs : User_command.Verifiable.t list) :
     [ `Valid of Mina_base.User_command.Valid.t
     | `Invalid
     | `Valid_assuming of
@@ -26,7 +28,7 @@ let verify_commands _ (cs : User_command.Verifiable.t list) :
     list
     Deferred.Or_error.t =
   List.map cs ~f:(fun c ->
-      match Common.check c with
+      match Common.check ~network_id:t.network_id c with
       | `Valid c ->
           `Valid c
       | `Invalid ->

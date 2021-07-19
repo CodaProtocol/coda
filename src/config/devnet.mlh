@@ -6,6 +6,7 @@
 [%%import "/src/config/proof_level/full.mlh"]
 [%%import "/src/config/txpool_size.mlh"]
 [%%import "/src/config/account_creation_fee/realistic.mlh"]
+[%%define network_id 0]
 [%%import "/src/config/amount_defaults/realistic.mlh"]
 [%%import "/src/config/protocol_version/current.mlh"]
 [%%import "/src/config/supercharged_coinbase_factor/two.mlh"]

@@ -13,6 +13,8 @@ let%test_module "network pool test" =
 
     let constraint_constants = precomputed_values.constraint_constants
 
+    let network_id = constraint_constants.network_id
+
     let consensus_constants = precomputed_values.consensus_constants
 
     let proof_level = precomputed_values.proof_level
@@ -72,7 +74,7 @@ let%test_module "network pool test" =
               (work, priced_proof)
           in
           don't_wait_for
-            (Mock_snark_pool.apply_and_broadcast network_pool
+            (Mock_snark_pool.apply_and_broadcast ~network_id network_pool
                (Envelope.Incoming.local command)
                (Mock_snark_pool.Broadcast_callback.Local (Fn.const ()))) ;
           let%map _ =

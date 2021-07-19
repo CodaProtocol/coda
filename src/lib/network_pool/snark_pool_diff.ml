@@ -136,7 +136,7 @@ module Make
               Deferred.return (Error e) )
 
   (* This is called after verification has occurred.*)
-  let unsafe_apply (pool : Pool.t) (t : t Envelope.Incoming.t) =
+  let unsafe_apply ~network_id:_ (pool : Pool.t) (t : t Envelope.Incoming.t) =
     let { Envelope.Incoming.data = diff; sender; _ } = t in
     match diff with
     | Empty ->

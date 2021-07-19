@@ -42,6 +42,7 @@ module Worker_state = struct
   type t = (module S)
 
   let create { logger; proof_level; constraint_constants; _ } : t Deferred.t =
+    let network_id = constraint_constants.network_id in
     Memory_stats.log_memory_stats logger ~process:"verifier" ;
     match proof_level with
     | Full ->
@@ -63,7 +64,7 @@ module Worker_state = struct
 
              let verify_commands (cs : User_command.Verifiable.t list) :
                  _ list Deferred.t =
-               let cs = List.map cs ~f:Common.check in
+               let cs = List.map cs ~f:(Common.check ~network_id) in
                let to_verify =
                  List.concat_map cs ~f:(function
                    | `Valid _ ->
@@ -105,7 +106,7 @@ module Worker_state = struct
         @@ ( module struct
              let verify_commands cs =
                List.map cs ~f:(fun c ->
-                   match Common.check c with
+                   match Common.check ~network_id c with
                    | `Valid c ->
                        `Valid c
                    | `Invalid ->

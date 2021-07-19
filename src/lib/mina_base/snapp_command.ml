@@ -1256,7 +1256,8 @@ let to_payload (t : t) : Payload.t =
                 payload)
         }
 
-let signed_signed ?fee_payment ~token_id (signer1, data1) (signer2, data2) : t =
+let signed_signed ~(network_id : int) ?fee_payment ~token_id (signer1, data1)
+    (signer2, data2) : t =
   let r : _ Inner.t =
     { one =
         { Party.Authorized.Poly.data = data1; authorization = Signature.dummy }
@@ -1278,14 +1279,15 @@ let signed_signed ?fee_payment ~token_id (signer1, data1) (signer2, data2) : t =
   in
   Signed_signed
     { r with
-      one = { r.one with authorization = sign signer1 }
-    ; two = { r.two with authorization = sign signer2 }
+      one = { r.one with authorization = sign ~network_id signer1 }
+    ; two = { r.two with authorization = sign ~network_id signer2 }
     ; fee_payment =
         Option.map2 fee_payment r.fee_payment ~f:(fun (sk, _) x ->
-            { x with signature = sign sk })
+            { x with signature = sign ~network_id sk })
     }
 
-let signed_empty ?fee_payment ?data2 ~token_id (signer1, data1) : t =
+let signed_empty ~(network_id : int) ?fee_payment ?data2 ~token_id
+    (signer1, data1) : t =
   let r : _ Inner.t =
     { one =
         { Party.Authorized.Poly.data = data1; authorization = Signature.dummy }
@@ -1308,10 +1310,10 @@ let signed_empty ?fee_payment ?data2 ~token_id (signer1, data1) : t =
   in
   Signed_empty
     { r with
-      one = { r.one with authorization = sign signer1 }
+      one = { r.one with authorization = sign ~network_id signer1 }
     ; fee_payment =
         Option.map2 fee_payment r.fee_payment ~f:(fun (sk, _) x ->
-            { x with signature = sign sk })
+            { x with signature = sign ~network_id sk })
     }
 
 module Base58_check = Codable.Make_base58_check (Stable.Latest)

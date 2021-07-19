@@ -238,7 +238,7 @@ module For_tests = struct
   (* Generate valid payments for each blockchain state by having
      each user send a payment of one coin to another random
      user if they have at least one coin*)
-  let gen_payments staged_ledger accounts_with_secret_keys :
+  let gen_payments ~(network_id:int) staged_ledger accounts_with_secret_keys :
       Signed_command.With_valid_signature.t Sequence.t =
     let account_ids =
       List.map accounts_with_secret_keys ~f:(fun (_, account) ->
@@ -285,7 +285,7 @@ module For_tests = struct
                  ; token_id= token
                  ; amount= send_amount })
         in
-        Signed_command.sign sender_keypair payload )
+        Signed_command.sign ~network_id sender_keypair payload )
 
   let gen ?(logger = Logger.null ())
       ~(precomputed_values : Precomputed_values.t) ~verifier
@@ -303,8 +303,9 @@ module For_tests = struct
     fun parent_breadcrumb ->
       let open Deferred.Let_syntax in
       let parent_staged_ledger = staged_ledger parent_breadcrumb in
+      let network_id = precomputed_values.constraint_constants.network_id in
       let transactions =
-        gen_payments parent_staged_ledger accounts_with_secret_keys
+        gen_payments ~network_id parent_staged_ledger accounts_with_secret_keys
         |> Sequence.map ~f:(fun x -> User_command.Signed_command x)
       in
       let _, largest_account =

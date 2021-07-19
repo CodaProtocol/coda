@@ -1,34 +1,55 @@
 [%%import "/src/config/ledger_depth/small.mlh"]
+
 [%%import "/src/config/curve/medium.mlh"]
+
 [%%import "/src/config/coinbase/standard.mlh"]
+
 [%%import "/src/config/consensus/postake_short.mlh"]
+
 [%%import "/src/config/scan_state/medium.mlh"]
+
 [%%import "/src/config/debug_level/some.mlh"]
+
 [%%import "/src/config/proof_level/check.mlh"]
+
 [%%import "/src/config/txpool_size.mlh"]
+
 [%%import "/src/config/account_creation_fee/low.mlh"]
+
 [%%import "/src/config/amount_defaults/standard.mlh"]
+
 [%%import "/src/config/protocol_version/current.mlh"]
+
 [%%import "/src/config/supercharged_coinbase_factor/two.mlh"]
+
+[%%define network_id 0]
 
 [%%define time_offsets true]
 
 [%%define plugins true]
 
 [%%define genesis_ledger "test"]
+
 [%%define genesis_state_timestamp "2019-01-30 12:00:00-08:00"]
+
 [%%define block_window_duration 2000]
 
 [%%define integration_tests true]
+
 [%%define force_updates false]
 
 [%%define download_snark_keys false]
+
 [%%define generate_genesis_proof false]
 
 [%%define print_versioned_types false]
 
 [%%define daemon_expiry "never"]
+
 [%%define test_full_epoch false]
+
 [%%import "/src/config/fork.mlh"]
+
 [%%import "/src/config/features/dev.mlh"]
+
 [%%undef compaction_interval]
