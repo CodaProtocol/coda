@@ -36,7 +36,7 @@ let log_memory_stats logger ~process =
              major GC cycle every ten minutes.
      *)
      let gc_method =
-       Option.value ~default:"full" @@ Unix.getenv "CODA_GC_HACK_MODE"
+       Option.value ~default:"full" @@ Unix.getenv "MINA_GC_HACK_MODE"
      in
      (* Doing Gc.major is known to work, but takes quite a bit of time.
              Running a single slice might be sufficient, but I haven't tested it
@@ -49,7 +49,7 @@ let log_memory_stats logger ~process =
            fun () -> ignore (Gc.major_slice 0)
        | other ->
            failwithf
-             "CODA_GC_HACK_MODE was %s, it should be full or slice. Default is \
+             "MINA_GC_HACK_MODE was %s, it should be full or slice. Default is \
               full."
              other
      in
@@ -57,7 +57,7 @@ let log_memory_stats logger ~process =
        Time.Span.of_sec
        @@ Option.(
             value ~default:600.
-              (map ~f:Float.of_string @@ Unix.getenv "CODA_GC_HACK_INTERVAL"))
+              (map ~f:Float.of_string @@ Unix.getenv "MINA_GC_HACK_INTERVAL"))
      in
      let log_stats suffix =
        let proc = ("process", `String process) in
